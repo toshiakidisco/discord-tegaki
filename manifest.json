@@ -1,0 +1,24 @@
+{
+  "name": "DiscoTegaki",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "description": "Add a small canvas to Discord.",
+  "content_scripts": [
+    {
+      "matches": ["https://discord.com/*"],
+      "css": ["asset/color-picker.css", "asset/style.css"],
+      "js": ["main.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "matches": ["https://discord.com/*"],
+        "resources": ["asset/*"]
+    }
+  ],
+  "icons": {
+    "16": "asset/icon_16.png",
+    "48": "asset/icon_48.png",
+    "128": "asset/icon_128.png"
+  }
+}

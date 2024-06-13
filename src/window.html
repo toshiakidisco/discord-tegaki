@@ -1,0 +1,34 @@
+<div class="disco-tegaki window" name="window" data-on-keydown="onKeydown" tabindex="-1">
+  <section class="area-head">
+    <div class="title">手書き</div>
+    <button class="button-close" data-on-click="onClickClose">×</button>
+  </section>
+  <section class="area-main">
+    <div class="area-draw" name="area-draw">
+    </div>
+    <div class="area-tools">
+      
+      <div class="color-cell"  name="backgroundColor" data-on-click="onClickBackgroundColor"></div>
+      <ul class="tools">
+        <li name="tool-pen" data-on-click="onClickPen"><img name="icon-pen" src="[asset/tool-pen-deactive.png]"></li>
+        <li name="tool-fore-color" data-on-click="onClickForeColor"><div class="color-cell" name="foreColor"></div></li>
+
+        <li name="tool-eracer" data-on-click="onClickEracer"><img name="icon-eracer" src="[asset/tool-eracer-deactive.png]"></li>
+        <li name="tool-background-color" data-on-click="onClickBackgroundColor"><div class="color-cell" name="backgroundColor"></div></li>
+
+        <li name="tool-size"  data-on-click="onClickPenSize"><img src="[asset/tool-size.png]"></li>
+        <li name="tool-size-value">4</li>
+
+        <li name="tool-zoom-in" data-on-click="onClickZoomIn"><img src="[asset/tool-zoom-in.png]"></li>
+        <li name="tool-zoom-out" data-on-click="onClickZoomOut"><img src="[asset/tool-zoom-out.png]"></li>
+
+        <li name="tool-fill" data-on-click="onClickFill"><img src="[asset/tool-fill.png]"></li>
+        <li name="tool-clear" data-on-click="onClickClear"><img src="[asset/tool-clear.png]"></li>
+      </ul>
+    </div>
+  </section>
+  <section class="area-bottom">
+    <button class="button-copy" data-on-click="onClickCopy">コピー</button>
+    <div class="status" name="status"></div>
+  </section>
+</div>
