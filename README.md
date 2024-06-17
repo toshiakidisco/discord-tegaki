@@ -20,3 +20,8 @@ https://chromewebstore.google.com/detail/discotegaki/eiaogpnffnhfkddeenblefkjbij
 $ npm install
 $ npm run build
 ```
+
+## リリースノート
+v1.0.1
+- クリップボードコピー時のファイル名にタイムスタンプを付与。
+- ウィンドウをドラッグできるように。
