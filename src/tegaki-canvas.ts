@@ -5,6 +5,13 @@ import Subject from "./subject";
 
 export type PenMode = "pen" | "eracer";
 
+type CanvasInit = {
+  width: number,
+  height: number,
+  foreColor: Color.Immutable,
+  backgroundColor: Color.Immutable
+};
+
 class CanvasState {
   foreColor: Color = new Color(128, 0, 0);
   penMode: PenMode = "pen";
@@ -83,18 +90,20 @@ export class TegakiCanvas extends Subject {
   private _undoStack: Stack<Offscreen> = new Stack();
   private _redoStack: Stack<Offscreen> = new Stack();
 
-  constructor(width: number = 344, height: number = 135) {
+  constructor(init: CanvasInit) {
     super();
 
     this._state = new CanvasState();
-    this._width = width;
-    this._height = height;
+    this._width = init.width;
+    this._height = init.height;
     this._innerScale = 1;
+    this._state.foreColor.set(init.foreColor);
+    this._state.backgroundColor.set(init.backgroundColor);
 
     this._renderCallback = this.render.bind(this);
     this.canvas = document.createElement("canvas");
-    this.canvas.width = width;
-    this.canvas.height = height;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
 
     this._image = new Offscreen(this.innerWidth, this.innerHeight);
     this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);

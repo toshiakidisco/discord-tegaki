@@ -9,6 +9,9 @@ import ColorPicker from "./color-picker";
 import SizeSelector from "./size-selector";
 
 
+const DEFAULT_CANVAS_WIDTH = 344;
+const DEFAULT_CANVAS_HEIGHT = 135;
+
 /**
  * キャンバスとウィンドウの横幅の差
  */
@@ -39,7 +42,12 @@ class DiscordTegaki {
     this._window = parseHtml(htmlWindow, this, this._outlets);
     parseHtml(htmlButtonOpen, this, this._outlets);
 
-    this._canvas = new TegakiCanvas();
+    this._canvas = new TegakiCanvas({
+      width: DEFAULT_CANVAS_WIDTH,
+      height: DEFAULT_CANVAS_HEIGHT,
+      foreColor: new Color(128, 0, 0),
+      backgroundColor: new Color(240, 224, 214),
+    });
     this._outlets["area-draw"].appendChild(this._canvas.canvas);
 
     document.body.appendChild(this._outlets["window"]);
