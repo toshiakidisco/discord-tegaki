@@ -420,6 +420,31 @@ export class TegakiCanvas extends Subject {
     this.requestRender();
   }
 
+  resize(width: number, height: number) {
+    width = width | 0;
+    height = height | 0;
+    if (width < 1) {
+      throw new RangeError("width must be greater than 0");
+    }
+    if (height < 1) {
+      throw new RangeError("height must be greater than 0");
+    }
+
+    this.addHistory();
+
+    const pool = ObjectPool.sharedPoolFor(Offscreen);
+    const oldImage = this._image;
+    const image = pool.get();
+    image.width = width;
+    image.height = height;
+    image.context.fillStyle = this._state.backgroundColor.css();
+    image.context.fillRect(0, 0, width, height);
+    image.context.drawImage(oldImage.canvas, 0, 0);
+    this._image = image;
+    pool.return(this._image);
+    this._refrectImageSizeToCanvasSize();
+  }
+
   undo() {
     if (this._undoStack.length == 0) {
       return;
@@ -427,6 +452,7 @@ export class TegakiCanvas extends Subject {
     const node = this._undoStack.pop();
     this._redoStack.push(this._image);
     this._image = node;
+    this._refrectImageSizeToCanvasSize();
     this.requestRender();
   }
   redo() {
@@ -436,22 +462,30 @@ export class TegakiCanvas extends Subject {
     const node = this._redoStack.pop();
     this._undoStack.push(this._image);
     this._image = node;
+    this._refrectImageSizeToCanvasSize();
     this.requestRender();
+  }
+
+  /**
+   * 現在のimageプロパティから、キャンバスサイズを反映する。
+   */
+  private _refrectImageSizeToCanvasSize() {
+    this._width = this._image.width/this.innerScale;
+    this._height = this._image.height/this.innerScale;
   }
 
   addHistory() {
     const pool = ObjectPool.sharedPoolFor(Offscreen);
-    const newOffscreen = pool.get();
+    const node = pool.get();
     if (
-      newOffscreen.width != this._image.width ||
-      newOffscreen.height != this._image.height
+      node.width != this._image.width ||
+      node.height != this._image.height
     ) {
-      newOffscreen.width = this._image.width;
-      newOffscreen.height = this._image.height;
+      node.width = this._image.width;
+      node.height = this._image.height;
     }
-    newOffscreen.context.drawImage(this._image.canvas, 0, 0);
-    this._undoStack.push(this._image);
-    this._image = newOffscreen;
+    node.context.drawImage(this._image.canvas, 0, 0);
+    this._undoStack.push(node);
 
     // delete the oldest history
     if (this._undoStack.length > HISTORY_MAX) {
@@ -474,8 +508,8 @@ export class TegakiCanvas extends Subject {
    */
   positionInCanvas(x: number, y: number) {
     const rect = this.canvas.getBoundingClientRect();
-    x = ((x - rect.x)*this.width/rect.width) | 0;
-    y = ((y - rect.y)*this.height/rect.height) | 0;
+    x = ((x - rect.x)*this.width/rect.width);
+    y = ((y - rect.y)*this.height/rect.height);
 
     return {x, y};
   }
