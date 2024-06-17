@@ -61,6 +61,10 @@ export class TegakiCanvas extends Subject {
   readonly context: CanvasRenderingContext2D;
   private _state: CanvasState;
 
+  private _width: number;
+  private _height: number;
+  private _innerScale: number;
+
   private _image: Offscreen;
   private _offscreen: Offscreen;
   private _scale: number = 1;
@@ -83,22 +87,23 @@ export class TegakiCanvas extends Subject {
     super();
 
     this._state = new CanvasState();
+    this._width = width;
+    this._height = height;
+    this._innerScale = 1;
+
     this._renderCallback = this.render.bind(this);
     this.canvas = document.createElement("canvas");
     this.canvas.width = width;
     this.canvas.height = height;
 
-    this._image = new Offscreen(width, height);
-    this._offscreen = new Offscreen(width, height);
+    this._image = new Offscreen(this.innerWidth, this.innerHeight);
+    this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
 
     const ctx = this.canvas.getContext("2d");
     if (ctx === null) {
       throw new Error("Failed to get CanvasRendering2DContext");
     }
     this.context = ctx;
-    this.context.lineCap = "round";
-    this.context.lineJoin = "round";
-    this.context.imageSmoothingEnabled = false;
 
     this.init();
   }
@@ -108,13 +113,37 @@ export class TegakiCanvas extends Subject {
   }
 
   get width() {
-    return this._image.width;
+    return this._width;
   }
 
   get height() {
-    return this._image.height;
+    return this._height;
   }
 
+  /**
+   * キャンバスの内部解像度 倍率
+   */
+  get innerScale() {
+    return this._innerScale;
+  }
+  
+  /**
+   * キャンバスの内部解像度 横幅
+   */
+  get innerWidth() {
+    return this.width * this._innerScale;
+  }
+  
+  /**
+   * キャンバスの内部解像度 高さ
+   */
+  get innerHeight() {
+    return this.height * this._innerScale;
+  }
+
+  /**
+   * 表示拡大率
+   */
   get scale() {
     return this._scale;
   }
@@ -132,6 +161,9 @@ export class TegakiCanvas extends Subject {
     this.notify("scale-changed", value);
   }
 
+  /**
+   * クリップボードに画像をコピー
+   */
   copyToClipboard(): Promise<void> {
     return new Promise((resolve, reject) => {
       this._image.canvas.toBlob((blob) => {
@@ -159,6 +191,9 @@ export class TegakiCanvas extends Subject {
 
   }
 
+  /**
+   * 再描画の要求フラグを立てる
+   */
   requestRender() {
     if (this._needsRender) {
       return;
@@ -167,10 +202,12 @@ export class TegakiCanvas extends Subject {
     requestAnimationFrame(this._renderCallback);
   }
 
+  /**
+   * キャンバス描画処理
+   */
   render() {
     const ctx = this._offscreen.context;
-
-    ctx.imageSmoothingEnabled = false;
+    
     if (
       this._offscreen.width != this._image.width ||
       this._offscreen.height != this._image.height
@@ -178,10 +215,15 @@ export class TegakiCanvas extends Subject {
       this._offscreen.width = this._image.width;
       this._offscreen.height = this._image.height;
     }
+
+    // Render image
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this._image.canvas, 0, 0);
     
     // Render current drawing path
     if (this._drawingPath.length > 0) {
+      ctx.save();
+      ctx.scale(this.innerScale, this.innerScale);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.lineWidth = this._state.penSize;
@@ -193,10 +235,14 @@ export class TegakiCanvas extends Subject {
         ctx.lineTo(point.x, point.y);
       }
       ctx.stroke();
+      ctx.restore();
     }
 
+    // Render offscreen to canvas
     this.context.save();
-    this.context.scale(this._scale, this._scale);
+    this.context.scale(this._scale/this._innerScale, this._scale/this._innerScale);
+    this.context.imageSmoothingEnabled = false;
+    this.context.imageSmoothingQuality = "high";
     this.context.drawImage(this._offscreen.canvas, 0, 0);
     this.context.restore();
 
@@ -213,6 +259,9 @@ export class TegakiCanvas extends Subject {
     this._needsRender = false;
   }
 
+  /**
+   * イベントリスナ登録を中心とした初期化処理
+   */
   init() {
 
     this.canvas.addEventListener("pointerdown", (ev: PointerEvent) => {
@@ -278,21 +327,27 @@ export class TegakiCanvas extends Subject {
 
     // Clear canvas
     this._image.context.fillStyle = this._state.backgroundColor.css();
-    this._image.context.fillRect(0, 0, this.width, this.height);
+    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
     this.requestRender();
   }
 
+  /**
+   * 描画色での塗りつぶし
+   */
   fill() {
     this.addHistory();
     this._image.context.fillStyle = this._state.foreColor.css();
-    this._image.context.fillRect(0, 0, this.width, this.height);
+    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
     this.requestRender();
   }
 
+  /**
+   * 背景色での塗りつぶし
+   */
   clear() {
     this.addHistory();
     this._image.context.fillStyle = this._state.backgroundColor.css();
-    this._image.context.fillRect(0, 0, this.width, this.height);
+    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
     this.requestRender();
   }
 
@@ -336,11 +391,12 @@ export class TegakiCanvas extends Subject {
     this.addHistory();
 
     const ctx = this._image.context;
+    ctx.save();
+    ctx.scale(this._innerScale, this._innerScale);
     ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
     ctx.lineWidth = this._state.penSize;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.imageSmoothingEnabled = false;
     ctx.beginPath();
     const fisrtPoint = this._drawingPath[0];
     ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
@@ -348,6 +404,7 @@ export class TegakiCanvas extends Subject {
       ctx.lineTo(point.x, point.y);
     }
     ctx.stroke();
+    ctx.restore();
     this._isDrawing = false;
     this._drawingPath.length = 0;
 
