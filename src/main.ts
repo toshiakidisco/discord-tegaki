@@ -273,11 +273,24 @@ class DiscordTegaki {
   onKeydown(ev: KeyboardEvent) {
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
-    if (ev.ctrlKey && ev.key == "z") {
-      this._canvas.undo();
+
+    // Undo & Redo
+    if (ev.ctrlKey) {
+      if (ev.key == "z") {
+        this._canvas.undo();
+      }
+      else if (ev.key == "y") {
+        this._canvas.redo();
+      }
+      return;
     }
-    else if (ev.ctrlKey && ev.key == "y") {
-      this._canvas.redo();
+    
+    // Change tool
+    if (ev.key == "e") {
+      this._state.penMode.value = "eracer";
+    }
+    else if (ev.key == "n") {
+      this._state.penMode.value = "pen";
     }
   }
 
