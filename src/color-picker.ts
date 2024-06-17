@@ -1,4 +1,4 @@
-import { Outlets, parseHtml } from "./dom";
+import { Outlets, adjustPosition, parseHtml } from "./dom";
 import Subject from "./subject";
 import Color from "./color";
 
@@ -53,11 +53,12 @@ export class ColorPicker extends Subject {
   }
 
   open(x: number, y: number) {
-    const root = this._outlets["root"];
+    const root = this.element;
     root.style.left = `${x}px`;
     root.style.top = `${y}px`;
     root.style.display = "block";
     root.focus();
+    adjustPosition(root);
     
     window.addEventListener("focusin", this._blurCallback);
   }
