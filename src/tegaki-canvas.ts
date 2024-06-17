@@ -134,12 +134,20 @@ export class TegakiCanvas {
           return;
         }
 
-        navigator.clipboard.write([
-          new ClipboardItem({
-              "image/png": blob
-          })
-        ]);
-        resolve();
+        try {
+          const fileName = `tegaki-${Date.now()}.png`;
+          const htmlData = `<img src="${fileName}">`;
+          navigator.clipboard.write([
+            new ClipboardItem({
+                "text/html": new Blob([htmlData], {"type": "text/html"}),
+                "image/png": blob
+            })
+          ]);
+          resolve();
+        }
+        catch (err: any) {
+          reject(err)
+        }
       });
     });
 
