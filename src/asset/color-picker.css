@@ -2,7 +2,7 @@
 
 .color-picker, .size-selector {
   position: absolute;
-  z-index: 2;
+  z-index: 101;
   background: rgb(255, 255, 255);
   border-radius: 8px;
   padding: 8px;

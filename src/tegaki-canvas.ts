@@ -1,6 +1,7 @@
 import ObjectPool from "./object-pool";
 import Stack from "./stack";
 import Color from "./color";
+import Subject from "./subject";
 
 export type PenMode = "pen" | "eracer";
 
@@ -55,11 +56,12 @@ const HISTORY_MAX = 10;
 const IMG_CURSOR_PEN = new Image();
 IMG_CURSOR_PEN.src = chrome.runtime.getURL("asset/cursor-pen.png");
 
-export class TegakiCanvas {
+export class TegakiCanvas extends Subject {
   readonly canvas: HTMLCanvasElement;
   readonly context: CanvasRenderingContext2D;
   private _state: CanvasState;
 
+  private _image: Offscreen;
   private _offscreen: Offscreen;
   private _scale: number = 1;
 
@@ -78,12 +80,15 @@ export class TegakiCanvas {
   private _redoStack: Stack<Offscreen> = new Stack();
 
   constructor(width: number = 344, height: number = 135) {
+    super();
+
     this._state = new CanvasState();
     this._renderCallback = this.render.bind(this);
     this.canvas = document.createElement("canvas");
     this.canvas.width = width;
     this.canvas.height = height;
 
+    this._image = new Offscreen(width, height);
     this._offscreen = new Offscreen(width, height);
 
     const ctx = this.canvas.getContext("2d");
@@ -103,11 +108,11 @@ export class TegakiCanvas {
   }
 
   get width() {
-    return this._offscreen.width;
+    return this._image.width;
   }
 
   get height() {
-    return this._offscreen.height;
+    return this._image.height;
   }
 
   get scale() {
@@ -124,11 +129,12 @@ export class TegakiCanvas {
     this.canvas.width = this.width*this.scale;
     this.canvas.height = this.height*this.scale;
     this.requestRender();
+    this.notify("scale-changed", value);
   }
 
   copyToClipboard(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this._offscreen.canvas.toBlob((blob) => {
+      this._image.canvas.toBlob((blob) => {
         if (blob == null) {
           reject(new Error("Failed to get blob from canvas"));
           return;
@@ -162,19 +168,24 @@ export class TegakiCanvas {
   }
 
   render() {
-    const ctx = this.context;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.imageSmoothingEnabled = false;
+    const ctx = this._offscreen.context;
 
-    ctx.save();
-    ctx.scale(this.scale, this.scale);
-    ctx.drawImage(this._offscreen.canvas, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    if (
+      this._offscreen.width != this._image.width ||
+      this._offscreen.height != this._image.height
+    ) {
+      this._offscreen.width = this._image.width;
+      this._offscreen.height = this._image.height;
+    }
+    ctx.drawImage(this._image.canvas, 0, 0);
     
     // Render current drawing path
     if (this._drawingPath.length > 0) {
-      ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.lineWidth = this._state.penSize;
+      ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
       ctx.beginPath();
       const fisrtPoint = this._drawingPath[0];
       ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
@@ -183,16 +194,22 @@ export class TegakiCanvas {
       }
       ctx.stroke();
     }
-    ctx.restore();
+
+    this.context.save();
+    this.context.scale(this._scale, this._scale);
+    this.context.drawImage(this._offscreen.canvas, 0, 0);
+    this.context.restore();
+
     // Render cursor
     if (this._isMouseEnter || this._isDrawing) {
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
-      ctx.drawImage(
+      this.context.drawImage(
         IMG_CURSOR_PEN,
         (this.scale*position.x) - (IMG_CURSOR_PEN.width/2)|0,
         (this.scale*position.y) - (IMG_CURSOR_PEN.height/2)|0
       );
     }
+
     this._needsRender = false;
   }
 
@@ -260,22 +277,22 @@ export class TegakiCanvas {
     });
 
     // Clear canvas
-    this._offscreen.context.fillStyle = this._state.backgroundColor.css();
-    this._offscreen.context.fillRect(0, 0, this.width, this.height);
+    this._image.context.fillStyle = this._state.backgroundColor.css();
+    this._image.context.fillRect(0, 0, this.width, this.height);
     this.requestRender();
   }
 
   fill() {
     this.addHistory();
-    this._offscreen.context.fillStyle = this._state.foreColor.css();
-    this._offscreen.context.fillRect(0, 0, this.width, this.height);
+    this._image.context.fillStyle = this._state.foreColor.css();
+    this._image.context.fillRect(0, 0, this.width, this.height);
     this.requestRender();
   }
 
   clear() {
     this.addHistory();
-    this._offscreen.context.fillStyle = this._state.backgroundColor.css();
-    this._offscreen.context.fillRect(0, 0, this.width, this.height);
+    this._image.context.fillStyle = this._state.backgroundColor.css();
+    this._image.context.fillRect(0, 0, this.width, this.height);
     this.requestRender();
   }
 
@@ -318,7 +335,7 @@ export class TegakiCanvas {
     }
     this.addHistory();
 
-    const ctx = this._offscreen.context;
+    const ctx = this._image.context;
     ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
     ctx.lineWidth = this._state.penSize;
     ctx.lineCap = "round";
@@ -342,8 +359,8 @@ export class TegakiCanvas {
       return;
     }
     const node = this._undoStack.pop();
-    this._redoStack.push(this._offscreen);
-    this._offscreen = node;
+    this._redoStack.push(this._image);
+    this._image = node;
     this.requestRender();
   }
   redo() {
@@ -351,8 +368,8 @@ export class TegakiCanvas {
       return;
     }
     const node = this._redoStack.pop();
-    this._undoStack.push(this._offscreen);
-    this._offscreen = node;
+    this._undoStack.push(this._image);
+    this._image = node;
     this.requestRender();
   }
 
@@ -360,15 +377,15 @@ export class TegakiCanvas {
     const pool = ObjectPool.sharedPoolFor(Offscreen);
     const newOffscreen = pool.get();
     if (
-      newOffscreen.width != this._offscreen.width ||
-      newOffscreen.height != this._offscreen.height
+      newOffscreen.width != this._image.width ||
+      newOffscreen.height != this._image.height
     ) {
-      newOffscreen.width = this._offscreen.width;
-      newOffscreen.height = this._offscreen.height;
+      newOffscreen.width = this._image.width;
+      newOffscreen.height = this._image.height;
     }
-    newOffscreen.context.drawImage(this._offscreen.canvas, 0, 0);
-    this._undoStack.push(this._offscreen);
-    this._offscreen = newOffscreen;
+    newOffscreen.context.drawImage(this._image.canvas, 0, 0);
+    this._undoStack.push(this._image);
+    this._image = newOffscreen;
 
     // delete the oldest history
     if (this._undoStack.length > HISTORY_MAX) {
