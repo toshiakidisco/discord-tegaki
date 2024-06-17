@@ -26,9 +26,9 @@ class DiscordTegaki {
   private _canvas: TegakiCanvas;
   private _state: State;
 
-  private _palleteForeColor: ColorPicker;
-  private _palleteBackgroundColor: ColorPicker;
-  private _palletePenSize: SizeSelector;
+  private _paletteForeColor: ColorPicker;
+  private _paletteBackgroundColor: ColorPicker;
+  private _palettePenSize: SizeSelector;
 
   private _window: HTMLElement;
 
@@ -45,9 +45,9 @@ class DiscordTegaki {
     document.body.appendChild(this._outlets["window"]);
     document.body.appendChild(this._outlets["button-open"]);
 
-    this._palleteForeColor = new ColorPicker();
-    this._palleteBackgroundColor = new ColorPicker();
-    this._palletePenSize = new SizeSelector(this._state.penSize.value);
+    this._paletteForeColor = new ColorPicker();
+    this._paletteBackgroundColor = new ColorPicker();
+    this._palettePenSize = new SizeSelector(this._state.penSize.value);
 
     this.updateStatusText();
     
@@ -132,24 +132,24 @@ class DiscordTegaki {
     this._state.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
       this._canvas.state.foreColor.set(value);
-      this._palleteForeColor.set(value);
+      this._paletteForeColor.set(value);
     });
     this._state.backgroundColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["backgroundColor"].style.backgroundColor = value.css();
       this._canvas.state.backgroundColor.set(value);
-      this._palleteBackgroundColor.set(value);
+      this._paletteBackgroundColor.set(value);
     });
     this._state.foreColor.sync();
     this._state.backgroundColor.sync();
     
-    // Connect pallete to ObservableValue
-    this._palleteForeColor.addObserver(this, "change", (c: Color.Immutable) => {
+    // Connect palette to ObservableValue
+    this._paletteForeColor.addObserver(this, "change", (c: Color.Immutable) => {
       this._state.foreColor.value = c;
     });
-    this._palleteBackgroundColor.addObserver(this, "change", (c: Color.Immutable) => {
+    this._paletteBackgroundColor.addObserver(this, "change", (c: Color.Immutable) => {
       this._state.backgroundColor.value = c;
     });
-    this._palletePenSize.addObserver(this, "change", (n: number) => {
+    this._palettePenSize.addObserver(this, "change", (n: number) => {
       this._state.penSize.value = n;
     });
   }
@@ -238,15 +238,15 @@ class DiscordTegaki {
   }
 
   onClickPenSize(ev: MouseEvent) {
-    this._palletePenSize.open(ev.clientX, ev.clientY);
+    this._palettePenSize.open(ev.clientX, ev.clientY);
   }
 
   onClickForeColor(ev: MouseEvent) {
-    this._palleteForeColor.open(ev.clientX, ev.clientY);
+    this._paletteForeColor.open(ev.clientX, ev.clientY);
   }
 
   onClickBackgroundColor(ev: MouseEvent) {
-    this._palleteBackgroundColor.open(ev.clientX, ev.clientY);
+    this._paletteBackgroundColor.open(ev.clientX, ev.clientY);
   }
 
   onClickClear(ev: Event) {
