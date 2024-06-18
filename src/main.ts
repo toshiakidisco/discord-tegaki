@@ -63,7 +63,7 @@ class DiscordTegaki {
     this._paletteBackgroundColor = new ColorPicker();
     this._palettePenSize = new SizeSelector(this._state.penSize.value);
 
-    this.resetText();
+    this.resetStatus();
     
     this.init();
     this.bind();
@@ -188,7 +188,7 @@ class DiscordTegaki {
             MIN_CANVAS_HEIGHT
         ) | 0;
         this._canvas.resize(cw, ch);
-        this.resetText();
+        this.resetStatus();
         _selector?.close();
       });
       resize.addEventListener("pointercancel", (ev: PointerEvent) => {
@@ -196,7 +196,7 @@ class DiscordTegaki {
           resize.setPointerCapture(_activePointer);
         }
         _activePointer = null;
-        this.resetText();
+        this.resetStatus();
         _selector?.close();
       });
     }
@@ -250,6 +250,11 @@ class DiscordTegaki {
     this._palettePenSize.addObserver(this, "change", (n: number) => {
       this._state.penSize.value = n;
     });
+
+    
+    this._canvas.addObserver(this, "size-changed", () => {
+      this.resetStatus();
+    })
   }
 
   private _resetStatusTimer: number = 0;
@@ -260,7 +265,7 @@ class DiscordTegaki {
     this._outlets["status"].innerText = text;
     clearTimeout(this._resetStatusTimer);
     this._resetStatusTimer = window.setTimeout(() => {
-      this.resetText();
+      this.resetStatus();
     }, duration);
   }
 
@@ -274,7 +279,7 @@ class DiscordTegaki {
   /**
    * ステータステキスト表示の更新
    */
-  resetText() {
+  resetStatus() {
     clearTimeout(this._resetStatusTimer);
     this._outlets["status"].innerText = this.defaultStatusText();
   }
@@ -308,7 +313,7 @@ class DiscordTegaki {
     this._window.style.top = `${rect.y - dh/2}px`;
     this.adjustWindow();
 
-    this.resetText();
+    this.resetStatus();
   }
 
   onClickOpen(ev: Event) {

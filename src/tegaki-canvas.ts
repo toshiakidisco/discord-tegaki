@@ -104,6 +104,7 @@ export class TegakiCanvas extends Subject {
     this.canvas = document.createElement("canvas");
     this.canvas.width = this.width;
     this.canvas.height = this.height;
+    this.canvas.style.cursor = `url(${chrome.runtime.getURL("asset/cursor-pen.cur")}) 9 9, auto`;
 
     this._image = new Offscreen(this.innerWidth, this.innerHeight);
     this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
@@ -250,20 +251,25 @@ export class TegakiCanvas extends Subject {
     // Render offscreen to canvas
     this.context.save();
     this.context.scale(this._scale/this._innerScale, this._scale/this._innerScale);
-    this.context.imageSmoothingEnabled = false;
+    this.context.imageSmoothingEnabled = true;
     this.context.imageSmoothingQuality = "high";
     this.context.drawImage(this._offscreen.canvas, 0, 0);
     this.context.restore();
 
     // Render cursor
+    /*
     if (this._isMouseEnter || this._isDrawing) {
+      this.context.save();
+      this.context.globalCompositeOperation = "exclusion";
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
       this.context.drawImage(
         IMG_CURSOR_PEN,
         (this.scale*position.x) - (IMG_CURSOR_PEN.width/2)|0,
         (this.scale*position.y) - (IMG_CURSOR_PEN.height/2)|0
       );
+      this.context.restore();
     }
+    */
 
     this._needsRender = false;
   }
@@ -518,8 +524,8 @@ export class TegakiCanvas extends Subject {
    */
   positionInCanvas(x: number, y: number) {
     const rect = this.canvas.getBoundingClientRect();
-    x = ((x - rect.x)*this.width/rect.width);
-    y = ((y - rect.y)*this.height/rect.height);
+    x = ((x - rect.x)*this.width/rect.width) | 0;
+    y = ((y - rect.y)*this.height/rect.height) | 0;
 
     return {x, y};
   }
