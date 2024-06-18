@@ -200,6 +200,10 @@ class DiscordTegaki {
         _selector?.close();
       });
     }
+
+    window.addEventListener("resize", (ev) => {
+      this.adjustWindow();
+    });
   }
 
   /**
