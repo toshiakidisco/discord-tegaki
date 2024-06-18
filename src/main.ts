@@ -430,5 +430,10 @@ class DiscordTegaki {
   }
 }
 
-const app = new DiscordTegaki();
-console.log("[Discord Tegaki]launched");
+if (
+  location.href.startsWith("https://discord.com/app") ||
+  location.href.startsWith("https://discord.com/channels")
+) {
+  const app = new DiscordTegaki();
+  console.log("[Discord Tegaki]launched");
+}
