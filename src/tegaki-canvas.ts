@@ -441,7 +441,7 @@ export class TegakiCanvas extends Subject {
     image.context.fillRect(0, 0, width, height);
     image.context.drawImage(oldImage.canvas, 0, 0);
     this._image = image;
-    pool.return(this._image);
+    pool.return(oldImage);
     this._refrectImageSizeToCanvasSize();
     this.requestRender();
   }
@@ -471,10 +471,17 @@ export class TegakiCanvas extends Subject {
    * 現在のimageプロパティから、キャンバスサイズを反映する。
    */
   private _refrectImageSizeToCanvasSize() {
+    const w = this._image.width/this.innerScale;
+    const h = this._image.height/this.innerScale;
+    if (this._width == w && this._height == h) {
+      return;
+    }
     this._width = this._image.width/this.innerScale;
     this._height = this._image.height/this.innerScale;
     this.canvas.width = this._width*this._scale;
     this.canvas.height = this._height*this._scale;
+
+    this.notify("size-changed", this);
   }
 
   addHistory() {
