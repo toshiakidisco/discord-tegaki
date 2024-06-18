@@ -5,6 +5,13 @@ import Subject from "./subject";
 
 export type PenMode = "pen" | "eracer";
 
+type CanvasInit = {
+  width: number,
+  height: number,
+  foreColor: Color.Immutable,
+  backgroundColor: Color.Immutable
+};
+
 class CanvasState {
   foreColor: Color = new Color(128, 0, 0);
   penMode: PenMode = "pen";
@@ -83,18 +90,20 @@ export class TegakiCanvas extends Subject {
   private _undoStack: Stack<Offscreen> = new Stack();
   private _redoStack: Stack<Offscreen> = new Stack();
 
-  constructor(width: number = 344, height: number = 135) {
+  constructor(init: CanvasInit) {
     super();
 
     this._state = new CanvasState();
-    this._width = width;
-    this._height = height;
+    this._width = init.width;
+    this._height = init.height;
     this._innerScale = 1;
+    this._state.foreColor.set(init.foreColor);
+    this._state.backgroundColor.set(init.backgroundColor);
 
     this._renderCallback = this.render.bind(this);
     this.canvas = document.createElement("canvas");
-    this.canvas.width = width;
-    this.canvas.height = height;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
 
     this._image = new Offscreen(this.innerWidth, this.innerHeight);
     this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
@@ -411,6 +420,32 @@ export class TegakiCanvas extends Subject {
     this.requestRender();
   }
 
+  resize(width: number, height: number) {
+    width = width | 0;
+    height = height | 0;
+    if (width < 1) {
+      throw new RangeError("width must be greater than 0");
+    }
+    if (height < 1) {
+      throw new RangeError("height must be greater than 0");
+    }
+
+    this.addHistory();
+
+    const pool = ObjectPool.sharedPoolFor(Offscreen);
+    const oldImage = this._image;
+    const image = pool.get();
+    image.width = width;
+    image.height = height;
+    image.context.fillStyle = this._state.backgroundColor.css();
+    image.context.fillRect(0, 0, width, height);
+    image.context.drawImage(oldImage.canvas, 0, 0);
+    this._image = image;
+    pool.return(this._image);
+    this._refrectImageSizeToCanvasSize();
+    this.requestRender();
+  }
+
   undo() {
     if (this._undoStack.length == 0) {
       return;
@@ -418,6 +453,7 @@ export class TegakiCanvas extends Subject {
     const node = this._undoStack.pop();
     this._redoStack.push(this._image);
     this._image = node;
+    this._refrectImageSizeToCanvasSize();
     this.requestRender();
   }
   redo() {
@@ -427,22 +463,32 @@ export class TegakiCanvas extends Subject {
     const node = this._redoStack.pop();
     this._undoStack.push(this._image);
     this._image = node;
+    this._refrectImageSizeToCanvasSize();
     this.requestRender();
+  }
+
+  /**
+   * 現在のimageプロパティから、キャンバスサイズを反映する。
+   */
+  private _refrectImageSizeToCanvasSize() {
+    this._width = this._image.width/this.innerScale;
+    this._height = this._image.height/this.innerScale;
+    this.canvas.width = this._width*this._scale;
+    this.canvas.height = this._height*this._scale;
   }
 
   addHistory() {
     const pool = ObjectPool.sharedPoolFor(Offscreen);
-    const newOffscreen = pool.get();
+    const node = pool.get();
     if (
-      newOffscreen.width != this._image.width ||
-      newOffscreen.height != this._image.height
+      node.width != this._image.width ||
+      node.height != this._image.height
     ) {
-      newOffscreen.width = this._image.width;
-      newOffscreen.height = this._image.height;
+      node.width = this._image.width;
+      node.height = this._image.height;
     }
-    newOffscreen.context.drawImage(this._image.canvas, 0, 0);
-    this._undoStack.push(this._image);
-    this._image = newOffscreen;
+    node.context.drawImage(this._image.canvas, 0, 0);
+    this._undoStack.push(node);
 
     // delete the oldest history
     if (this._undoStack.length > HISTORY_MAX) {
@@ -465,8 +511,8 @@ export class TegakiCanvas extends Subject {
    */
   positionInCanvas(x: number, y: number) {
     const rect = this.canvas.getBoundingClientRect();
-    x = ((x - rect.x)*this.width/rect.width) | 0;
-    y = ((y - rect.y)*this.height/rect.height) | 0;
+    x = ((x - rect.x)*this.width/rect.width);
+    y = ((y - rect.y)*this.height/rect.height);
 
     return {x, y};
   }

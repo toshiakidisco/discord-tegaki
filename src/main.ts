@@ -7,12 +7,21 @@ import { ObservableColor, ObservableValue } from "./observable-value";
 import Color from "./color";
 import ColorPicker from "./color-picker";
 import SizeSelector from "./size-selector";
+import Selector from "./selector";
+import { clamp } from "./tools";
 
+
+const DEFAULT_CANVAS_WIDTH = 344;
+const DEFAULT_CANVAS_HEIGHT = 135;
+
+const MIN_CANVAS_WIDTH = 344;
+const MIN_CANVAS_HEIGHT = 135;
 
 /**
  * キャンバスとウィンドウの横幅の差
  */
-const WINDOW_CANVAS_PADDING = 84;
+const WINDOW_CANVAS_PADDING_H = 84;
+const WINDOW_CANVAS_PADDING_V = 73;
 
 class State {
   penMode: ObservableValue<PenMode> = new ObservableValue("pen");
@@ -39,7 +48,12 @@ class DiscordTegaki {
     this._window = parseHtml(htmlWindow, this, this._outlets);
     parseHtml(htmlButtonOpen, this, this._outlets);
 
-    this._canvas = new TegakiCanvas();
+    this._canvas = new TegakiCanvas({
+      width: DEFAULT_CANVAS_WIDTH,
+      height: DEFAULT_CANVAS_HEIGHT,
+      foreColor: new Color(128, 0, 0),
+      backgroundColor: new Color(240, 224, 214),
+    });
     this._outlets["area-draw"].appendChild(this._canvas.canvas);
 
     document.body.appendChild(this._outlets["window"]);
@@ -49,7 +63,7 @@ class DiscordTegaki {
     this._paletteBackgroundColor = new ColorPicker();
     this._palettePenSize = new SizeSelector(this._state.penSize.value);
 
-    this.updateStatusText();
+    this.resetText();
     
     this.init();
     this.bind();
@@ -60,12 +74,12 @@ class DiscordTegaki {
    */
   init() {
     const win = this._window;
+    let _activePointer: number | null = null;
     // タイトルバードラッグ処理
     {
-      const titlebar = this._outlets["titlebar"];
-      let _activePointer: number | null = null;
       let _dragStartPosition = {x: 0, y: 0};
       let _pointerOffset = {x: 0, y: 0};
+      const titlebar = this._outlets["titlebar"];
       titlebar.addEventListener("pointerdown", (ev: PointerEvent) => {
         if (_activePointer != null) {
           return;
@@ -100,6 +114,90 @@ class DiscordTegaki {
           titlebar.setPointerCapture(_activePointer);
         }
         _activePointer = null;
+      });
+    }
+    // リサイズ ドラッグ処理
+    {
+      const resize = this._outlets["resize"];
+      let _selector: Selector | null = null;
+      let _initialRect:DOMRect = win.getBoundingClientRect();
+      let _pointerOffset = {x: 0, y: 0};
+      resize.addEventListener("pointerdown", (ev: PointerEvent) => {
+        if (_activePointer != null) {
+          return;
+        }
+        _activePointer = ev.pointerId;
+        resize.setPointerCapture(_activePointer);
+
+        _initialRect = win.getBoundingClientRect();
+        _pointerOffset.x = ev.clientX - _initialRect.right;
+        _pointerOffset.y = ev.clientY - _initialRect.bottom;
+
+        _selector = new Selector();
+        _selector.select(
+          _initialRect.left, _initialRect.top,
+          _initialRect.right, _initialRect.bottom
+        )
+      });
+      resize.addEventListener("pointermove", (ev: PointerEvent) => {
+        if (ev.pointerId != _activePointer) {
+          return;
+        }
+        let right = clamp(ev.clientX - _pointerOffset.x, 0, window.innerWidth);
+        let bottom = clamp(ev.clientY - _pointerOffset.y, 0, window.innerHeight);
+        // 右下座標の増量
+        let dw = right - _initialRect.right;
+        let dh = bottom - _initialRect.bottom;
+        // リサイズ後のキャンバスサイズの計算
+        let cw = Math.max(
+            this._canvas.width + dw/this._canvas.scale,
+            MIN_CANVAS_WIDTH
+        ) | 0;
+        let ch = Math.max(
+            this._canvas.height + dh/this._canvas.scale,
+            MIN_CANVAS_HEIGHT
+        ) | 0;
+        // dw, dh　を再計算
+        dw = (cw - this._canvas.width)*this._canvas.scale;
+        dh = (ch - this._canvas.height)*this._canvas.scale;
+
+        _selector?.select(
+          _initialRect.x, _initialRect.y,
+          _initialRect.right + dw, _initialRect.bottom + dh
+        );
+
+        this.showStatus(`w${this._canvas.width}:h${this._canvas.height} → w${cw}:h${ch}`);
+      });
+      resize.addEventListener("pointerup", (ev: PointerEvent) => {
+        if (_activePointer == ev.pointerId) {
+          resize.setPointerCapture(_activePointer);
+          _activePointer = null;
+        }
+        let right = clamp(ev.clientX - _pointerOffset.x, 0, window.innerWidth);
+        let bottom = clamp(ev.clientY - _pointerOffset.y, 0, window.innerHeight);
+        // 右下座標の増量
+        let dw = right - _initialRect.right;
+        let dh = bottom - _initialRect.bottom;
+        // リサイズ後のキャンバスサイズの計算
+        let cw = Math.max(
+            this._canvas.width + dw/this._canvas.scale,
+            MIN_CANVAS_WIDTH
+        ) | 0;
+        let ch = Math.max(
+            this._canvas.height + dh/this._canvas.scale,
+            MIN_CANVAS_HEIGHT
+        ) | 0;
+        this._canvas.resize(cw, ch);
+        this.resetText();
+        _selector?.close();
+      });
+      resize.addEventListener("pointercancel", (ev: PointerEvent) => {
+        if (_activePointer != null) {
+          resize.setPointerCapture(_activePointer);
+        }
+        _activePointer = null;
+        this.resetText();
+        _selector?.close();
       });
     }
   }
@@ -154,20 +252,6 @@ class DiscordTegaki {
     });
   }
 
-  /**
-   * 標準のステータステキスト
-   */
-  defaultStatusText() {
-    return `倍率x${this._canvas.scale.toPrecision(2)} Ctrl+Z: 元に戻す,  Ctrl+Y: やり直し`;
-  }
-
-  /**
-   * ステータステキスト表示の更新
-   */
-  updateStatusText() {
-    this._outlets["status"].innerText = this.defaultStatusText();
-  }
-
   private _resetStatusTimer: number = 0;
   /**
    * 一定時間ステータステキストを表示
@@ -176,8 +260,23 @@ class DiscordTegaki {
     this._outlets["status"].innerText = text;
     clearTimeout(this._resetStatusTimer);
     this._resetStatusTimer = window.setTimeout(() => {
-      this.updateStatusText();
+      this.resetText();
     }, duration);
+  }
+
+  /**
+   * 標準のステータステキスト
+   */
+  defaultStatusText() {
+    return `w${this._canvas.width}:h${this._canvas.height}　倍率x${this._canvas.scale.toPrecision(2)}`;
+  }
+
+  /**
+   * ステータステキスト表示の更新
+   */
+  resetText() {
+    clearTimeout(this._resetStatusTimer);
+    this._outlets["status"].innerText = this.defaultStatusText();
   }
 
   // --------------------------------------------------
@@ -209,7 +308,7 @@ class DiscordTegaki {
     this._window.style.top = `${rect.y - dh/2}px`;
     this.adjustWindow();
 
-    this.updateStatusText();
+    this.resetText();
   }
 
   onClickOpen(ev: Event) {
@@ -265,11 +364,24 @@ class DiscordTegaki {
   onKeydown(ev: KeyboardEvent) {
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
-    if (ev.ctrlKey && ev.key == "z") {
-      this._canvas.undo();
+
+    // Undo & Redo
+    if (ev.ctrlKey) {
+      if (ev.key == "z") {
+        this._canvas.undo();
+      }
+      else if (ev.key == "y") {
+        this._canvas.redo();
+      }
+      return;
     }
-    else if (ev.ctrlKey && ev.key == "y") {
-      this._canvas.redo();
+    
+    // Change tool
+    if (ev.key == "e") {
+      this._state.penMode.value = "eracer";
+    }
+    else if (ev.key == "n") {
+      this._state.penMode.value = "pen";
     }
   }
 
@@ -302,7 +414,10 @@ class DiscordTegaki {
    * キャンバスの表示できる最大倍率
    */
   maxCanvasScale() {
-    return (window.innerWidth - WINDOW_CANVAS_PADDING)/this._canvas.width;
+    return Math.min(
+      (window.innerWidth - WINDOW_CANVAS_PADDING_H)/this._canvas.width,
+      (window.innerHeight - WINDOW_CANVAS_PADDING_V)/this._canvas.height
+    );
   }
 }
 
