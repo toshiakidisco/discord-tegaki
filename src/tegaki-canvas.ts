@@ -443,6 +443,7 @@ export class TegakiCanvas extends Subject {
     this._image = image;
     pool.return(this._image);
     this._refrectImageSizeToCanvasSize();
+    this.requestRender();
   }
 
   undo() {
@@ -472,6 +473,8 @@ export class TegakiCanvas extends Subject {
   private _refrectImageSizeToCanvasSize() {
     this._width = this._image.width/this.innerScale;
     this._height = this._image.height/this.innerScale;
+    this.canvas.width = this._width*this._scale;
+    this.canvas.height = this._height*this._scale;
   }
 
   addHistory() {
