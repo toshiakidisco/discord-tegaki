@@ -172,6 +172,18 @@ export class TegakiCanvas extends Subject {
   }
 
   /**
+   * 画像のダウンロード
+   */
+  download() {
+    const a = document.createElement("a");
+    const fileName = `tegaki-${Date.now()}.png`;
+    a.setAttribute("download", fileName);
+    a.setAttribute("href", this._image.canvas.toDataURL());
+    a.click();
+  }
+
+
+  /**
    * クリップボードに画像をコピー
    */
   copyToClipboard(): Promise<void> {

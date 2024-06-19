@@ -325,6 +325,10 @@ class DiscordTegaki {
   onClickNew(ev: Event) {
     this.resetCanvas();
   }
+  
+  onClickSave(ev: Event) {
+    this._canvas.download();
+  }
 
   onClickZoomIn(ev: Event) {
     const maxScale = this.maxCanvasScale();
