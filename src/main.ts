@@ -204,7 +204,9 @@ class DiscordTegaki {
             this._canvas.height + dh/this._canvas.scale,
             MIN_CANVAS_HEIGHT
         ) | 0;
-        this._canvas.resize(cw, ch);
+        if (cw != this._canvas.width || ch != this._canvas.height) {
+          this._canvas.resize(cw, ch);
+        }
         this.resetStatus();
         _selector?.close();
       });
