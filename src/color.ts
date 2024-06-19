@@ -41,6 +41,7 @@ export namespace Color {
     readonly b: number;
     css(): string;
     equals(color: Color.Immutable): boolean;
+    copy(): Color;
   }
 }
 

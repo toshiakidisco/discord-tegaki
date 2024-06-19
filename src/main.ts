@@ -23,6 +23,23 @@ const MIN_CANVAS_HEIGHT = 135;
 const WINDOW_CANVAS_PADDING_H = 84;
 const WINDOW_CANVAS_PADDING_V = 73;
 
+
+type CanvasInitialState = {
+  width: number;
+  height: number;
+  penSize: number;
+  foreColor: Color;
+  backgroundColor: Color;
+};
+
+const canvasInitialState: CanvasInitialState = {
+  width: DEFAULT_CANVAS_WIDTH,
+  height: DEFAULT_CANVAS_HEIGHT,
+  penSize: 4,
+  foreColor: new Color(128, 0, 0),
+  backgroundColor: new Color(240, 224, 214),
+}
+
 class State {
   penMode: ObservableValue<PenMode> = new ObservableValue("pen");
   penSize: ObservableValue<number> = new ObservableValue(4);
@@ -286,6 +303,17 @@ class DiscordTegaki {
   resetStatus() {
     clearTimeout(this._resetStatusTimer);
     this._outlets["status"].innerText = this.defaultStatusText();
+  }
+
+  /**
+   * キャンバスを初期状態にリセット
+   */
+  resetCanvas() {
+    this._canvas.resize(canvasInitialState.width, canvasInitialState.height);
+    this._canvas.clear();
+    this._state.foreColor.value = canvasInitialState.foreColor;
+    this._state.backgroundColor.value = canvasInitialState.backgroundColor;
+    this._state.penSize.value = canvasInitialState.penSize;
   }
 
   // --------------------------------------------------
