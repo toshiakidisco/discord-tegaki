@@ -428,6 +428,27 @@ export class TegakiCanvas extends Subject {
     this.requestRender();
   }
 
+  /**
+   * 画像の左右反転
+   */
+  flip() {
+    this.addHistory();
+
+    const pool = ObjectPool.sharedPoolFor(Offscreen);
+    const oldImage = this._image;
+    const image = pool.get();
+    image.width = oldImage.width;
+    image.height = oldImage.height;
+    image.context.save();
+    image.context.scale(-1, 1);
+    image.context.drawImage(oldImage.canvas, - image.width, 0);
+    image.context.restore();
+    this._image = image;
+    pool.return(oldImage);
+
+    this.requestRender();
+  }
+
   resize(width: number, height: number) {
     width = width | 0;
     height = height | 0;
@@ -443,10 +464,10 @@ export class TegakiCanvas extends Subject {
     const pool = ObjectPool.sharedPoolFor(Offscreen);
     const oldImage = this._image;
     const image = pool.get();
-    image.width = width;
-    image.height = height;
+    image.width = width*this.innerScale;
+    image.height = height*this.innerScale;
     image.context.fillStyle = this._state.backgroundColor.css();
-    image.context.fillRect(0, 0, width, height);
+    image.context.fillRect(0, 0, image.width, image.height);
     image.context.drawImage(oldImage.canvas, 0, 0);
     this._image = image;
     pool.return(oldImage);

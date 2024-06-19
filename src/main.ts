@@ -399,6 +399,10 @@ class DiscordTegaki {
     this._canvas.fill();
   }
 
+  onClickFlip(ev: Event) {
+    this._canvas.flip();
+  }
+
   async onClickCopy(ev: Event): Promise<void> {
     await this._canvas.copyToClipboard();
     this.showStatus("クリップボードにコピーしました");
