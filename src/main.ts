@@ -311,16 +311,24 @@ class DiscordTegaki {
    * キャンバスを初期状態にリセット
    */
   resetCanvas() {
-    this._canvas.resize(canvasInitialState.width, canvasInitialState.height);
-    this._canvas.clear();
     this._state.foreColor.value = canvasInitialState.foreColor;
     this._state.backgroundColor.value = canvasInitialState.backgroundColor;
     this._state.penSize.value = canvasInitialState.penSize;
+    this._canvas.resize(canvasInitialState.width, canvasInitialState.height);
+    this._canvas.clear(false);
   }
 
   // --------------------------------------------------
   // イベントハンドラ定義
   // --------------------------------------------------
+
+  onClickNew(ev: Event) {
+    this.resetCanvas();
+  }
+  
+  onClickSave(ev: Event) {
+    this._canvas.download();
+  }
 
   onClickZoomIn(ev: Event) {
     const maxScale = this.maxCanvasScale();
@@ -395,9 +403,21 @@ class DiscordTegaki {
     this._canvas.fill();
   }
 
+  onClickFlip(ev: Event) {
+    this._canvas.flip();
+  }
+
   async onClickCopy(ev: Event): Promise<void> {
     await this._canvas.copyToClipboard();
     this.showStatus("クリップボードにコピーしました");
+  }
+
+  onClickUndo(ev: Event) {
+    this._canvas.undo();
+  }
+
+  onClickRedo(ev: Event) {
+    this._canvas.redo();
   }
 
   onKeydown(ev: KeyboardEvent) {

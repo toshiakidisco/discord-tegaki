@@ -60,6 +60,21 @@
     background-color: rgba(0, 0, 0, 0.4);
   }
 
+  .tools {
+    display: flex;
+
+    > * {
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      text-align: center;
+      
+    }
+    > *[data-on-click]:hover {
+      background-color: rgb(243, 209, 189);
+    }
+  }
+
   .area-head {
     display: flex;
     margin-bottom: 4px;
@@ -106,15 +121,8 @@
         width: 48px;
         flex-wrap: wrap;
 
-        > * {
-          width: 24px;
-          height: 24px;
-          line-height: 24px;
-          text-align: center;
-          
-          :hover {
-            background-color: rgb(255, 241, 230);
-          }
+        > *.spacer {
+          width: 48px;
         }
 
         .color-cell {
