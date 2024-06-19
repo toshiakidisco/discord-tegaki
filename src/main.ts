@@ -407,7 +407,7 @@ class DiscordTegaki {
     this._canvas.flip();
   }
 
-  async onClickCopy(ev: Event): Promise<void> {
+  async onClickCopy(ev?: Event): Promise<void> {
     await this._canvas.copyToClipboard();
     this.showStatus("クリップボードにコピーしました");
   }
@@ -431,6 +431,9 @@ class DiscordTegaki {
       }
       else if (ev.key == "y") {
         this._canvas.redo();
+      }
+      else if (ev.key == "c") {
+        this.onClickCopy();
       }
       return;
     }
