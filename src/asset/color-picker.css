@@ -2,12 +2,17 @@
 
 .color-picker, .size-selector {
   position: absolute;
-  z-index: 2;
+  z-index: 101;
   background: rgb(255, 255, 255);
   border-radius: 8px;
   padding: 8px;
   display: none;
-  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5); 
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+
+  > ul > li {
+    display: flex;
+    align-items: center;
+  }
 }
 
 .color-picker .preview {

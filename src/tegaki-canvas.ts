@@ -1,8 +1,16 @@
 import ObjectPool from "./object-pool";
 import Stack from "./stack";
 import Color from "./color";
+import Subject from "./subject";
 
 export type PenMode = "pen" | "eracer";
+
+type CanvasInit = {
+  width: number,
+  height: number,
+  foreColor: Color.Immutable,
+  backgroundColor: Color.Immutable
+};
 
 class CanvasState {
   foreColor: Color = new Color(128, 0, 0);
@@ -55,11 +63,16 @@ const HISTORY_MAX = 10;
 const IMG_CURSOR_PEN = new Image();
 IMG_CURSOR_PEN.src = chrome.runtime.getURL("asset/cursor-pen.png");
 
-export class TegakiCanvas {
+export class TegakiCanvas extends Subject {
   readonly canvas: HTMLCanvasElement;
   readonly context: CanvasRenderingContext2D;
   private _state: CanvasState;
 
+  private _width: number;
+  private _height: number;
+  private _innerScale: number;
+
+  private _image: Offscreen;
   private _offscreen: Offscreen;
   private _scale: number = 1;
 
@@ -77,23 +90,30 @@ export class TegakiCanvas {
   private _undoStack: Stack<Offscreen> = new Stack();
   private _redoStack: Stack<Offscreen> = new Stack();
 
-  constructor(width: number = 344, height: number = 135) {
+  constructor(init: CanvasInit) {
+    super();
+
     this._state = new CanvasState();
+    this._width = init.width;
+    this._height = init.height;
+    this._innerScale = 1;
+    this._state.foreColor.set(init.foreColor);
+    this._state.backgroundColor.set(init.backgroundColor);
+
     this._renderCallback = this.render.bind(this);
     this.canvas = document.createElement("canvas");
-    this.canvas.width = width;
-    this.canvas.height = height;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
+    this.canvas.style.cursor = `url(${chrome.runtime.getURL("asset/cursor-pen.cur")}) 9 9, auto`;
 
-    this._offscreen = new Offscreen(width, height);
+    this._image = new Offscreen(this.innerWidth, this.innerHeight);
+    this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
 
     const ctx = this.canvas.getContext("2d");
     if (ctx === null) {
       throw new Error("Failed to get CanvasRendering2DContext");
     }
     this.context = ctx;
-    this.context.lineCap = "round";
-    this.context.lineJoin = "round";
-    this.context.imageSmoothingEnabled = false;
 
     this.init();
   }
@@ -103,13 +123,37 @@ export class TegakiCanvas {
   }
 
   get width() {
-    return this._offscreen.width;
+    return this._width;
   }
 
   get height() {
-    return this._offscreen.height;
+    return this._height;
   }
 
+  /**
+   * キャンバスの内部解像度 倍率
+   */
+  get innerScale() {
+    return this._innerScale;
+  }
+  
+  /**
+   * キャンバスの内部解像度 横幅
+   */
+  get innerWidth() {
+    return this.width * this._innerScale;
+  }
+  
+  /**
+   * キャンバスの内部解像度 高さ
+   */
+  get innerHeight() {
+    return this.height * this._innerScale;
+  }
+
+  /**
+   * 表示拡大率
+   */
   get scale() {
     return this._scale;
   }
@@ -124,27 +168,54 @@ export class TegakiCanvas {
     this.canvas.width = this.width*this.scale;
     this.canvas.height = this.height*this.scale;
     this.requestRender();
+    this.notify("scale-changed", value);
   }
 
+  /**
+   * 画像のダウンロード
+   */
+  download() {
+    const a = document.createElement("a");
+    const fileName = `tegaki-${Date.now()}.png`;
+    a.setAttribute("download", fileName);
+    a.setAttribute("href", this._image.canvas.toDataURL());
+    a.click();
+  }
+
+
+  /**
+   * クリップボードに画像をコピー
+   */
   copyToClipboard(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this._offscreen.canvas.toBlob((blob) => {
+      this._image.canvas.toBlob((blob) => {
         if (blob == null) {
           reject(new Error("Failed to get blob from canvas"));
           return;
         }
 
-        navigator.clipboard.write([
-          new ClipboardItem({
-              "image/png": blob
-          })
-        ]);
-        resolve();
+        try {
+          const fileName = `tegaki-${Date.now()}.png`;
+          const htmlData = `<img src="${fileName}">`;
+          navigator.clipboard.write([
+            new ClipboardItem({
+                "text/html": new Blob([htmlData], {"type": "text/html"}),
+                "image/png": blob
+            })
+          ]);
+          resolve();
+        }
+        catch (err: any) {
+          reject(err)
+        }
       });
     });
 
   }
 
+  /**
+   * 再描画の要求フラグを立てる
+   */
   requestRender() {
     if (this._needsRender) {
       return;
@@ -153,20 +224,32 @@ export class TegakiCanvas {
     requestAnimationFrame(this._renderCallback);
   }
 
+  /**
+   * キャンバス描画処理
+   */
   render() {
-    const ctx = this.context;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.imageSmoothingEnabled = false;
+    const ctx = this._offscreen.context;
+    
+    if (
+      this._offscreen.width != this._image.width ||
+      this._offscreen.height != this._image.height
+    ) {
+      this._offscreen.width = this._image.width;
+      this._offscreen.height = this._image.height;
+    }
 
-    ctx.save();
-    ctx.scale(this.scale, this.scale);
-    ctx.drawImage(this._offscreen.canvas, 0, 0);
+    // Render image
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this._image.canvas, 0, 0);
     
     // Render current drawing path
     if (this._drawingPath.length > 0) {
-      ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
+      ctx.save();
+      ctx.scale(this.innerScale, this.innerScale);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.lineWidth = this._state.penSize;
+      ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
       ctx.beginPath();
       const fisrtPoint = this._drawingPath[0];
       ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
@@ -174,20 +257,38 @@ export class TegakiCanvas {
         ctx.lineTo(point.x, point.y);
       }
       ctx.stroke();
+      ctx.restore();
     }
-    ctx.restore();
+
+    // Render offscreen to canvas
+    this.context.save();
+    this.context.scale(this._scale/this._innerScale, this._scale/this._innerScale);
+    this.context.imageSmoothingEnabled = true;
+    this.context.imageSmoothingQuality = "high";
+    this.context.drawImage(this._offscreen.canvas, 0, 0);
+    this.context.restore();
+
     // Render cursor
+    /*
     if (this._isMouseEnter || this._isDrawing) {
+      this.context.save();
+      this.context.globalCompositeOperation = "exclusion";
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
-      ctx.drawImage(
+      this.context.drawImage(
         IMG_CURSOR_PEN,
         (this.scale*position.x) - (IMG_CURSOR_PEN.width/2)|0,
         (this.scale*position.y) - (IMG_CURSOR_PEN.height/2)|0
       );
+      this.context.restore();
     }
+    */
+
     this._needsRender = false;
   }
 
+  /**
+   * イベントリスナ登録を中心とした初期化処理
+   */
   init() {
 
     this.canvas.addEventListener("pointerdown", (ev: PointerEvent) => {
@@ -252,22 +353,30 @@ export class TegakiCanvas {
     });
 
     // Clear canvas
-    this._offscreen.context.fillStyle = this._state.backgroundColor.css();
-    this._offscreen.context.fillRect(0, 0, this.width, this.height);
+    this._image.context.fillStyle = this._state.backgroundColor.css();
+    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
     this.requestRender();
   }
 
+  /**
+   * 描画色での塗りつぶし
+   */
   fill() {
     this.addHistory();
-    this._offscreen.context.fillStyle = this._state.foreColor.css();
-    this._offscreen.context.fillRect(0, 0, this.width, this.height);
+    this._image.context.fillStyle = this._state.foreColor.css();
+    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
     this.requestRender();
   }
 
-  clear() {
-    this.addHistory();
-    this._offscreen.context.fillStyle = this._state.backgroundColor.css();
-    this._offscreen.context.fillRect(0, 0, this.width, this.height);
+  /**
+   * 背景色での塗りつぶし
+   */
+  clear(addHistory:boolean = true) {
+    if (addHistory) {
+      this.addHistory();
+    }
+    this._image.context.fillStyle = this._state.backgroundColor.css();
+    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
     this.requestRender();
   }
 
@@ -310,12 +419,13 @@ export class TegakiCanvas {
     }
     this.addHistory();
 
-    const ctx = this._offscreen.context;
+    const ctx = this._image.context;
+    ctx.save();
+    ctx.scale(this._innerScale, this._innerScale);
     ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
     ctx.lineWidth = this._state.penSize;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.imageSmoothingEnabled = false;
     ctx.beginPath();
     const fisrtPoint = this._drawingPath[0];
     ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
@@ -323,9 +433,57 @@ export class TegakiCanvas {
       ctx.lineTo(point.x, point.y);
     }
     ctx.stroke();
+    ctx.restore();
     this._isDrawing = false;
     this._drawingPath.length = 0;
 
+    this.requestRender();
+  }
+
+  /**
+   * 画像の左右反転
+   */
+  flip() {
+    this.addHistory();
+
+    const pool = ObjectPool.sharedPoolFor(Offscreen);
+    const oldImage = this._image;
+    const image = pool.get();
+    image.width = oldImage.width;
+    image.height = oldImage.height;
+    image.context.save();
+    image.context.scale(-1, 1);
+    image.context.drawImage(oldImage.canvas, - image.width, 0);
+    image.context.restore();
+    this._image = image;
+    pool.return(oldImage);
+
+    this.requestRender();
+  }
+
+  resize(width: number, height: number) {
+    width = width | 0;
+    height = height | 0;
+    if (width < 1) {
+      throw new RangeError("width must be greater than 0");
+    }
+    if (height < 1) {
+      throw new RangeError("height must be greater than 0");
+    }
+
+    this.addHistory();
+
+    const pool = ObjectPool.sharedPoolFor(Offscreen);
+    const oldImage = this._image;
+    const image = pool.get();
+    image.width = width*this.innerScale;
+    image.height = height*this.innerScale;
+    image.context.fillStyle = this._state.backgroundColor.css();
+    image.context.fillRect(0, 0, image.width, image.height);
+    image.context.drawImage(oldImage.canvas, 0, 0);
+    this._image = image;
+    pool.return(oldImage);
+    this._refrectImageSizeToCanvasSize();
     this.requestRender();
   }
 
@@ -334,8 +492,9 @@ export class TegakiCanvas {
       return;
     }
     const node = this._undoStack.pop();
-    this._redoStack.push(this._offscreen);
-    this._offscreen = node;
+    this._redoStack.push(this._image);
+    this._image = node;
+    this._refrectImageSizeToCanvasSize();
     this.requestRender();
   }
   redo() {
@@ -343,24 +502,41 @@ export class TegakiCanvas {
       return;
     }
     const node = this._redoStack.pop();
-    this._undoStack.push(this._offscreen);
-    this._offscreen = node;
+    this._undoStack.push(this._image);
+    this._image = node;
+    this._refrectImageSizeToCanvasSize();
     this.requestRender();
+  }
+
+  /**
+   * 現在のimageプロパティから、キャンバスサイズを反映する。
+   */
+  private _refrectImageSizeToCanvasSize() {
+    const w = this._image.width/this.innerScale;
+    const h = this._image.height/this.innerScale;
+    if (this._width == w && this._height == h) {
+      return;
+    }
+    this._width = this._image.width/this.innerScale;
+    this._height = this._image.height/this.innerScale;
+    this.canvas.width = this._width*this._scale;
+    this.canvas.height = this._height*this._scale;
+
+    this.notify("size-changed", this);
   }
 
   addHistory() {
     const pool = ObjectPool.sharedPoolFor(Offscreen);
-    const newOffscreen = pool.get();
+    const node = pool.get();
     if (
-      newOffscreen.width != this._offscreen.width ||
-      newOffscreen.height != this._offscreen.height
+      node.width != this._image.width ||
+      node.height != this._image.height
     ) {
-      newOffscreen.width = this._offscreen.width;
-      newOffscreen.height = this._offscreen.height;
+      node.width = this._image.width;
+      node.height = this._image.height;
     }
-    newOffscreen.context.drawImage(this._offscreen.canvas, 0, 0);
-    this._undoStack.push(this._offscreen);
-    this._offscreen = newOffscreen;
+    node.context.drawImage(this._image.canvas, 0, 0);
+    this._undoStack.push(node);
 
     // delete the oldest history
     if (this._undoStack.length > HISTORY_MAX) {

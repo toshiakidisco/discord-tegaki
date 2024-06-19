@@ -2,7 +2,12 @@
 
 :root {
   --tegaki-canvas-main-color: rgb(128, 0, 0); 
-  --tegaki-canvas-sub-color: rgb(240, 224, 214); 
+  --tegaki-canvas-sub-color: rgb(240, 224, 214);
+
+  --tegaki-canvas-padding-side: 16px;
+  --tegaki-canvas-canvas-margin-right: 4px;
+  --tegaki-canvas-tool-size: 24px;
+  --tegaki-canvas-width-without-canvas: calc(var(--tegaki-canvas-padding-side)*2 + var(--tegaki-canvas-canvas-margin-right) + var(--tegaki-canvas-tool-size)*2);
 }
 
 .disco-tegaki, .disco-tegaki * {
@@ -31,7 +36,7 @@
 .disco-tegaki.window {
   display: none;
   position: absolute;
-  z-index: 1;
+  z-index: 100;
   overscroll-behavior-x: none;
   touch-action: none;
 
@@ -40,6 +45,8 @@
   border-radius: 8px;
   box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.8);
   color: var(--tegaki-canvas-main-color);
+  
+  max-width: 100%;
 
   button {
     color: var(--tegaki-canvas-main-color);
@@ -51,6 +58,21 @@
   }
   button:active {
     background-color: rgba(0, 0, 0, 0.4);
+  }
+
+  .tools {
+    display: flex;
+
+    > * {
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      text-align: center;
+      
+    }
+    > *[data-on-click]:hover {
+      background-color: rgb(243, 209, 189);
+    }
   }
 
   .area-head {
@@ -68,6 +90,7 @@
     
     > .title {
       flex-grow: 1;
+      cursor: grab;
       color: var(--tegaki-canvas-main-color);
     }
 
@@ -98,15 +121,8 @@
         width: 48px;
         flex-wrap: wrap;
 
-        > * {
-          width: 24px;
-          height: 24px;
-          line-height: 24px;
-          text-align: center;
-          
-          :hover {
-            background-color: rgb(255, 241, 230);
-          }
+        > *.spacer {
+          width: 48px;
         }
 
         .color-cell {
@@ -130,8 +146,29 @@
   }
 }
 
+.disco-tegaki .area-resize {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
 .disco-tegaki canvas {
   cursor: none;
   overscroll-behavior-x: none;
   touch-action: none;
+  max-width: calc(100vw - var(--tegaki-canvas-width-without-canvas));
+}
+
+/*
+ * Selector
+ */
+.dt-selector {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(0, 0, 0, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 102;
 }

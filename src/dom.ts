@@ -67,3 +67,23 @@ export function parseElement(element: HTMLElement, controller?: any, outlets?: O
   }
   return element;
 }
+
+/**
+ * 要素が画面内に収まるように位置を調整する
+ */
+export function adjustPosition(elem: HTMLElement) {
+  const rect = elem.getBoundingClientRect();
+  if (rect.x < 0) {
+    elem.style.left = "0";
+  }
+  else if (rect.right > window.innerWidth) {
+    elem.style.left = `${window.innerWidth - elem.clientWidth}px`;
+  }
+  if (rect.y < 0) {
+    elem.style.top = "0";
+  }
+  else if (rect.bottom > window.innerHeight) {
+    elem.style.top = `${window.innerHeight - elem.clientHeight}px`;
+  }
+}
+
