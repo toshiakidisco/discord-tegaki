@@ -28,6 +28,7 @@ type CanvasInitialState = {
   width: number;
   height: number;
   penSize: number;
+  eraserSize: number;
   foreColor: Color;
   backgroundColor: Color;
 };
@@ -36,6 +37,7 @@ const canvasInitialState: CanvasInitialState = {
   width: DEFAULT_CANVAS_WIDTH,
   height: DEFAULT_CANVAS_HEIGHT,
   penSize: 4,
+  eraserSize: 4,
   foreColor: new Color(128, 0, 0),
   backgroundColor: new Color(240, 224, 214),
 }
@@ -43,6 +45,7 @@ const canvasInitialState: CanvasInitialState = {
 class State {
   penMode: ObservableValue<PenMode> = new ObservableValue("pen");
   penSize: ObservableValue<number> = new ObservableValue(4);
+  eraserSize: ObservableValue<number> = new ObservableValue(4);
   foreColor: ObservableColor = new ObservableColor(128, 0, 0);;
   backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
 }
@@ -232,11 +235,13 @@ class DiscordTegaki {
     // Connect ObservableValue to views
     // PenMode
     this._state.penMode.addObserver(this, "change", (val: PenMode) => {
+      // ツールアイコン切替
       for (const name of ["pen", "eracer"]) {
         const icon = this._outlets[`icon-${name}`] as HTMLImageElement;
         const active = val == name ? "active" : "deactive";
         icon.src = chrome.runtime.getURL(`asset/tool-${name}-${active}.png`);
       }
+      this.onUpdateToolSize();
 
       this._canvas.state.penMode = val;
     });
@@ -245,9 +250,16 @@ class DiscordTegaki {
     // PenSize
     this._state.penSize.addObserver(this, "change", (val: number) => {
       this._canvas.state.penSize = val;
-      this._outlets["tool-size-value"].innerText = val.toString();
+      this.onUpdateToolSize();
     });
     this._state.penSize.sync();
+
+    // EraserSize
+    this._state.eraserSize.addObserver(this, "change", (val: number) => {
+      this._canvas.state.eraserSize = val;
+      this.onUpdateToolSize();
+    });
+    this._state.eraserSize.sync();
 
     // Color
     this._state.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
@@ -271,13 +283,32 @@ class DiscordTegaki {
       this._state.backgroundColor.value = c;
     });
     this._palettePenSize.addObserver(this, "change", (n: number) => {
-      this._state.penSize.value = n;
+      if (this._state.penMode.value == "pen") {
+        this._state.penSize.value = n;
+      }
+      else {
+        this._state.eraserSize.value = n;
+      }
     });
-
     
     this._canvas.addObserver(this, "size-changed", () => {
       this.resetStatus();
     })
+  }
+
+  /**
+   * 選択中のツールのサイズをViewに反映
+   */
+  private onUpdateToolSize() {
+    let size: number;
+    if (this._state.penMode.value == "pen") {
+      size = this._state.penSize.value;
+    }
+    else {
+      size = this._state.eraserSize.value;
+    }
+    this._outlets["tool-size-value"].innerText = size.toString();
+    this._palettePenSize.value = size;
   }
 
   private _resetStatusTimer: number = 0;
@@ -314,6 +345,8 @@ class DiscordTegaki {
     this._state.foreColor.value = canvasInitialState.foreColor;
     this._state.backgroundColor.value = canvasInitialState.backgroundColor;
     this._state.penSize.value = canvasInitialState.penSize;
+    this._state.eraserSize.value = canvasInitialState.eraserSize;
+    this._state.penMode.value = "pen";
     this._canvas.resize(canvasInitialState.width, canvasInitialState.height);
     this._canvas.clear(false);
   }

@@ -17,6 +17,7 @@ class CanvasState {
   penMode: PenMode = "pen";
   backgroundColor: Color = new Color(240, 224, 214);
   penSize: number = 4;
+  eraserSize: number = 4;
 }
 
 class Offscreen {
@@ -248,8 +249,14 @@ export class TegakiCanvas extends Subject {
       ctx.scale(this.innerScale, this.innerScale);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.lineWidth = this._state.penSize;
-      ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
+      if (this._state.penMode == "pen") {
+        ctx.strokeStyle = this._state.foreColor.css();
+        ctx.lineWidth = this._state.penSize;
+      }
+      else {
+        ctx.strokeStyle = this._state.backgroundColor.css();
+        ctx.lineWidth = this._state.eraserSize;
+      }
       ctx.beginPath();
       const fisrtPoint = this._drawingPath[0];
       ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
@@ -269,6 +276,7 @@ export class TegakiCanvas extends Subject {
     this.context.restore();
 
     // Render cursor
+    // CSSでの表現に切り替え済み
     /*
     if (this._isMouseEnter || this._isDrawing) {
       this.context.save();
@@ -422,10 +430,16 @@ export class TegakiCanvas extends Subject {
     const ctx = this._image.context;
     ctx.save();
     ctx.scale(this._innerScale, this._innerScale);
-    ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
-    ctx.lineWidth = this._state.penSize;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    if (this._state.penMode == "pen") {
+      ctx.strokeStyle = this._state.foreColor.css();
+      ctx.lineWidth = this._state.penSize;
+    }
+    else {
+      ctx.strokeStyle = this._state.backgroundColor.css();
+      ctx.lineWidth = this._state.eraserSize;
+    }
     ctx.beginPath();
     const fisrtPoint = this._drawingPath[0];
     ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
