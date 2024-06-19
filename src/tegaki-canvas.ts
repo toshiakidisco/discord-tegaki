@@ -17,6 +17,7 @@ class CanvasState {
   penMode: PenMode = "pen";
   backgroundColor: Color = new Color(240, 224, 214);
   penSize: number = 4;
+  eraserSize: number = 4;
 }
 
 class Offscreen {
@@ -243,22 +244,7 @@ export class TegakiCanvas extends Subject {
     ctx.drawImage(this._image.canvas, 0, 0);
     
     // Render current drawing path
-    if (this._drawingPath.length > 0) {
-      ctx.save();
-      ctx.scale(this.innerScale, this.innerScale);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = this._state.penSize;
-      ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
-      ctx.beginPath();
-      const fisrtPoint = this._drawingPath[0];
-      ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
-      for (let point of this._drawingPath) {
-        ctx.lineTo(point.x, point.y);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
+    this.drawPath(ctx, this._drawingPath);
 
     // Render offscreen to canvas
     this.context.save();
@@ -269,6 +255,7 @@ export class TegakiCanvas extends Subject {
     this.context.restore();
 
     // Render cursor
+    // CSSでの表現に切り替え済み
     /*
     if (this._isMouseEnter || this._isDrawing) {
       this.context.save();
@@ -418,26 +405,41 @@ export class TegakiCanvas extends Subject {
       return;
     }
     this.addHistory();
-
-    const ctx = this._image.context;
-    ctx.save();
-    ctx.scale(this._innerScale, this._innerScale);
-    ctx.strokeStyle = this._state.penMode == "pen" ? this._state.foreColor.css() : this._state.backgroundColor.css();
-    ctx.lineWidth = this._state.penSize;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    const fisrtPoint = this._drawingPath[0];
-    ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
-    for (let point of this._drawingPath) {
-      ctx.lineTo(point.x, point.y);
-    }
-    ctx.stroke();
-    ctx.restore();
+    this.drawPath(this._image.context, this._drawingPath);
     this._isDrawing = false;
     this._drawingPath.length = 0;
 
     this.requestRender();
+  }
+
+  /**
+   * パスの描画
+   */
+  private drawPath(ctx: CanvasRenderingContext2D, path: {x: number, y: number}[]) {
+    if (path.length == 0) {
+      return;
+    }
+
+    ctx.save();
+    ctx.scale(this._innerScale, this._innerScale);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (this._state.penMode == "pen") {
+      ctx.strokeStyle = this._state.foreColor.css();
+      ctx.lineWidth = this._state.penSize;
+    }
+    else {
+      ctx.strokeStyle = this._state.backgroundColor.css();
+      ctx.lineWidth = this._state.eraserSize;
+    }
+    ctx.beginPath();
+    const fisrtPoint = path[0];
+    ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
+    for (let point of path) {
+      ctx.lineTo(point.x, point.y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   /**
