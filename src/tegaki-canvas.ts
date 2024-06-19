@@ -562,8 +562,8 @@ export class TegakiCanvas extends Subject {
    */
   positionInCanvas(x: number, y: number) {
     const rect = this.canvas.getBoundingClientRect();
-    x = ((x - rect.x)*this.width/rect.width) | 0;
-    y = ((y - rect.y)*this.height/rect.height) | 0;
+    x = (((x - rect.x)*this.innerWidth/rect.width) | 0) / this._innerScale;
+    y = (((y - rect.y)*this.innerHeight/rect.height) | 0) / this._innerScale;
 
     return {x, y};
   }
