@@ -1,6 +1,20 @@
 <div class="disco-tegaki window" name="window" data-on-keydown="onKeydown" tabindex="-1">
   <section class="area-head">
-    <div name="titlebar" class="title">手書き</div>
+    <ul class="tools">
+      <li name="tool-new" data-on-click="onClickNew"><img src="[asset/tool-new.png]"></li>
+      <li name="tool-save"><img src="[asset/tool-save.png]"></li>
+      <li name="tool-save" class="separator"><img src="[asset/separator.png]"></li>
+
+      <li name="tool-zoom-in" data-on-click="onClickZoomIn"><img src="[asset/tool-zoom-in.png]"></li>
+      <li name="tool-zoom-out" data-on-click="onClickZoomOut"><img src="[asset/tool-zoom-out.png]"></li>
+      <li name="tool-flip" data-on-click="onClickZoomOut"><img src="[asset/tool-flip.png]"></li>
+      <li name="tool-save" class="separator"><img src="[asset/separator.png]"></li>
+      
+      <li name="tool-fill" data-on-click="onClickFill"><img src="[asset/tool-fill.png]"></li>
+      <li name="tool-clear" data-on-click="onClickClear"><img src="[asset/tool-clear.png]"></li>
+      <li name="tool-save" class="separator"><img src="[asset/separator.png]"></li>
+    </ul>
+    <div name="titlebar" class="title">手書き v1.0.1</div>
     <button class="button-close" data-on-click="onClickClose">×</button>
   </section>
   <section class="area-main">
@@ -19,11 +33,10 @@
         <li name="tool-size"  data-on-click="onClickPenSize"><img src="[asset/tool-size.png]"></li>
         <li name="tool-size-value">4</li>
 
-        <li name="tool-zoom-in" data-on-click="onClickZoomIn"><img src="[asset/tool-zoom-in.png]"></li>
-        <li name="tool-zoom-out" data-on-click="onClickZoomOut"><img src="[asset/tool-zoom-out.png]"></li>
+        <li class="spacer"></li>
 
-        <li name="tool-fill" data-on-click="onClickFill"><img src="[asset/tool-fill.png]"></li>
-        <li name="tool-clear" data-on-click="onClickClear"><img src="[asset/tool-clear.png]"></li>
+        <li name="tool-undo" data-on-click="onClickUndo"><img src="[asset/tool-undo.png]"></li>
+        <li name="tool-redo" data-on-click="onClickRedo"><img src="[asset/tool-redo.png]"></li>
       </ul>
     </div>
   </section>

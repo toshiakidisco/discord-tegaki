@@ -359,8 +359,10 @@ export class TegakiCanvas extends Subject {
   /**
    * 背景色での塗りつぶし
    */
-  clear() {
-    this.addHistory();
+  clear(addHistory:boolean = true) {
+    if (addHistory) {
+      this.addHistory();
+    }
     this._image.context.fillStyle = this._state.backgroundColor.css();
     this._image.context.fillRect(0, 0, this._image.width, this._image.height);
     this.requestRender();
