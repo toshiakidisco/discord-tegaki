@@ -357,8 +357,9 @@ export class TegakiCanvas extends Subject {
 
   /**
    * 背景色での塗りつぶし
+   * @param addHistory 操作前にアンドゥ履歴に追加するか
    */
-  clear(addHistory:boolean = true) {
+  clear(addHistory: boolean = true) {
     if (addHistory) {
       this.addHistory();
     }

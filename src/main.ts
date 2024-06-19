@@ -140,7 +140,7 @@ class DiscordTegaki {
     {
       const resize = this._outlets["resize"];
       let _selector: Selector | null = null;
-      let _initialRect:DOMRect = win.getBoundingClientRect();
+      let _initialRect: DOMRect = win.getBoundingClientRect();
       let _pointerOffset = {x: 0, y: 0};
       resize.addEventListener("pointerdown", (ev: PointerEvent) => {
         if (_activePointer != null) {
@@ -165,7 +165,7 @@ class DiscordTegaki {
         }
         let right = clamp(ev.clientX - _pointerOffset.x, 0, window.innerWidth);
         let bottom = clamp(ev.clientY - _pointerOffset.y, 0, window.innerHeight);
-        // 右下座標の増量
+        // 右下座標の増分
         let dw = right - _initialRect.right;
         let dh = bottom - _initialRect.bottom;
         // リサイズ後のキャンバスサイズの計算
@@ -195,7 +195,7 @@ class DiscordTegaki {
         }
         let right = clamp(ev.clientX - _pointerOffset.x, 0, window.innerWidth);
         let bottom = clamp(ev.clientY - _pointerOffset.y, 0, window.innerHeight);
-        // 右下座標の増量
+        // 右下座標の増分
         let dw = right - _initialRect.right;
         let dh = bottom - _initialRect.bottom;
         // リサイズ後のキャンバスサイズの計算
