@@ -13,9 +13,9 @@ type CanvasInit = {
 };
 
 class CanvasState {
-  foreColor: Color = new Color(128, 0, 0);
+  readonly foreColor: Color = new Color(128, 0, 0);
+  readonly backgroundColor: Color = new Color(240, 224, 214);
   penMode: PenMode = "pen";
-  backgroundColor: Color = new Color(240, 224, 214);
   penSize: number = 4;
   eraserSize: number = 4;
 }
@@ -528,6 +528,9 @@ export class TegakiCanvas extends Subject {
     this.notify("size-changed", this);
   }
 
+  /**
+   * 現在の画像をアンドゥ履歴に追加
+   */
   addHistory() {
     const pool = ObjectPool.sharedPoolFor(Offscreen);
     const node = pool.get();
