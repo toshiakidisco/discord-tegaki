@@ -1,7 +1,7 @@
 import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
-import TegakiCanvas, { PenMode } from "./tegaki-canvas";
+import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./observable-value";
 import Color from "./color";
@@ -294,12 +294,28 @@ class DiscordTegaki {
       }
     });
     
+    // キャンバスサイズ更新後
     this._canvas.addObserver(this, "size-changed", () => {
       this.resetStatus();
     })
+    // サブツールアイコン更新語
+    this._canvas.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
+      const icon = this._outlets["icon-spoit"] as HTMLImageElement;
+      const active = subTool == "spoit" ? "active" : "deactive";
+      icon.src = chrome.runtime.getURL(`asset/tool-spoit-${active}.png`);
+    });
     // Undo, Redo後のアイコン更新
     this._canvas.addObserver(this, "update-history", this.updateUndoRedoIcon);
     this.updateUndoRedoIcon();
+    // スポイト後の色更新
+    this._canvas.addObserver(this, "spoit", (ev: {tool: PenMode, color: Color.Immutable}) => {
+      if (ev.tool == "pen") {
+        this._state.foreColor.value = ev.color;
+      }
+      else {
+        this._state.backgroundColor.value = ev.color;
+      }
+    });
   }
 
   /**
@@ -422,6 +438,7 @@ class DiscordTegaki {
       win.style.display = "block";
       win.style.left = `${document.body.clientWidth/2 - win.clientWidth/2}px`;
       win.style.top = `${document.body.clientHeight/2 - win.clientHeight/2}px`;
+      win.focus();
     }
     else {
       win.style.display = "none";
@@ -452,6 +469,15 @@ class DiscordTegaki {
     this._paletteBackgroundColor.open(ev.clientX, ev.clientY);
   }
 
+  onClickSpoit(ev: Event) {
+    if (this._canvas.state.subTool == "spoit") {
+      this._canvas.state.subTool = "none";
+    }
+    else {
+      this._canvas.state.subTool = "spoit";
+    }
+  }
+
   onClickClear(ev: Event) {
     this._canvas.clear();
   }
@@ -475,6 +501,10 @@ class DiscordTegaki {
 
   onClickRedo(ev: Event) {
     this._canvas.redo();
+  }
+
+  onBlur(ev: Event) {
+    this._canvas.state.subTool = "none";
   }
 
   onKeydown(ev: KeyboardEvent) {
@@ -501,6 +531,16 @@ class DiscordTegaki {
     }
     else if (ev.key == "n") {
       this._state.penMode.value = "pen";
+    }
+    else if (ev.key == "Alt") {
+      ev.preventDefault();
+      this._canvas.state.subTool = "spoit";
+    }
+  }
+
+  onKeyup(ev: KeyboardEvent) {
+    if (ev.key == "Alt" && this._canvas.state.subTool == "spoit") {
+      this._canvas.state.subTool = "none";
     }
   }
 

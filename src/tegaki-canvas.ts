@@ -8,6 +8,7 @@ import { parseSvg } from "./dom";
 import { cursorTo } from "readline";
 
 export type PenMode = "pen" | "eracer";
+export type SubTool = "none" | "spoit" | "bucket";
 
 // カーソル描画用のフィルタの読み込み
 const cursorFilterSvg = parseSvg(cursorFilterSvgCode);
@@ -20,12 +21,32 @@ type CanvasInit = {
   backgroundColor: Color.Immutable
 };
 
-class CanvasState {
+const toolCursors: {[tool: string]: {x: number; y: number;}} = {
+  "spoit": {x: 1, y: 14},
+}
+
+class CanvasState extends Subject {
   readonly foreColor: Color = new Color(128, 0, 0);
   readonly backgroundColor: Color = new Color(240, 224, 214);
   penMode: PenMode = "pen";
+  _subTool: SubTool = "none";
   penSize: number = 4;
   eraserSize: number = 4;
+
+  constructor() {
+    super();
+  }
+
+  get subTool() {
+    return this._subTool;
+  }
+  set subTool(value: SubTool) {
+    if (this._subTool == value) {
+      return;
+    }
+    this._subTool = value;
+    this.notify("change-sub-tool", value);
+  }
 }
 
 class Offscreen {
@@ -96,6 +117,8 @@ export class TegakiCanvas extends Subject {
   private _undoStack: Stack<Offscreen> = new Stack();
   private _redoStack: Stack<Offscreen> = new Stack();
 
+  private _spoitContext: CanvasRenderingContext2D;
+
   constructor(init: CanvasInit) {
     super();
 
@@ -119,6 +142,16 @@ export class TegakiCanvas extends Subject {
       throw new Error("Failed to get CanvasRendering2DContext");
     }
     this.context = ctx;
+
+    // Create 2D context for spoit
+    const spoitCanvas = document.createElement("canvas");
+    spoitCanvas.width = 1;
+    spoitCanvas.height = 1;
+    const spoitContext = spoitCanvas.getContext("2d", {willReadFrequently: true});
+    if (spoitContext === null) {
+      throw new Error("Failed to get CanvasRendering2DContext");
+    }
+    this._spoitContext = spoitContext;
 
     this.init();
   }
@@ -199,6 +232,13 @@ export class TegakiCanvas extends Subject {
     else {
       return this._state.eraserSize;
     }
+  }
+
+  /**
+   * 描画中の状態か
+   */
+  get isDrawing() {
+    return this._isDrawing;
   }
 
   /**
@@ -284,7 +324,7 @@ export class TegakiCanvas extends Subject {
     this.context.restore();
 
     // Render cursor
-    if (this._isMouseEnter || this._isDrawing) {
+    if (this._state.subTool == "none" && (this._isMouseEnter || this._isDrawing)) {
       const toolSize = this.toolSize;
       const offset = toolSize%2 == 0 ? 0 : 0.5;
       const displayPenSize = toolSize * this.scale;
@@ -358,11 +398,18 @@ export class TegakiCanvas extends Subject {
         this.canvas.releasePointerCapture(this._activePointerId);
       }
 
-      this._mouseX = ev.clientX;
-      this._mouseY = ev.clientY;
       this._activePointerId = ev.pointerId;
       this.canvas.setPointerCapture(this._activePointerId);
-      this.startDraw();
+      this._mouseX = ev.clientX;
+      this._mouseY = ev.clientY;
+
+      if (this._state.subTool == "spoit") {
+        this.execSpoit();
+      }
+      // Pen, Eraser
+      else {
+        this.startDraw();
+      }
     });
     this.canvas.addEventListener("pointermove", (ev: PointerEvent) => {
       if (this._activePointerId == null) {
@@ -380,8 +427,17 @@ export class TegakiCanvas extends Subject {
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
       this._isMouseEnter = true;
-      this.continueDraw();
-      this.requestRender();
+      
+      if (this._state.subTool == "spoit") {
+        this.execSpoit();
+      }
+      // Pen, Eraser
+      else if (this._isDrawing) {
+        this.continueDraw();
+      }
+      else {
+        this.requestRender();
+      }
     });
     this.canvas.addEventListener("pointerleave", (ev: PointerEvent) => {
       if (this._activePointerId == null) {
@@ -395,25 +451,66 @@ export class TegakiCanvas extends Subject {
         return;
       }
 
-      this.finishDraw();
-      this.requestRender();
-      this.canvas.releasePointerCapture(this._activePointerId);
+      if (this._isDrawing) {
+        this.finishDraw();
+      }
       this._activePointerId = null;
     });
     this.canvas.addEventListener("pointercancel", (ev: Event) => {
       if (this._activePointerId == null) {
         return;
       }
-      this.finishDraw();
-      this.requestRender();
+
+      if (this._isDrawing) {
+        this.finishDraw();
+      }
       this.canvas.releasePointerCapture(this._activePointerId);
       this._activePointerId = null;
     });
+    
+    this._state.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
+      if (subTool == "none") {
+        this.canvas.style.cursor = "none";
+      }
+      else {
+        const toolCursor = toolCursors[subTool];
+        this.canvas.style.cursor = `url(${chrome.runtime.getURL("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
+      }
+      this.notify("change-sub-tool", subTool);
+      this.requestRender();
+    });
 
     // Clear canvas
-    this._image.context.fillStyle = this._state.backgroundColor.css();
-    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
-    this.requestRender();
+    this.clear(false);
+  }
+
+  execSpoit(x?: number, y?: number) {
+    if (typeof x == "undefined" || typeof y == "undefined") {
+      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      x = position.x;
+      y = position.y;
+    }
+    x = x | 0;
+    y = y | 0;
+    if (x < 0 || x >= this._image.width || y < 0 || y >= this._image.height) {
+      return void(0);
+    }
+    
+    try {
+      this._spoitContext.drawImage(this._image.canvas, x, y, 1, 1, 0, 0, 1, 1);
+      const imageData = this._spoitContext.getImageData(0, 0, 1, 1);
+      const data = imageData.data;
+      const color = new Color(data[0], data[1], data[2]);
+      if (this._state.penMode == "pen") {
+        this._state.foreColor.set(color);
+      }
+      else {
+        this._state.backgroundColor.set(color);
+      }
+      this.notify("spoit", {tool: this._state.penMode, color: color});
+    }
+    catch {
+    }
   }
 
   /**
