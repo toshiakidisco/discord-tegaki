@@ -453,7 +453,7 @@ class DiscordTegaki {
     this._state.penMode.value = "pen";
   }
 
-  onClickeraser(ev: Event) {
+  onClickEraser(ev: Event) {
     this._state.penMode.value = "eraser";
   }
 
