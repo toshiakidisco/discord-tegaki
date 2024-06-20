@@ -102,6 +102,15 @@ export class ColorPicker extends Subject {
     this._outlets["preview"].style.backgroundColor = this._color.css();
   }
 
+  toggle(x: number, y: number) {
+    if (this.element.style.display == "block") {
+      this.close();
+    }
+    else {
+      this.open(x, y);
+    }
+  }
+
   open(x: number, y: number) {
     const root = this.element;
     root.style.left = `${x}px`;
