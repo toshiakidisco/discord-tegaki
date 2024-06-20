@@ -173,6 +173,19 @@ export class TegakiCanvas extends Subject {
   }
 
   /**
+   * アンドゥ可能な履歴の数
+   */
+  get undoLength() {
+    return this._undoStack.length;
+  }
+  /**
+   * リドゥ可能な履歴の数
+   */
+  get redoLength() {
+    return this._redoStack.length;
+  }
+
+  /**
    * 画像のダウンロード
    */
   download() {
@@ -499,6 +512,7 @@ export class TegakiCanvas extends Subject {
     this._image = node;
     this._refrectImageSizeToCanvasSize();
     this.requestRender();
+    this.notify("update-history", this);
   }
   redo() {
     if (this._redoStack.length == 0) {
@@ -509,6 +523,7 @@ export class TegakiCanvas extends Subject {
     this._image = node;
     this._refrectImageSizeToCanvasSize();
     this.requestRender();
+    this.notify("update-history", this);
   }
 
   /**
@@ -552,6 +567,8 @@ export class TegakiCanvas extends Subject {
       let redoNode = this._redoStack.pop();
       pool.return(redoNode);
     }
+
+    this.notify("update-history", this);
   }
 
   /**

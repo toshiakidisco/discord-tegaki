@@ -294,6 +294,27 @@ class DiscordTegaki {
     this._canvas.addObserver(this, "size-changed", () => {
       this.resetStatus();
     })
+    // Undo, Redo後のアイコン更新
+    this._canvas.addObserver(this, "update-history", this.updateUndoRedoIcon);
+    this.updateUndoRedoIcon();
+  }
+
+  /**
+   * Undo, Redoアイコンの表示更新
+   */
+  private updateUndoRedoIcon() {
+    if (this._canvas.undoLength == 0) {
+      this._outlets["tool-undo"].setAttribute("disabled", "");
+    }
+    else {
+      this._outlets["tool-undo"].removeAttribute("disabled");
+    }
+    if (this._canvas.redoLength == 0) {
+      this._outlets["tool-redo"].setAttribute("disabled", "");
+    }
+    else {
+      this._outlets["tool-redo"].removeAttribute("disabled");
+    }
   }
 
   /**
