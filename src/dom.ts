@@ -1,3 +1,5 @@
+import { isInt16Array } from "util/types";
+
 export type Outlets = {
   [name: string]: HTMLElement;
 };
@@ -20,6 +22,16 @@ export function parseHtml(html: string, controller?: any, outlets?: Outlets) {
     throw new Error("First element must be HTML element");
   }
   parseElement(child, controller, outlets);
+  return child;
+}
+
+export function parseSvg(svg: string) {
+  const template = document.createElement("template");
+  template.innerHTML = svg;
+  const child = template.content.firstElementChild;
+  if (! (child instanceof SVGElement)) {
+    throw new Error("First element must be SVG ELement");
+  }
   return child;
 }
 

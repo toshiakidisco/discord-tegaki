@@ -3,7 +3,15 @@ import Stack from "./stack";
 import Color from "./color";
 import Subject from "./subject";
 
+import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
+import { parseSvg } from "./dom";
+import { cursorTo } from "readline";
+
 export type PenMode = "pen" | "eracer";
+
+// カーソル描画用のフィルタの読み込み
+const cursorFilterSvg = parseSvg(cursorFilterSvgCode);
+document.body.appendChild(cursorFilterSvg);
 
 type CanvasInit = {
   width: number,
@@ -61,9 +69,6 @@ class Offscreen {
 
 const HISTORY_MAX = 10;
 
-const IMG_CURSOR_PEN = new Image();
-IMG_CURSOR_PEN.src = chrome.runtime.getURL("asset/cursor-pen.png");
-
 export class TegakiCanvas extends Subject {
   readonly canvas: HTMLCanvasElement;
   readonly context: CanvasRenderingContext2D;
@@ -105,7 +110,6 @@ export class TegakiCanvas extends Subject {
     this.canvas = document.createElement("canvas");
     this.canvas.width = this.width;
     this.canvas.height = this.height;
-    this.canvas.style.cursor = `url(${chrome.runtime.getURL("asset/cursor-pen.cur")}) 9 9, auto`;
 
     this._image = new Offscreen(this.innerWidth, this.innerHeight);
     this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
@@ -183,6 +187,18 @@ export class TegakiCanvas extends Subject {
    */
   get redoLength() {
     return this._redoStack.length;
+  }
+
+  /**
+   * 選択中ツールのサイズ
+   */
+  get toolSize() {
+    if (this._state.penMode == "pen") {
+      return this._state.penSize;
+    }
+    else {
+      return this._state.eraserSize;
+    }
   }
 
   /**
@@ -268,20 +284,62 @@ export class TegakiCanvas extends Subject {
     this.context.restore();
 
     // Render cursor
-    // CSSでの表現に切り替え済み
-    /*
     if (this._isMouseEnter || this._isDrawing) {
-      this.context.save();
-      this.context.globalCompositeOperation = "exclusion";
+      const toolSize = this.toolSize;
+      const offset = toolSize%2 == 0 ? 0 : 0.5;
+      const displayPenSize = toolSize * this.scale;
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
-      this.context.drawImage(
-        IMG_CURSOR_PEN,
-        (this.scale*position.x) - (IMG_CURSOR_PEN.width/2)|0,
-        (this.scale*position.y) - (IMG_CURSOR_PEN.height/2)|0
-      );
+
+      position.x = (position.x + offset)*this.scale | 0;
+      position.y = (position.y + offset)*this.scale | 0;
+
+      // カーソル包含矩形
+      let cl: number;
+      let ct: number;
+      let cw: number;
+      let ch: number;
+
+      this.context.save();
+      // カーソルをクリップ領域として描く
+      // 円形
+      if (displayPenSize >= 8) {
+        this.context.beginPath();
+        this.context.arc(
+          position.x + offset,
+          position.y + offset,
+          displayPenSize/2+1.1, 0, 2*Math.PI
+        );
+        this.context.arc(
+          position.x + offset,
+          position.y + offset,
+          displayPenSize/2+0.4, 0, 2*Math.PI
+        );
+        this.context.clip("evenodd");
+
+        cl = position.x - displayPenSize/2 - 2;
+        ct = position.y - displayPenSize/2 - 2;
+        cw = ch = displayPenSize + 4;
+      }
+      // 十字
+      else {
+        this.context.beginPath();
+        this.context.rect(position.x,   position.y,   1, 1);
+        this.context.rect(position.x-9, position.y,   5, 1);
+        this.context.rect(position.x+5, position.y,   5, 1);
+        this.context.rect(position.x,   position.y-9, 1, 5);
+        this.context.rect(position.x,   position.y+5, 1, 5);
+        this.context.clip();
+
+        cl = position.x - 9;
+        ct = position.y - 9;
+        cw = ch = 19;
+      }
+      // クリップ領域に描画済みの画像を反転フィルタをかけて再描画
+      this.context.filter = "url(#tegaki-canvas-cursor-filter)";
+      this.context.imageSmoothingEnabled = false;
+      this.context.drawImage(this.canvas, cl, ct, cw, ch, cl, ct, cw, ch);
       this.context.restore();
     }
-    */
 
     this._needsRender = false;
   }
@@ -388,6 +446,8 @@ export class TegakiCanvas extends Subject {
     this._isDrawing = true;
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
+    position.x = position.x | 0;
+    position.y = position.y | 0;
     if (this._state.penSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
@@ -402,6 +462,8 @@ export class TegakiCanvas extends Subject {
     }
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
+    position.x = position.x | 0;
+    position.y = position.y | 0;
     if (this._state.penSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
@@ -433,7 +495,7 @@ export class TegakiCanvas extends Subject {
     if (path.length == 0) {
       return;
     }
-
+    
     ctx.save();
     ctx.scale(this._innerScale, this._innerScale);
     ctx.lineCap = "round";
@@ -582,8 +644,8 @@ export class TegakiCanvas extends Subject {
    */
   positionInCanvas(x: number, y: number) {
     const rect = this.canvas.getBoundingClientRect();
-    x = (((x - rect.x)*this.innerWidth/rect.width) | 0) / this._innerScale;
-    y = (((y - rect.y)*this.innerHeight/rect.height) | 0) / this._innerScale;
+    x = ((x - rect.x)*this.innerWidth/rect.width) | 0;
+    y = ((y - rect.y)*this.innerHeight/rect.height) | 0;
 
     return {x, y};
   }
