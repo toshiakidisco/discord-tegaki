@@ -8,10 +8,20 @@ const RGBColorChars: ColorChar[] = ["r", "g", "b"] as const;
 const VALUE_MIN = 0;
 const VALUE_MAX =255;
 
+const PALETTE_COLS = 4;
+const PALETTE_ROWS = 4;
+
+type PaletteItem = {
+  element: HTMLElement;
+  readonly color: Color;
+}
+
 export class ColorPicker extends Subject {
   readonly element: HTMLDivElement;
   private _outlets: Outlets;
   private _color: Color;
+
+  private _palette: PaletteItem[];
 
   private _blurCallback: (ev: Event) => void;
 
@@ -21,14 +31,54 @@ export class ColorPicker extends Subject {
     this._outlets = {};
     this.element = parseHtml(`
       <div class="color-picker" name="root" tabindex="-1">
-        <ul>
-          <li><div class="preview" name="preview"></div></li>
-          <li><span>R: </span><input type="range" name="slider-r" min="${VALUE_MIN}" max="${VALUE_MAX}"><input type="number" name="field-r" min="${VALUE_MIN}" max="${VALUE_MAX}"></li>
-          <li><span>G: </span><input type="range" name="slider-g" min="${VALUE_MIN}" max="${VALUE_MAX}"><input type="number" name="field-g" min="${VALUE_MIN}" max="${VALUE_MAX}"></li>
-          <li><span>B: </span><input type="range" name="slider-b" min="${VALUE_MIN}" max="${VALUE_MAX}"><input type="number" name="field-b" min="${VALUE_MIN}" max="${VALUE_MAX}"></li>
-        </ul>
+        <div class="content">
+          <div class="area-palette">
+            <ul name="colors" class="colors">
+            </ul>
+          </div>
+          <div class="area-picker">
+            <ul>
+              <li><div class="preview" name="preview"></div></li>
+              <li>
+                <span class="color-char">R:</span>
+                <input type="range" name="slider-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
+                <input type="number" name="field-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
+              </li>
+              <li>
+                <span class="color-char">G:</span>
+                <input type="range" name="slider-g" min="${VALUE_MIN}" max="${VALUE_MAX}">
+                <input type="number" name="field-g" min="${VALUE_MIN}" max="${VALUE_MAX}">
+              </li>
+              <li>
+                <span class="color-char">B:</span>
+                <input type="range" name="slider-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
+                <input type="number" name="field-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     `, this, this._outlets) as HTMLDivElement;
+
+    // Create palette
+    this._palette = [];
+    const colorsElem = this._outlets["colors"];
+    for (let y = 0; y < PALETTE_ROWS; y++) {
+      for (let x = 0; x < PALETTE_COLS; x++) {
+        const elem = document.createElement("li");
+        elem.style.backgroundColor = "#FFFFFF";
+        colorsElem.appendChild(elem);
+        const color = new Color(255, 255, 255);
+        this._palette.push({
+          element: elem, color: color
+        });
+        elem.onclick = () => {
+          this.set(color);
+          this.notify("change", this._color as Color.Immutable);
+        };
+      }
+    }
+
     document.body.appendChild(this.element);
 
     this._blurCallback = (ev: Event) => {
@@ -108,6 +158,16 @@ export class ColorPicker extends Subject {
 
   get color(): Color.Immutable {
     return this._color;
+  }
+
+  setPalette(colors: Color.Immutable[]) {
+    const len = Math.min(this._palette.length, colors.length);
+    for (let i = 0; i < len; i++) {
+      const item = this._palette[i];
+      const color = colors[i];
+      item.color.set(color);
+      item.element.style.backgroundColor = color.css();
+    }
   }
 }
 
