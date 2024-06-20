@@ -531,11 +531,11 @@ class DiscordTegaki {
     }
     
     // Change tool
-    if (ev.key == "e") {
+    if (ev.key == "e" && this._state.penMode.value != "eraser") {
       this._state.penMode.value = "eraser";
       this._keyDownTime.set("e", Date.now());
     }
-    else if (ev.key == "n") {
+    else if (ev.key == "n" && this._state.penMode.value != "pen") {
       this._state.penMode.value = "pen";
       this._keyDownTime.set("n", Date.now());
     }
