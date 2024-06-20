@@ -71,18 +71,22 @@
       border: none;
       padding: 0;
       margin: 0;
-    }
-    > *:hover {
       cursor: initial;
     }
-    > *[data-on-click]:hover {
+    > *:hover {
+      background-color: transparent;
+    }
+    > *:active {
+      background-color: transparent;
+    }
+    > *[data-on-click]:enabled:hover {
       background-color: rgb(243, 209, 189);
+    }
+    > *[data-on-click]:enabled:active {
+      background-color: rgb(230, 189, 166);
     }
     > *:disabled {
       filter: opacity(0.3);
-    }
-    > *:disabled:hover {
-      background-color: transparent;
     }
   }
 
