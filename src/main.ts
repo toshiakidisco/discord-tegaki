@@ -9,6 +9,7 @@ import ColorPicker from "./color-picker";
 import SizeSelector from "./size-selector";
 import Selector from "./selector";
 import { clamp } from "./tools";
+import defaultPalette from "./default-palette";
 
 
 const DEFAULT_CANVAS_WIDTH = 344;
@@ -80,7 +81,9 @@ class DiscordTegaki {
     document.body.appendChild(this._outlets["button-open"]);
 
     this._paletteForeColor = new ColorPicker();
+    this._paletteForeColor.setPalette(defaultPalette);
     this._paletteBackgroundColor = new ColorPicker();
+    this._paletteBackgroundColor.setPalette(defaultPalette);
     this._palettePenSize = new SizeSelector(this._state.penSize.value);
 
     this.resetStatus();
