@@ -24,7 +24,6 @@ const MIN_CANVAS_HEIGHT = 135;
 const WINDOW_CANVAS_PADDING_H = 84;
 const WINDOW_CANVAS_PADDING_V = 73;
 
-
 type CanvasInitialState = {
   width: number;
   height: number;
@@ -61,6 +60,7 @@ class DiscordTegaki {
   private _palettePenSize: SizeSelector;
 
   private _window: HTMLElement;
+  private _keyDownTime: Map<string, number> = new Map();
 
   constructor() {
     this._state = new State();
@@ -239,7 +239,7 @@ class DiscordTegaki {
     // PenMode
     this._state.penMode.addObserver(this, "change", (val: PenMode) => {
       // ツールアイコン切替
-      for (const name of ["pen", "eracer"]) {
+      for (const name of ["pen", "eraser"]) {
         const icon = this._outlets[`icon-${name}`] as HTMLImageElement;
         const active = val == name ? "active" : "deactive";
         icon.src = chrome.runtime.getURL(`asset/tool-${name}-${active}.png`);
@@ -453,8 +453,8 @@ class DiscordTegaki {
     this._state.penMode.value = "pen";
   }
 
-  onClickEracer(ev: Event) {
-    this._state.penMode.value = "eracer";
+  onClickeraser(ev: Event) {
+    this._state.penMode.value = "eraser";
   }
 
   onClickPenSize(ev: MouseEvent) {
@@ -505,11 +505,16 @@ class DiscordTegaki {
 
   onBlur(ev: Event) {
     this._canvas.state.subTool = "none";
+    this._keyDownTime.clear();
   }
 
   onKeydown(ev: KeyboardEvent) {
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
+
+    if (ev.repeat) {
+      return;
+    }
 
     // Undo & Redo
     if (ev.ctrlKey) {
@@ -527,10 +532,12 @@ class DiscordTegaki {
     
     // Change tool
     if (ev.key == "e") {
-      this._state.penMode.value = "eracer";
+      this._state.penMode.value = "eraser";
+      this._keyDownTime.set("e", Date.now());
     }
     else if (ev.key == "n") {
       this._state.penMode.value = "pen";
+      this._keyDownTime.set("n", Date.now());
     }
     else if (ev.key == "Alt") {
       ev.preventDefault();
@@ -541,6 +548,22 @@ class DiscordTegaki {
   onKeyup(ev: KeyboardEvent) {
     if (ev.key == "Alt" && this._canvas.state.subTool == "spoit") {
       this._canvas.state.subTool = "none";
+    }
+    if (ev.key == "e") {
+      const downTime = this._keyDownTime.get("e");
+      this._keyDownTime.delete("e");
+      if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
+        return;
+      }
+      this._state.penMode.value = "pen";
+    }
+    else if (ev.key == "n") {
+      const downTime = this._keyDownTime.get("n");
+      this._keyDownTime.delete("n");
+      if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
+        return;
+      }
+      this._state.penMode.value = "eraser";
     }
   }
 

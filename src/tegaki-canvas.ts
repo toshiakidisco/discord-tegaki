@@ -7,7 +7,7 @@ import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
 import { parseSvg } from "./dom";
 import { cursorTo } from "readline";
 
-export type PenMode = "pen" | "eracer";
+export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
 
 // カーソル描画用のフィルタの読み込み
