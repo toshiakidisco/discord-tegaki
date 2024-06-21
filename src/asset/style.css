@@ -138,6 +138,7 @@
 
         > *.spacer {
           width: 48px;
+          height: 12px;
         }
 
         .color-cell {
