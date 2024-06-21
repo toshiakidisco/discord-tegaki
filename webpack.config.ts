@@ -66,7 +66,7 @@ configs.push({
 
 // GitHub Pages
 {
-  const dstDir = isDev ? "pages-dev" : "pages";
+  const dstDir = isDev ? "docs-dev" : "docs";
   configs.push({
     ...common,
     
