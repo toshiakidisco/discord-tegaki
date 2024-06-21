@@ -1,5 +1,3 @@
-import { isInt16Array } from "util/types";
-
 export type Outlets = {
   [name: string]: HTMLElement;
 };
