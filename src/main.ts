@@ -11,6 +11,8 @@ import Selector from "./selector";
 import { clamp } from "./tools";
 import defaultPalette from "./default-palette";
 
+import manifest from "../manifest.json";
+
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -103,6 +105,7 @@ class DiscordTegaki {
       let _dragStartPosition = {x: 0, y: 0};
       let _pointerOffset = {x: 0, y: 0};
       const titlebar = this._outlets["titlebar"];
+      titlebar.innerText = `手書き v${manifest.version}`;
       titlebar.addEventListener("pointerdown", (ev: PointerEvent) => {
         if (_activePointer != null) {
           return;
