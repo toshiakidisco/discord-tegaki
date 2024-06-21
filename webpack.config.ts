@@ -5,13 +5,15 @@ import CopyPlugin from "copy-webpack-plugin";
 const isDev = process.env.NODE_ENV === 'development';
 
 // 共通設定
-const config: Configuration = {
+const common: Configuration = {
   mode: isDev ? 'development' : 'production',
   resolve: {
     extensions: ['.js', '.ts', '.json'],
   },
   output: {
+    path: __dirname,
     publicPath: './',
+    filename: "[name].js"
   },
   module: {
     rules: [
@@ -29,9 +31,19 @@ const config: Configuration = {
     ],
   },
   
+  watch: isDev,
+  devtool: isDev ? 'source-map' : undefined,
+};
+
+const configs: Configuration[] = [];
+
+// Browser Extension
+configs.push({
+  ...common,
+  
   target: 'web',
   entry: {
-    main: [
+    "dist/main": [
       './src/main.ts',
     ]
   },
@@ -50,11 +62,40 @@ const config: Configuration = {
       ],
     }),
   ],
+})
 
-  watch: isDev,
-  devtool: isDev ? 'source-map' : undefined,
-};
+// GitHub Pages
+{
+  const dstDir = isDev ? "pages-dev" : "pages";
+  configs.push({
+    ...common,
+    
+    target: 'web',
+    entry: {
+      "main": [
+        './src/main.ts',
+      ]
+    },
+    output: {
+      path: path.resolve(__dirname, dstDir),
+      publicPath: './',
+    },
+    plugins: [
+      new CopyPlugin({
+        patterns: [
+          {
+            context: path.resolve(__dirname, "src/asset"),
+            from: path.resolve(__dirname, "src/asset"),
+            to: path.resolve(__dirname, dstDir, "asset"),
+          },
+          {
+            from: path.resolve(__dirname, "src/index.html"),
+            to: path.resolve(__dirname, dstDir, "index.html"),
+          },
+        ],
+      }),
+    ],
+  })
+}
 
-
-
-export default [config];
+export default configs;

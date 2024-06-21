@@ -7,3 +7,5 @@ export function clamp(value: number, min: number, max: number) {
   }
   return value;
 }
+
+export const isRunnningOnExtension = typeof chrome.runtime !== "undefined";

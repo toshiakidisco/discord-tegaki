@@ -11,7 +11,7 @@ export class SizeSelector extends Subject {
 
   private _blurCallback: (ev: Event) => void;
 
-  constructor(value: number) {
+  constructor(root: HTMLElement, value: number) {
     super();
     this._value = value;
     this._outlets = {};
@@ -23,7 +23,7 @@ export class SizeSelector extends Subject {
         </ul>
       </div>
     `, this, this._outlets) as HTMLDivElement;
-    document.body.appendChild(this.element);
+    root.appendChild(this.element);
 
     this._blurCallback = (ev: Event) => {
       if (!isChildOf(ev.target as Element, this.element)) {
@@ -62,7 +62,6 @@ export class SizeSelector extends Subject {
 
   init() {
     this._outlets["root"].addEventListener("keydown", (ev) => {
-      ev.stopPropagation();
     });
 
     for (const type of ["slider", "field"]) {
@@ -73,12 +72,13 @@ export class SizeSelector extends Subject {
         this._value = clamp(this._value, VALUE_MIN, VALUE_MAX);
         this.render();
       });
-      elem.addEventListener("wheel", (ev: WheelEvent) => {
+      elem.addEventListener("wheel", (ev: WheelEvent) => {            
+        ev.preventDefault();
         this._value += ev.deltaY > 0 ? -1 : 1; 
         this._value = clamp(this._value, VALUE_MIN, VALUE_MAX);
         this.render();
         this.notify("change", this._value);
-      });
+      }, { passive: false });
       elem.addEventListener("change", (ev) => {
         this._value = parseInt(elem.value);
         this._value = clamp(this._value, VALUE_MIN, VALUE_MAX);
