@@ -20,5 +20,10 @@
     "16": "asset/icon_16.png",
     "48": "asset/icon_48.png",
     "128": "asset/icon_128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "discotegaki-toshiakidisco@gmail.com"
+    }
   }
 }
