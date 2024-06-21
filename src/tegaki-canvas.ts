@@ -5,6 +5,7 @@ import Subject from "./subject";
 
 import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
 import { parseSvg } from "./dom";
+import { getAssetUrl } from "./asset";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -473,7 +474,7 @@ export class TegakiCanvas extends Subject {
       }
       else {
         const toolCursor = toolCursors[subTool];
-        this.canvas.style.cursor = `url(${chrome.runtime.getURL("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
+        this.canvas.style.cursor = `url(${getAssetUrl("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
       }
       this.notify("change-sub-tool", subTool);
       this.requestRender();

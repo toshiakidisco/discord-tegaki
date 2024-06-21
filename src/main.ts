@@ -12,6 +12,7 @@ import { clamp } from "./tools";
 import defaultPalette from "./default-palette";
 
 import manifest from "../manifest.json";
+import { getAssetUrl } from "./asset";
 
 
 const DEFAULT_CANVAS_WIDTH = 344;
@@ -245,7 +246,7 @@ class DiscordTegaki {
       for (const name of ["pen", "eraser"]) {
         const icon = this._outlets[`icon-${name}`] as HTMLImageElement;
         const active = val == name ? "active" : "deactive";
-        icon.src = chrome.runtime.getURL(`asset/tool-${name}-${active}.png`);
+        icon.src = getAssetUrl(`asset/tool-${name}-${active}.png`);
       }
       this.onUpdateToolSize();
 
@@ -305,7 +306,7 @@ class DiscordTegaki {
     this._canvas.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
       const icon = this._outlets["icon-spoit"] as HTMLImageElement;
       const active = subTool == "spoit" ? "active" : "deactive";
-      icon.src = chrome.runtime.getURL(`asset/tool-spoit-${active}.png`);
+      icon.src = getAssetUrl(`asset/tool-spoit-${active}.png`);
     });
     // Undo, Redo後のアイコン更新
     this._canvas.addObserver(this, "update-history", this.updateUndoRedoIcon);

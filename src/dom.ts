@@ -1,3 +1,5 @@
+import { getAssetUrl } from "./asset";
+
 export type Outlets = {
   [name: string]: HTMLElement;
 };
@@ -57,7 +59,7 @@ export function parseElement(element: HTMLElement, controller?: any, outlets?: O
     // Convert Path
     if (attribute.name == "src" && attribute.value.match(/^\[.+\]$/)) {
       const path = attribute.value.substring(1, attribute.value.length-1);
-      attribute.value = chrome.runtime.getURL(path);
+      attribute.value = getAssetUrl(path);
     }
   }
 
