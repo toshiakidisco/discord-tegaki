@@ -1,7 +1,7 @@
 import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
-import TegakiCanvas, { PenMode } from "./tegaki-canvas";
+import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./observable-value";
 import Color from "./color";
@@ -9,6 +9,7 @@ import ColorPicker from "./color-picker";
 import SizeSelector from "./size-selector";
 import Selector from "./selector";
 import { clamp } from "./tools";
+import defaultPalette from "./default-palette";
 
 
 const DEFAULT_CANVAS_WIDTH = 344;
@@ -23,11 +24,11 @@ const MIN_CANVAS_HEIGHT = 135;
 const WINDOW_CANVAS_PADDING_H = 84;
 const WINDOW_CANVAS_PADDING_V = 73;
 
-
 type CanvasInitialState = {
   width: number;
   height: number;
   penSize: number;
+  eraserSize: number;
   foreColor: Color;
   backgroundColor: Color;
 };
@@ -36,6 +37,7 @@ const canvasInitialState: CanvasInitialState = {
   width: DEFAULT_CANVAS_WIDTH,
   height: DEFAULT_CANVAS_HEIGHT,
   penSize: 4,
+  eraserSize: 4,
   foreColor: new Color(128, 0, 0),
   backgroundColor: new Color(240, 224, 214),
 }
@@ -43,6 +45,7 @@ const canvasInitialState: CanvasInitialState = {
 class State {
   penMode: ObservableValue<PenMode> = new ObservableValue("pen");
   penSize: ObservableValue<number> = new ObservableValue(4);
+  eraserSize: ObservableValue<number> = new ObservableValue(4);
   foreColor: ObservableColor = new ObservableColor(128, 0, 0);;
   backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
 }
@@ -57,6 +60,7 @@ class DiscordTegaki {
   private _palettePenSize: SizeSelector;
 
   private _window: HTMLElement;
+  private _keyDownTime: Map<string, number> = new Map();
 
   constructor() {
     this._state = new State();
@@ -77,7 +81,9 @@ class DiscordTegaki {
     document.body.appendChild(this._outlets["button-open"]);
 
     this._paletteForeColor = new ColorPicker();
+    this._paletteForeColor.setPalette(defaultPalette);
     this._paletteBackgroundColor = new ColorPicker();
+    this._paletteBackgroundColor.setPalette(defaultPalette);
     this._palettePenSize = new SizeSelector(this._state.penSize.value);
 
     this.resetStatus();
@@ -137,7 +143,7 @@ class DiscordTegaki {
     {
       const resize = this._outlets["resize"];
       let _selector: Selector | null = null;
-      let _initialRect:DOMRect = win.getBoundingClientRect();
+      let _initialRect: DOMRect = win.getBoundingClientRect();
       let _pointerOffset = {x: 0, y: 0};
       resize.addEventListener("pointerdown", (ev: PointerEvent) => {
         if (_activePointer != null) {
@@ -162,7 +168,7 @@ class DiscordTegaki {
         }
         let right = clamp(ev.clientX - _pointerOffset.x, 0, window.innerWidth);
         let bottom = clamp(ev.clientY - _pointerOffset.y, 0, window.innerHeight);
-        // 右下座標の増量
+        // 右下座標の増分
         let dw = right - _initialRect.right;
         let dh = bottom - _initialRect.bottom;
         // リサイズ後のキャンバスサイズの計算
@@ -192,7 +198,7 @@ class DiscordTegaki {
         }
         let right = clamp(ev.clientX - _pointerOffset.x, 0, window.innerWidth);
         let bottom = clamp(ev.clientY - _pointerOffset.y, 0, window.innerHeight);
-        // 右下座標の増量
+        // 右下座標の増分
         let dw = right - _initialRect.right;
         let dh = bottom - _initialRect.bottom;
         // リサイズ後のキャンバスサイズの計算
@@ -232,11 +238,13 @@ class DiscordTegaki {
     // Connect ObservableValue to views
     // PenMode
     this._state.penMode.addObserver(this, "change", (val: PenMode) => {
-      for (const name of ["pen", "eracer"]) {
+      // ツールアイコン切替
+      for (const name of ["pen", "eraser"]) {
         const icon = this._outlets[`icon-${name}`] as HTMLImageElement;
         const active = val == name ? "active" : "deactive";
         icon.src = chrome.runtime.getURL(`asset/tool-${name}-${active}.png`);
       }
+      this.onUpdateToolSize();
 
       this._canvas.state.penMode = val;
     });
@@ -245,9 +253,16 @@ class DiscordTegaki {
     // PenSize
     this._state.penSize.addObserver(this, "change", (val: number) => {
       this._canvas.state.penSize = val;
-      this._outlets["tool-size-value"].innerText = val.toString();
+      this.onUpdateToolSize();
     });
     this._state.penSize.sync();
+
+    // EraserSize
+    this._state.eraserSize.addObserver(this, "change", (val: number) => {
+      this._canvas.state.eraserSize = val;
+      this.onUpdateToolSize();
+    });
+    this._state.eraserSize.sync();
 
     // Color
     this._state.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
@@ -271,13 +286,69 @@ class DiscordTegaki {
       this._state.backgroundColor.value = c;
     });
     this._palettePenSize.addObserver(this, "change", (n: number) => {
-      this._state.penSize.value = n;
+      if (this._state.penMode.value == "pen") {
+        this._state.penSize.value = n;
+      }
+      else {
+        this._state.eraserSize.value = n;
+      }
     });
-
     
+    // キャンバスサイズ更新後
     this._canvas.addObserver(this, "size-changed", () => {
       this.resetStatus();
     })
+    // サブツールアイコン更新語
+    this._canvas.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
+      const icon = this._outlets["icon-spoit"] as HTMLImageElement;
+      const active = subTool == "spoit" ? "active" : "deactive";
+      icon.src = chrome.runtime.getURL(`asset/tool-spoit-${active}.png`);
+    });
+    // Undo, Redo後のアイコン更新
+    this._canvas.addObserver(this, "update-history", this.updateUndoRedoIcon);
+    this.updateUndoRedoIcon();
+    // スポイト後の色更新
+    this._canvas.addObserver(this, "spoit", (ev: {tool: PenMode, color: Color.Immutable}) => {
+      if (ev.tool == "pen") {
+        this._state.foreColor.value = ev.color;
+      }
+      else {
+        this._state.backgroundColor.value = ev.color;
+      }
+    });
+  }
+
+  /**
+   * Undo, Redoアイコンの表示更新
+   */
+  private updateUndoRedoIcon() {
+    if (this._canvas.undoLength == 0) {
+      this._outlets["tool-undo"].setAttribute("disabled", "");
+    }
+    else {
+      this._outlets["tool-undo"].removeAttribute("disabled");
+    }
+    if (this._canvas.redoLength == 0) {
+      this._outlets["tool-redo"].setAttribute("disabled", "");
+    }
+    else {
+      this._outlets["tool-redo"].removeAttribute("disabled");
+    }
+  }
+
+  /**
+   * 選択中のツールのサイズをViewに反映
+   */
+  private onUpdateToolSize() {
+    let size: number;
+    if (this._state.penMode.value == "pen") {
+      size = this._state.penSize.value;
+    }
+    else {
+      size = this._state.eraserSize.value;
+    }
+    this._outlets["tool-size-value"].innerText = size.toString();
+    this._palettePenSize.value = size;
   }
 
   private _resetStatusTimer: number = 0;
@@ -314,6 +385,8 @@ class DiscordTegaki {
     this._state.foreColor.value = canvasInitialState.foreColor;
     this._state.backgroundColor.value = canvasInitialState.backgroundColor;
     this._state.penSize.value = canvasInitialState.penSize;
+    this._state.eraserSize.value = canvasInitialState.eraserSize;
+    this._state.penMode.value = "pen";
     this._canvas.resize(canvasInitialState.width, canvasInitialState.height);
     this._canvas.clear(false);
   }
@@ -365,6 +438,7 @@ class DiscordTegaki {
       win.style.display = "block";
       win.style.left = `${document.body.clientWidth/2 - win.clientWidth/2}px`;
       win.style.top = `${document.body.clientHeight/2 - win.clientHeight/2}px`;
+      win.focus();
     }
     else {
       win.style.display = "none";
@@ -379,8 +453,8 @@ class DiscordTegaki {
     this._state.penMode.value = "pen";
   }
 
-  onClickEracer(ev: Event) {
-    this._state.penMode.value = "eracer";
+  onClickEraser(ev: Event) {
+    this._state.penMode.value = "eraser";
   }
 
   onClickPenSize(ev: MouseEvent) {
@@ -395,6 +469,15 @@ class DiscordTegaki {
     this._paletteBackgroundColor.open(ev.clientX, ev.clientY);
   }
 
+  onClickSpoit(ev: Event) {
+    if (this._canvas.state.subTool == "spoit") {
+      this._canvas.state.subTool = "none";
+    }
+    else {
+      this._canvas.state.subTool = "spoit";
+    }
+  }
+
   onClickClear(ev: Event) {
     this._canvas.clear();
   }
@@ -407,7 +490,7 @@ class DiscordTegaki {
     this._canvas.flip();
   }
 
-  async onClickCopy(ev: Event): Promise<void> {
+  async onClickCopy(ev?: Event): Promise<void> {
     await this._canvas.copyToClipboard();
     this.showStatus("クリップボードにコピーしました");
   }
@@ -420,9 +503,18 @@ class DiscordTegaki {
     this._canvas.redo();
   }
 
+  onBlur(ev: Event) {
+    this._canvas.state.subTool = "none";
+    this._keyDownTime.clear();
+  }
+
   onKeydown(ev: KeyboardEvent) {
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
+
+    if (ev.repeat) {
+      return;
+    }
 
     // Undo & Redo
     if (ev.ctrlKey) {
@@ -432,15 +524,46 @@ class DiscordTegaki {
       else if (ev.key == "y") {
         this._canvas.redo();
       }
+      else if (ev.key == "c") {
+        this.onClickCopy();
+      }
       return;
     }
     
     // Change tool
+    if (ev.key == "e" && this._state.penMode.value != "eraser") {
+      this._state.penMode.value = "eraser";
+      this._keyDownTime.set("e", Date.now());
+    }
+    else if (ev.key == "n" && this._state.penMode.value != "pen") {
+      this._state.penMode.value = "pen";
+      this._keyDownTime.set("n", Date.now());
+    }
+    else if (ev.key == "Alt") {
+      ev.preventDefault();
+      this._canvas.state.subTool = "spoit";
+    }
+  }
+
+  onKeyup(ev: KeyboardEvent) {
+    if (ev.key == "Alt" && this._canvas.state.subTool == "spoit") {
+      this._canvas.state.subTool = "none";
+    }
     if (ev.key == "e") {
-      this._state.penMode.value = "eracer";
+      const downTime = this._keyDownTime.get("e");
+      this._keyDownTime.delete("e");
+      if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
+        return;
+      }
+      this._state.penMode.value = "pen";
     }
     else if (ev.key == "n") {
-      this._state.penMode.value = "pen";
+      const downTime = this._keyDownTime.get("n");
+      this._keyDownTime.delete("n");
+      if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
+        return;
+      }
+      this._state.penMode.value = "eraser";
     }
   }
 
