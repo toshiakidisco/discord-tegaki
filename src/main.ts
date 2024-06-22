@@ -245,6 +245,20 @@ class DiscordTegaki {
     window.addEventListener("resize", (ev) => {
       this.adjustWindow();
     });
+
+    /**
+     * デフォルトのタッチ操作制御
+     */
+    this._root.addEventListener("touchstart", (ev: TouchEvent) => {
+      if (ev.touches && ev.touches.length > 1) {
+        ev.preventDefault();
+      }
+    }, {passive: false});
+    this._root.addEventListener("touchmove", (ev: TouchEvent) => {
+      if (ev.touches && ev.touches.length > 1) {
+        ev.preventDefault();
+      }
+    }, {passive: false});
   }
 
   /**
@@ -586,20 +600,6 @@ class DiscordTegaki {
         return;
       }
       this._state.penMode.value = "eraser";
-    }
-  }
-
-  /**
-   * デフォルトのタッチ操作制御
-   */
-  onTouchStart(ev: TouchEvent) {
-    if (ev.touches && ev.touches.length > 1) {
-      ev.preventDefault();
-    }
-  }
-  onTouchMove(ev: TouchEvent) {
-    if (ev.touches && ev.touches.length > 1) {
-      ev.preventDefault();
     }
   }
 
