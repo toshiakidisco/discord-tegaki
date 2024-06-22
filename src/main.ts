@@ -254,6 +254,20 @@ class DiscordTegaki {
         this._root.focus();
       });
     }
+
+    /**
+     * デフォルトのタッチ操作制御
+     */
+    this._root.addEventListener("touchstart", (ev: TouchEvent) => {
+      if (ev.touches && ev.touches.length > 1) {
+        ev.preventDefault();
+      }
+    }, {passive: false});
+    this._root.addEventListener("touchmove", (ev: TouchEvent) => {
+      if (ev.touches && ev.touches.length > 1) {
+        ev.preventDefault();
+      }
+    }, {passive: false});
   }
 
   /**
