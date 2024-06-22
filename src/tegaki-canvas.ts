@@ -590,8 +590,8 @@ export class TegakiCanvas extends Subject {
     this._isDrawing = true;
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x;
-    position.y = position.y;
+    position.x = position.x | 0;
+    position.y = position.y | 0;
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
@@ -606,8 +606,8 @@ export class TegakiCanvas extends Subject {
     }
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x;
-    position.y = position.y;
+    position.x = position.x | 0;
+    position.y = position.y | 0;
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }

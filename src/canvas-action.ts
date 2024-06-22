@@ -1,3 +1,4 @@
+import { buffer } from "stream/consumers";
 import Offscreen from "./canvas-offscreen";
 import Color from "./color";
 import ObjectPool from "./object-pool";
@@ -223,7 +224,6 @@ export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path:
       ctx.lineTo(point.x, point.y);
     }
   }
-  ctx.filter = "url(#tegaki-canvas-antialias)";
   ctx.stroke();
   ctx.restore();
 }
