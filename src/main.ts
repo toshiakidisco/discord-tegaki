@@ -80,7 +80,7 @@ class DiscordTegaki {
       foreColor: new Color(128, 0, 0),
       backgroundColor: new Color(240, 224, 214),
     });
-    this._outlets["area-draw"].appendChild(this._canvas.canvas);
+    this._outlets["area-draw"].appendChild(this._canvas.element);
 
     if (isRunnningOnExtension) {
       parseHtml(htmlButtonOpen, this, this._outlets);
@@ -427,7 +427,7 @@ class DiscordTegaki {
     this._state.eraserSize.value = canvasInitialState.eraserSize;
     this._state.penMode.value = "pen";
     this._canvas.resize(canvasInitialState.width, canvasInitialState.height);
-    this._canvas.clear(false);
+    this._canvas.fillWithBackgroundColor();
   }
 
   open(x?: number, y?: number) {
@@ -524,7 +524,7 @@ class DiscordTegaki {
   }
 
   onClickClear(ev: Event) {
-    this._canvas.clear();
+    this._canvas.fillWithBackgroundColor();
   }
 
   onClickFill(ev: Event) {
@@ -648,8 +648,6 @@ class DiscordTegaki {
   }
 }
 
-console.log(isRunnningOnExtension);
-
 if (
   (! isRunnningOnExtension) || 
   location.href.startsWith("https://discord.com/app") ||
@@ -662,5 +660,3 @@ if (
 
   console.log("[Discord Tegaki]launched");
 }
-
-console.log("[Discord-Tegaki] Finish Launching");

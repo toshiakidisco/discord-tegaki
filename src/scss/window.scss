@@ -138,6 +138,16 @@
       line-height: 1;
     }
 
+    .tegaki-canvas {
+      position: relative;
+    }
+
+    .tegaki-canvas > canvas.cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
     .area-tools {
       margin-left: 4px;
 
