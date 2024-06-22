@@ -1,13 +1,13 @@
 {
-  "name": "@toshiaki-disco/discord-tegaki",
-  "version": "0.0.1",
+  "name": "@toshiakidisco/discord-tegaki",
+  "version": "1.1.0",
   "description": "",
   "main": "dist/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "main": "node dist/main.js",
-    "build": "cross-env NODE_ENV=\"production\" webpack",
-    "dev": "cross-env NODE_ENV=\"development\" webpack --progress"
+    "build": "rimraf dist && rimraf docs && cross-env NODE_ENV=\"production\" webpack",
+    "dev": "rimraf dist && cross-env NODE_ENV=\"development\" webpack --progress"
   },
   "author": "",
   "license": "ISC",
@@ -17,9 +17,13 @@
     "@types/webpack-node-externals": "^3.0.0",
     "copy-webpack-plugin": "^11.0.0",
     "cross-env": "^7.0.3",
+    "css-loader": "^7.1.2",
     "html-webpack-plugin": "^5.5.3",
+    "mini-css-extract-plugin": "^2.9.0",
     "raw-loader": "^4.0.2",
     "rimraf": "^5.0.1",
+    "sass": "^1.77.6",
+    "sass-loader": "^14.2.1",
     "ts-loader": "^9.4.3",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.3",

@@ -1,6 +1,6 @@
-@charset "utf-8";
 
-:root {
+/* Variables */
+.disco-tegaki {
   --tegaki-canvas-main-color: rgb(128, 0, 0); 
   --tegaki-canvas-sub-color: rgb(240, 224, 214);
 
@@ -10,17 +10,23 @@
   --tegaki-canvas-width-without-canvas: calc(var(--tegaki-canvas-padding-side)*2 + var(--tegaki-canvas-canvas-margin-right) + var(--tegaki-canvas-tool-size)*2);
 }
 
-.disco-tegaki, .disco-tegaki * {
-  box-sizing: border-box;
+.disco-tegaki.root {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 100;
 }
 
+/* ウィンドウ表示ボタン */
 .disco-tegaki.button-open {
   position: absolute;
   bottom: 0;
   right: 0;
   z-index: 5000;
+  font-size: 16px;
 }
-
 .disco-tegaki.button-open button {
   cursor: pointer;
   padding: 0 8px;
@@ -33,10 +39,9 @@
   background-color: rgb(233, 209, 200);
 }
 
-.disco-tegaki.window {
+.disco-tegaki .window {
   display: none;
   position: absolute;
-  z-index: 100;
   overscroll-behavior-x: none;
   touch-action: none;
 
@@ -45,8 +50,7 @@
   border-radius: 8px;
   box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.8);
   color: var(--tegaki-canvas-main-color);
-  
-  max-width: 100%;
+  font-size: 16px;
 
   button {
     color: var(--tegaki-canvas-main-color);
@@ -72,6 +76,7 @@
       padding: 0;
       margin: 0;
       cursor: initial;
+      font-size: 14px;
     }
     > *:hover {
       background-color: transparent;
@@ -107,6 +112,7 @@
       flex-grow: 1;
       cursor: grab;
       color: var(--tegaki-canvas-main-color);
+      font-size: 14px;
     }
 
     > .button-close {
@@ -138,6 +144,7 @@
 
         > *.spacer {
           width: 48px;
+          height: 12px;
         }
 
         .color-cell {

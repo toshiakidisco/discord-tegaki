@@ -5,7 +5,7 @@ import Subject from "./subject";
 
 import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
 import { parseSvg } from "./dom";
-import { cursorTo } from "readline";
+import { getAssetUrl } from "./asset";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -474,7 +474,7 @@ export class TegakiCanvas extends Subject {
       }
       else {
         const toolCursor = toolCursors[subTool];
-        this.canvas.style.cursor = `url(${chrome.runtime.getURL("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
+        this.canvas.style.cursor = `url(${getAssetUrl("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
       }
       this.notify("change-sub-tool", subTool);
       this.requestRender();
@@ -543,9 +543,9 @@ export class TegakiCanvas extends Subject {
     this._isDrawing = true;
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x | 0;
-    position.y = position.y | 0;
-    if (this._state.penSize%2 == 1) {
+    position.x = position.x;
+    position.y = position.y;
+    if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
     this._drawingPath.push(position);
@@ -559,9 +559,9 @@ export class TegakiCanvas extends Subject {
     }
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x | 0;
-    position.y = position.y | 0;
-    if (this._state.penSize%2 == 1) {
+    position.x = position.x;
+    position.y = position.y;
+    if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
     this._drawingPath.push(position);
@@ -596,7 +596,7 @@ export class TegakiCanvas extends Subject {
     ctx.save();
     ctx.scale(this._innerScale, this._innerScale);
     ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    ctx.lineJoin = "bevel";
     if (this._state.penMode == "pen") {
       ctx.strokeStyle = this._state.foreColor.css();
       ctx.lineWidth = this._state.penSize;
@@ -605,13 +605,31 @@ export class TegakiCanvas extends Subject {
       ctx.strokeStyle = this._state.backgroundColor.css();
       ctx.lineWidth = this._state.eraserSize;
     }
+    ctx.globalAlpha = 0.6;
     ctx.beginPath();
     const fisrtPoint = path[0];
     ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
-    for (let point of path) {
+    for (let i = 1; i < path.length; i++) {
+      const point = path[i]
       ctx.lineTo(point.x, point.y);
     }
     ctx.stroke();
+    ctx.globalAlpha = 0.94;
+    ctx.lineWidth -= ctx.lineWidth == 1 ? 0.4 : 1.4;
+    ctx.beginPath();
+    ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
+    for (let i = 1; i < path.length; i++) {
+      const point = path[i]
+      ctx.lineTo(point.x, point.y);
+    }
+    ctx.stroke();
+
+    ctx.filter = "none";
+    ctx.fillStyle = "#fff";
+    for (let point of path) {
+    }
+
+
     ctx.restore();
   }
 
