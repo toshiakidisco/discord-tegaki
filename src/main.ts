@@ -14,6 +14,7 @@ import defaultPalette from "./default-palette";
 import manifest from "../manifest.json";
 import { getAssetUrl } from "./asset";
 
+import "./scss/main.scss";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -624,6 +625,8 @@ class DiscordTegaki {
   }
 }
 
+console.log(isRunnningOnExtension);
+
 if (
   (! isRunnningOnExtension) || 
   location.href.startsWith("https://discord.com/app") ||
@@ -636,3 +639,5 @@ if (
 
   console.log("[Discord Tegaki]launched");
 }
+
+console.log("[Discord-Tegaki] Finish Launching");

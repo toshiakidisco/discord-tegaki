@@ -12,7 +12,7 @@ export const isRunnningOnExtension = (function () {
   if (typeof chrome === "undefined") {
     return false;
   }
-  if (typeof chrome.runtime !== "undefined") {
+  if (typeof chrome.runtime === "undefined") {
     return false;
   }
   return true;

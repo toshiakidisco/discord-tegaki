@@ -6,7 +6,7 @@
   "content_scripts": [
     {
       "matches": ["https://discord.com/*"],
-      "css": ["asset/color-picker.css", "asset/style.css"],
+      "css": ["style.css"],
       "js": ["main.js"]
     }
   ],

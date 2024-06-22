@@ -1,6 +1,7 @@
 import { Configuration } from 'webpack';
 import path from "node:path";
 import CopyPlugin from "copy-webpack-plugin";
+import MiniCssExtractPlugin from "mini-css-extract-plugin";
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -22,6 +23,11 @@ const common: Configuration = {
         test: /\.(ts|mts)$/i,
         exclude: /node_modules/,
         loader: 'ts-loader',
+      },
+      // CSS
+      {
+        test: /\.(scss|sass|css)$/i,
+        use: [ MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
       },
       // Raw Loader
       {
@@ -61,6 +67,9 @@ configs.push({
         },
       ],
     }),
+    new MiniCssExtractPlugin({
+      filename: 'dist/style.css',
+    }),
   ],
 })
 
@@ -93,6 +102,9 @@ configs.push({
             to: path.resolve(__dirname, dstDir, "index.html"),
           },
         ],
+      }),
+      new MiniCssExtractPlugin({
+        filename: `style.css`,
       }),
     ],
   })
