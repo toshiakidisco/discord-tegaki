@@ -590,6 +590,20 @@ class DiscordTegaki {
   }
 
   /**
+   * デフォルトのタッチ操作制御
+   */
+  onTouchStart(ev: TouchEvent) {
+    if (ev.touches && ev.touches.length > 1) {
+      ev.preventDefault();
+    }
+  }
+  onTouchMove(ev: TouchEvent) {
+    if (ev.touches && ev.touches.length > 1) {
+      ev.preventDefault();
+    }
+  }
+
+  /**
    * ウィンドウの位置(&キャンバスの倍率)の調整
    */
   adjustWindow() {
