@@ -3,7 +3,7 @@
 Discord上に、生まれたばかりの掲示板っぽく使えるお絵かき機能を追加します。
 Google Chrome, Edgeで動作確認済み。
 
-Chrome ウェブストア (v1.0.1)
+Chrome ウェブストア (v1.1.0)
 https://chromewebstore.google.com/detail/discotegaki/eiaogpnffnhfkddeenblefkjbijlflhd
 
 不具合修正・機能追加が発生した場合、ストアへの反映には時間がかかるため、先行してGitHubリポジトリのリリースに公開していきます。
