@@ -25,7 +25,7 @@ export class ColorPicker extends Subject {
 
   private _blurCallback: (ev: Event) => void;
 
-  constructor(r: number = 255, g: number = 255, b: number = 255) {
+  constructor(root: HTMLElement, r: number = 255, g: number = 255, b: number = 255) {
     super();
     this._color = new Color(255, 255, 255);
     this._outlets = {};
@@ -79,7 +79,7 @@ export class ColorPicker extends Subject {
       }
     }
 
-    document.body.appendChild(this.element);
+    root.appendChild(this.element);
 
     this._blurCallback = (ev: Event) => {
       if (!isChildOf(ev.target as Element, this.element)) {
@@ -129,7 +129,6 @@ export class ColorPicker extends Subject {
 
   init() {
     this._outlets["root"].addEventListener("keydown", (ev) => {
-      ev.stopPropagation();
     });
 
     for (const c of RGBColorChars) {
@@ -142,11 +141,12 @@ export class ColorPicker extends Subject {
           this.render();
         });
         elem.addEventListener("wheel", (ev: WheelEvent) => {
+          ev.preventDefault();
           this._color[c] += ev.deltaY > 0 ? -1 : 1;
           this._color[c] = clamp(this._color[c], VALUE_MIN, VALUE_MAX);
           this.render();
           this.notify("change", this._color as Color.Immutable);
-        });
+        }, { passive: false });
         elem.addEventListener("change", (ev) => {
           this._color[c] = parseInt(elem.value);
           this._color[c] = clamp(this._color[c], VALUE_MIN, VALUE_MAX);

@@ -8,11 +8,13 @@ import Color from "./color";
 import ColorPicker from "./color-picker";
 import SizeSelector from "./size-selector";
 import Selector from "./selector";
-import { clamp } from "./tools";
+import { clamp, isRunnningOnExtension } from "./tools";
 import defaultPalette from "./default-palette";
 
 import manifest from "../manifest.json";
+import { getAssetUrl } from "./asset";
 
+import "./scss/main.scss";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -61,6 +63,7 @@ class DiscordTegaki {
   private _paletteBackgroundColor: ColorPicker;
   private _palettePenSize: SizeSelector;
 
+  private _root: HTMLElement;
   private _window: HTMLElement;
   private _keyDownTime: Map<string, number> = new Map();
 
@@ -68,8 +71,8 @@ class DiscordTegaki {
     this._state = new State();
     this._outlets = {};
 
-    this._window = parseHtml(htmlWindow, this, this._outlets);
-    parseHtml(htmlButtonOpen, this, this._outlets);
+    this._root = parseHtml(htmlWindow, this, this._outlets);
+    this._window = this._outlets["window"];
 
     this._canvas = new TegakiCanvas({
       width: DEFAULT_CANVAS_WIDTH,
@@ -79,14 +82,24 @@ class DiscordTegaki {
     });
     this._outlets["area-draw"].appendChild(this._canvas.canvas);
 
-    document.body.appendChild(this._outlets["window"]);
-    document.body.appendChild(this._outlets["button-open"]);
+    if (isRunnningOnExtension) {
+      parseHtml(htmlButtonOpen, this, this._outlets);
+      document.body.appendChild(this._outlets["button-open"]);
+    }
+    else {
+      this._root.setAttribute("tabindex", "-1");
+      this._root.style.width = "100%";
+      this._root.style.height = "100%";
+      this._outlets["button-close"].style.display = "none"
+    }
 
-    this._paletteForeColor = new ColorPicker();
+    document.body.appendChild(this._root);
+
+    this._paletteForeColor = new ColorPicker(this._root);
     this._paletteForeColor.setPalette(defaultPalette);
-    this._paletteBackgroundColor = new ColorPicker();
+    this._paletteBackgroundColor = new ColorPicker(this._root);
     this._paletteBackgroundColor.setPalette(defaultPalette);
-    this._palettePenSize = new SizeSelector(this._state.penSize.value);
+    this._palettePenSize = new SizeSelector(this._root, this._state.penSize.value);
 
     this.resetStatus();
     
@@ -245,7 +258,7 @@ class DiscordTegaki {
       for (const name of ["pen", "eraser"]) {
         const icon = this._outlets[`icon-${name}`] as HTMLImageElement;
         const active = val == name ? "active" : "deactive";
-        icon.src = chrome.runtime.getURL(`asset/tool-${name}-${active}.png`);
+        icon.src = getAssetUrl(`asset/tool-${name}-${active}.png`);
       }
       this.onUpdateToolSize();
 
@@ -305,7 +318,7 @@ class DiscordTegaki {
     this._canvas.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
       const icon = this._outlets["icon-spoit"] as HTMLImageElement;
       const active = subTool == "spoit" ? "active" : "deactive";
-      icon.src = chrome.runtime.getURL(`asset/tool-spoit-${active}.png`);
+      icon.src = getAssetUrl(`asset/tool-spoit-${active}.png`);
     });
     // Undo, Redo後のアイコン更新
     this._canvas.addObserver(this, "update-history", this.updateUndoRedoIcon);
@@ -394,6 +407,20 @@ class DiscordTegaki {
     this._canvas.clear(false);
   }
 
+  open(x?: number, y?: number) {
+    const win = this._window;
+    win.style.display = "block";
+
+    if (typeof x === "undefined" || typeof y === "undefined") {
+      x = document.body.clientWidth/2 - win.clientWidth/2;
+      y = document.body.clientHeight/2 - win.clientHeight/2
+    }
+
+    win.style.left = `${x}px`;
+    win.style.top = `${y}px`;
+    win.focus();
+  }
+
   // --------------------------------------------------
   // イベントハンドラ定義
   // --------------------------------------------------
@@ -424,11 +451,6 @@ class DiscordTegaki {
   private _changeScale(newScale: number) {
     const lastScale = this._canvas.scale;
     this._canvas.scale = newScale;
-    const dw = (this._canvas.scale - lastScale) * this._canvas.width;
-    const dh = (this._canvas.scale - lastScale) * this._canvas.height;
-    const rect = this._window.getBoundingClientRect();
-    this._window.style.left = `${rect.x - dw/2}px`;
-    this._window.style.top = `${rect.y - dh/2}px`;
     this.adjustWindow();
 
     this.resetStatus();
@@ -438,10 +460,7 @@ class DiscordTegaki {
     const win = this._window;
     const d = win.style.display;
     if (d != "block") {
-      win.style.display = "block";
-      win.style.left = `${document.body.clientWidth/2 - win.clientWidth/2}px`;
-      win.style.top = `${document.body.clientHeight/2 - win.clientHeight/2}px`;
-      win.focus();
+      this.open();
     }
     else {
       win.style.display = "none";
@@ -606,10 +625,19 @@ class DiscordTegaki {
   }
 }
 
+console.log(isRunnningOnExtension);
+
 if (
+  (! isRunnningOnExtension) || 
   location.href.startsWith("https://discord.com/app") ||
   location.href.startsWith("https://discord.com/channels")
 ) {
   const app = new DiscordTegaki();
+  if (! isRunnningOnExtension) {
+    app.open(0, 0);
+  }
+
   console.log("[Discord Tegaki]launched");
 }
+
+console.log("[Discord-Tegaki] Finish Launching");
