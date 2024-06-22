@@ -7,7 +7,69 @@
 <link href="./asset/pages.css" rel="stylesheet">
 <link href="./asset/style.css" rel="stylesheet">
 <link href="./asset/color-picker.css" rel="stylesheet">
+<style>
+#console {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column-reverse;
+}
+
+#console > * {
+  width: 100%;
+}
+#console > .log {
+  color: #FFF;
+}
+#console > .warn {
+  color: rgb(255, 213, 98);
+}
+#console > .error {
+  color: rgb(255, 143, 158);
+}
+</style>
+<script src="./main.js" defer></script>
 <body class="github-pages">
-<script src="./main.js"></script>
+<div id="console"></div>
+<script>
+// Override Console
+{
+  const oldLog = console.log;
+  const oldWarn = console.warn;
+  const oldError = console.error;
+  const consoleElem = document.getElementById("console");
+
+  console.log = function(...data) {
+    for (line of data) {
+      const item = document.createElement("div");
+      item.className = "log"
+      item.innerText = line.toString();
+      consoleElem.appendChild(item);
+    }
+    oldLog.apply(this, arguments);
+  }
+  
+  console.warn = function(...data) {
+    for (line of data) {
+      const item = document.createElement("div");
+      item.className = "warn"
+      item.innerText = line.toString();
+      consoleElem.appendChild(item);
+    }
+    oldWarn.apply(this, arguments);
+  }
+  
+  console.error = function(...data) {
+    for (line of data) {
+      const item = document.createElement("div");
+      item.className = "error"
+      item.innerText = line.toString();
+      consoleElem.appendChild(item);
+    }
+    oldError.apply(this, arguments);
+  }
+}
+</script>
 </body>
 </html>
