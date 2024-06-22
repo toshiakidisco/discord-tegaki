@@ -242,9 +242,18 @@ class DiscordTegaki {
       });
     }
 
+    // ブラウザウィンドウ関連イベント処理
     window.addEventListener("resize", (ev) => {
       this.adjustWindow();
     });
+    window.addEventListener("blur", (ev) => {
+      this.onBlur(ev);
+    });
+    if (!isRunnningOnExtension) {
+      window.addEventListener("focus", (ev) => {
+        this._root.focus();
+      });
+    }
   }
 
   /**
