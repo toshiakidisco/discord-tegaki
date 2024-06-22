@@ -1,9 +1,10 @@
 import Offscreen from "./canvas-offscreen";
 import Color from "./color";
 import ObjectPool from "./object-pool";
+import { Rect } from "./rect";
 import TegakiCanvas from "./tegaki-canvas";
 
-export type BlushPath = {x: number; y: number;}[];
+export type BlushPath = {x: number; y: number; time: number}[];
 
 export type BlushState = {
   size: number;
@@ -198,13 +199,13 @@ export class CanvasActionClear extends CanvasAction {
   }
 }
 
-export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path: {x: number, y: number}[], innerScale = 1) {
+export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path: BlushPath, innerScale = 1) {
   if (path.length == 0) {
     return;
   }
   
   ctx.save();
-  ctx.scale(innerScale, innerScale);
+
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = blush.color.css();
@@ -213,19 +214,52 @@ export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path:
   ctx.beginPath();
   const fisrtPoint = path[0];
   ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
+  if (path.length == 1) {
+    ctx.lineTo(fisrtPoint.x, fisrtPoint.y);
+  }
+  else {
+    for (let i = 1; i < path.length; i++) {
+      const point = path[i]
+      ctx.lineTo(point.x, point.y);
+    }
+  }
+  ctx.filter = "url(#tegaki-canvas-antialias)";
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * 描画パスの包含矩形を取得
+ * @param path 
+ * @param size ブラシサイズ
+ * @param padding 矩形に余裕を持たせる場合に指定
+ * @returns 
+ */
+export function getPathBoundingRect(path: BlushPath, size: number, padding: number = 0): Rect {
+  if (path.length == 0) {
+    return new Rect(0, 0, 0, 0);
+  }
+  const firstPoint = path[0];
+  let minX = firstPoint.x;
+  let maxX = firstPoint.x;
+  let minY = firstPoint.y;
+  let maxY = firstPoint.y;
+
   for (let i = 1; i < path.length; i++) {
-    const point = path[i]
-    ctx.lineTo(point.x, point.y);
+    const point = path[i];
+    minX = Math.min(minX, point.x);
+    maxX = Math.max(maxX, point.x);
+    minY = Math.min(minY, point.y);
+    maxY = Math.max(maxY, point.y);
   }
 
-  ctx.globalAlpha = 0.6;
-  ctx.stroke();
+  const r = size / 2;
+  minX = (minX - r - padding) | 0;
+  maxX = Math.ceil(maxX + r + padding);
+  minY = (minY - r - padding) | 0;
+  maxY = Math.ceil(maxY + r + padding);
 
-  ctx.globalAlpha = 0.94;
-  ctx.lineWidth -= ctx.lineWidth == 1 ? 0.4 : 1.4;
-  ctx.stroke();
-
-  ctx.restore();
+  return new Rect(minX, minY, maxX - minX, maxY - minY);
 }
 
 export default CanvasAction;

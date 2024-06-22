@@ -7,8 +7,8 @@ import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
-import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath } from "./canvas-action";
-import { off } from "process";
+import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect } from "./canvas-action";
+import { Rect } from "./rect";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -89,7 +89,7 @@ export class TegakiCanvas extends Subject {
   private _isMouseEnter: boolean = false;
 
   private _isDrawing: boolean = false;
-  private _drawingPath: {x: number; y: number;}[] = [];
+  private _drawingPath: BlushPath = [];
   private _activePointerId: number | null = null;
 
   private _renderCallback: FrameRequestCallback;
@@ -325,7 +325,7 @@ export class TegakiCanvas extends Subject {
       const offset = toolSize%2 == 0 ? 0 : 0.5;
       const displayPenSize = toolSize * this.scale;
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
-
+      
       position.x = (position.x + offset)*this.scale | 0;
       position.y = (position.y + offset)*this.scale | 0;
 
@@ -506,11 +506,11 @@ export class TegakiCanvas extends Subject {
     
     this._state.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
       if (subTool == "none") {
-        this.canvas.style.cursor = "none";
+        this.cursorOverlay.style.cursor = "none";
       }
       else {
         const toolCursor = toolCursors[subTool];
-        this.canvas.style.cursor = `url(${getAssetUrl("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
+        this.cursorOverlay.style.cursor = `url(${getAssetUrl("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
       }
       this.notify("change-sub-tool", subTool);
       this.requestRender();
@@ -595,7 +595,7 @@ export class TegakiCanvas extends Subject {
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
-    this._drawingPath.push(position);
+    this._drawingPath.push({x: position.x, y: position.y, time: Date.now()});
     
     this.requestRender();
   }
@@ -611,7 +611,7 @@ export class TegakiCanvas extends Subject {
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
-    this._drawingPath.push(position);
+    this._drawingPath.push({x: position.x, y: position.y, time: Date.now()});
     this.requestRender();
   }
 
@@ -624,12 +624,12 @@ export class TegakiCanvas extends Subject {
       return;
     }
     
-    const pathRect = intersection(
+    const pathRect = Rect.intersection(
       getPathBoundingRect(this._drawingPath, this.toolSize, 1),
-      {x: 0, y:0, width: this.innerWidth, height: this.innerHeight}
+      new Rect(0, 0, this.innerWidth, this.innerHeight)
     );
     let undo: CanvasAction;
-    if (isNullRect(pathRect)) {
+    if (pathRect.isEmpty()) {
       undo = new CanvasActionNone(this);
     }
     else {
@@ -765,71 +765,11 @@ export class TegakiCanvas extends Subject {
    */
   positionInCanvas(x: number, y: number) {
     const rect = this.canvas.getBoundingClientRect();
-    x = ((x - rect.x)*this.innerWidth/rect.width) | 0;
-    y = ((y - rect.y)*this.innerHeight/rect.height) | 0;
+    x = ((x - rect.x)*this.innerWidth/rect.width);
+    y = ((y - rect.y)*this.innerHeight/rect.height);
 
     return {x, y};
   }
-}
-
-type Rect = {x: number, y: number, width: number, height: number}
-
-/**
- * 描画パスの包含矩形を取得
- * @param path 
- * @param size ブラシサイズ
- * @param padding 矩形に余裕を持たせる場合に指定
- * @returns 
- */
-function getPathBoundingRect(path: BlushPath, size: number, padding: number = 0): Rect {
-  if (path.length == 0) {
-    return {x: 0, y:0, width: 0, height: 0};
-  }
-  const firstPoint = path[0];
-  let minX = firstPoint.x;
-  let maxX = firstPoint.x;
-  let minY = firstPoint.y;
-  let maxY = firstPoint.y;
-
-  for (let i = 1; i < path.length; i++) {
-    const point = path[i];
-    minX = Math.min(minX, point.x);
-    maxX = Math.max(maxX, point.x);
-    minY = Math.min(minY, point.y);
-    maxY = Math.min(maxX, point.y);
-  }
-
-  minX = (minX - size - padding) | 0;
-  maxX = Math.ceil(maxX + size + padding);
-  minY = (minY - size - padding) | 0;
-  maxY = Math.ceil(maxY + size + padding);
-
-  return {
-    x: minX, y: minY, width: maxX - minX, height: maxY - minY
-  };
-}
-
-function intersection(r1: Rect, r2: Rect) {
-  if (
-    r1.x + r1.width  <= r2.x ||
-    r1.y + r1.height <= r2.y ||
-    r2.x + r2.width  <= r1.x ||
-    r2.y + r2.height <= r1.y
-  ) {
-    return {x: 0, y: 0, width: 0, height: 0};
-  }
-
-  const left   = Math.max(r1.x, r2.x);
-  const top    = Math.max(r1.y, r2.y);
-  const right  = Math.min(r1.x + r1.width,  r2.x + r2.width);
-  const bottom = Math.max(r1.y + r1.height, r2.y + r2.height);
-  return {
-    x: left, y: top, width: right - left, height: bottom - top
-  };
-}
-
-function isNullRect(r: Rect): boolean {
-  return r.width <= 0 || r.height <= 0;
 }
 
 export default TegakiCanvas;
