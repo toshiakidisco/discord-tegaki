@@ -530,7 +530,6 @@ class DiscordTegaki {
   }
 
   onKeydown(ev: KeyboardEvent) {
-    console.log(ev);
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
 
