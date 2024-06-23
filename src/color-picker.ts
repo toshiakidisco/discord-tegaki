@@ -2,6 +2,7 @@ import { Outlets, adjustPosition, parseHtml } from "./dom";
 import Color from "./color";
 import Panel from "./panel";
 import { clamp } from "./funcs";
+import Offscreen from "./canvas-offscreen";
 
 type ColorChar = "r" | "g" | "b";
 const RGBColorChars: ColorChar[] = ["r", "g", "b"] as const;
@@ -23,6 +24,7 @@ export class ColorPicker extends Panel {
   private _color: Color;
 
   private _palette: PaletteItem[];
+  private _dragging: boolean = false;
 
   constructor(root: HTMLElement, r: number = 255, g: number = 255, b: number = 255) {
     super(root, "color-picker");
@@ -36,7 +38,7 @@ export class ColorPicker extends Panel {
         </div>
         <div class="area-picker">
           <ul>
-            <li><div class="preview" name="preview"></div></li>
+            <li><div class="preview" name="preview" draggable="true" data-on-drag="onDragPreview" data-on-dragstart="onDragPreviewStart" data-on-dragend="onDragPreviewEnd"></div></li>
             <li>
               <span class="color-char">R:</span>
               <input type="range" name="slider-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
@@ -71,13 +73,24 @@ export class ColorPicker extends Panel {
         elem.style.backgroundColor = "#FFFFFF";
         colorsElem.appendChild(elem);
         const color = new Color(255, 255, 255);
-        this._palette.push({
+        const item = {
           element: elem, color: color
-        });
+        };
+        this._palette.push(item);
         elem.onclick = () => {
           this.set(color);
           this.notify("change", this._color as Color.Immutable);
         };
+        elem.addEventListener("dragover", (ev: DragEvent) => {
+          ev.preventDefault();
+        }, false);
+        elem.addEventListener("drop", (ev: DragEvent) => {
+          ev.preventDefault();
+          if (this._dragging) {
+            item.color.set(this.color);
+            item.element.style.backgroundColor = item.color.css();
+          }
+        });
       }
     }
 
@@ -143,6 +156,17 @@ export class ColorPicker extends Panel {
       item.color.set(color);
       item.element.style.backgroundColor = color.css();
     }
+  }
+  
+  onDragPreview(ev: DragEvent) {
+  }
+  
+  onDragPreviewStart(ev: DragEvent) {
+    this._dragging = true;
+  }
+  
+  onDragPreviewEnd(ev: DragEvent) {
+    this._dragging = false;
   }
 }
 
