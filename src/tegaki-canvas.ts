@@ -9,6 +9,7 @@ import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
 import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect } from "./canvas-action";
 import { Rect } from "./rect";
+import StrokeManager from "./stroke-manager";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -89,7 +90,6 @@ export class TegakiCanvas extends Subject {
   private _isMouseEnter: boolean = false;
 
   private _isDrawing: boolean = false;
-  private _drawingPath: BlushPath = [];
   private _activePointerId: number | null = null;
 
   private _renderCallback: FrameRequestCallback;
@@ -98,6 +98,7 @@ export class TegakiCanvas extends Subject {
   private _undoStack: Stack<HistoryNode> = new Stack();
   private _redoStack: Stack<HistoryNode> = new Stack();
 
+  private _strokeManager: StrokeManager = new StrokeManager();
   private _spoitContext: CanvasRenderingContext2D;
 
   constructor(init: CanvasInit) {
@@ -316,10 +317,14 @@ export class TegakiCanvas extends Subject {
    */
   renderCursor() {
     this._needsRenderCursor = false;
-    
+
     const ctx = this.cursorContext;
-    // Render cursor
     ctx.clearRect(0, 0, this.cursorOverlay.width, this.cursorOverlay.height);
+    
+    if (! this._isMouseEnter) {
+      return;
+    }
+    // Render cursor
     if (this._state.subTool == "none" && (this._isMouseEnter || this._isDrawing)) {
       const toolSize = this.toolSize;
       const offset = toolSize%2 == 0 ? 0 : 0.5;
@@ -410,7 +415,9 @@ export class TegakiCanvas extends Subject {
     offCtx.drawImage(this._image.canvas, 0, 0);
     
     // Render current drawing path
-    drawPath(offCtx, {color: this.toolColor, size: this.toolSize}, this._drawingPath);
+    if (this._isDrawing) {
+      drawPath(offCtx, {color: this.toolColor.copy(), size: this.toolSize}, this._strokeManager.path);
+    }
 
     // Render offscreen to canvas
     this.context.save();
@@ -515,6 +522,10 @@ export class TegakiCanvas extends Subject {
       this.notify("change-sub-tool", subTool);
       this.requestRender();
     });
+    
+    this._strokeManager.addObserver(this, "update", () => {
+      this.requestRender();
+    });
 
     // Clear canvas
     this._image.context.fillStyle = this._state.backgroundColor.css();
@@ -595,8 +606,7 @@ export class TegakiCanvas extends Subject {
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
-    this._drawingPath.push({x: position.x, y: position.y, time: Date.now()});
-    
+    this._strokeManager.start(position.x, position.y);
     this.requestRender();
   }
 
@@ -611,7 +621,7 @@ export class TegakiCanvas extends Subject {
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
-    this._drawingPath.push({x: position.x, y: position.y, time: Date.now()});
+    this._strokeManager.move(position.x, position.y);
     this.requestRender();
   }
 
@@ -620,12 +630,13 @@ export class TegakiCanvas extends Subject {
       return;
     }
 
-    if (this._drawingPath.length == 0) {
+    if (! this._strokeManager.isActive) {
       return;
     }
     
+    this._strokeManager.finish();
     const pathRect = Rect.intersection(
-      getPathBoundingRect(this._drawingPath, this.toolSize, 1),
+      getPathBoundingRect(this._strokeManager.path, this.toolSize, 1),
       new Rect(0, 0, this.innerWidth, this.innerHeight)
     );
     let undo: CanvasAction;
@@ -642,13 +653,12 @@ export class TegakiCanvas extends Subject {
     const action = new CanvasActionDrawPath(
       this, {
         size: this.toolSize,
-        color: this.toolColor,
-      }, this._drawingPath
+        color: this.toolColor.copy(),
+      }, this._strokeManager.path
     );
     
     this.pushAction(new HistoryNode(action, undo));
     this._isDrawing = false;
-    this._drawingPath.length = 0;
   }
 
   /**
@@ -708,7 +718,6 @@ export class TegakiCanvas extends Subject {
       return;
     }
     const node = this._redoStack.pop();
-    console.log(node);
     node.action.exec();
     this._undoStack.push(node);
     this.requestRender();
