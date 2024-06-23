@@ -312,6 +312,9 @@ export class TegakiCanvas extends Subject {
     this._needsRenderCursor = true;
     requestAnimationFrame(this._renderCursorCallback);
   }
+
+  // カーソルの描画領域
+  private _cursorRect = new Rect(0, 0, 0, 0);
   /**
    * カーソル描画処理
    */
@@ -319,9 +322,13 @@ export class TegakiCanvas extends Subject {
     this._needsRenderCursor = false;
 
     const ctx = this.cursorContext;
-    ctx.clearRect(0, 0, this.cursorOverlay.width, this.cursorOverlay.height);
+    ctx.clearRect(
+      this._cursorRect.x, this._cursorRect.y,
+      this._cursorRect.width, this._cursorRect.height
+    );
     
     if (! this._isMouseEnter) {
+      this._cursorRect.width = 0;
       return;
     }
     // Render cursor
@@ -380,6 +387,8 @@ export class TegakiCanvas extends Subject {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(this.canvas, cl, ct, cw, ch, cl, ct, cw, ch);
       ctx.restore();
+      
+      this._cursorRect.set4f(cl, ct, cw, ch);
     }
   }
 
