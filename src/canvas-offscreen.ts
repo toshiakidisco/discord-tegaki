@@ -14,8 +14,6 @@ export class Offscreen {
       throw new Error("Failed to get OffscreenCanvasRenderingContext2D");
     }
     this.context = ctx;
-    this.context.lineCap = "round";
-    this.context.lineJoin = "round";
   }
 
   copy() {
