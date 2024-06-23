@@ -3,8 +3,11 @@
 Discord上に、生まれたばかりの掲示板っぽく使えるお絵かき機能を追加します。
 Google Chrome, Edgeで動作確認済み。
 
-Chrome ウェブストア (v1.1.0)
-https://chromewebstore.google.com/detail/discotegaki/eiaogpnffnhfkddeenblefkjbijlflhd
+- Chrome ウェブストア (v1.1.0)
+  - https://chromewebstore.google.com/detail/discotegaki/eiaogpnffnhfkddeenblefkjbijlflhd
+
+- Webアプリ版
+  - https://toshiakidisco.github.io/discord-tegaki/
 
 不具合修正・機能追加が発生した場合、ストアへの反映には時間がかかるため、先行してGitHubリポジトリのリリースに公開していきます。
  (野良アプリとしてのインストールになります。ご了承ください。)
