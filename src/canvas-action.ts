@@ -5,11 +5,11 @@ import ObjectPool from "./object-pool";
 import { Rect } from "./rect";
 import TegakiCanvas from "./tegaki-canvas";
 
-export type BlushPath = {x: number; y: number; time: number}[];
+export type BlushPath = {x: number; y: number;}[];
 
 export type BlushState = {
   size: number;
-  readonly color: Color.Immutable;
+  readonly color: Color;
 }
 
 const pool = ObjectPool.sharedPoolFor(Offscreen);
