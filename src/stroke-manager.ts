@@ -82,7 +82,6 @@ export class StrokeManager extends Subject{
   }
 
   finish() {
-    console.log(this._samples);
     if (this._sx != this._px || this._sy != this._py) {
       this._path.push({x: this._px, y: this._py});
     }
