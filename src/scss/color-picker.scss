@@ -1,23 +1,10 @@
 
 .disco-tegaki {
-  .color-picker, .size-selector {
-    position: absolute;
-    z-index: 101;
-    background: rgb(255, 255, 238);
-    border-radius: 8px;
-    padding: 8px;
-    display: none;
-    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
 
-    > ul > li {
-      display: flex;
-      align-items: center;
-    }
-  }
-
-  .color-picker > .content {
+  .color-picker .contents > .wrap {
     display: flex;
   }
+
   .color-picker {
     .area-palette {
       margin-right: 8px;
@@ -50,7 +37,7 @@
         width: 123px;
       }
       input[type=number] {
-        width: 24px;
+        width: 30px;
         text-align: right;
       }
     }
@@ -75,5 +62,20 @@
     min-height: 1px;
     background-color: #000;
     vertical-align: middle;
+  }
+  .size-selector .contents li {
+    display: flex;
+    align-items: center;
+
+    span {
+      width: 3em;
+    }
+    input[type=range] {
+      width: 120px;
+    }
+    input[type=number] {
+      width: 30px;
+      text-align: right;
+    }
   }
 }

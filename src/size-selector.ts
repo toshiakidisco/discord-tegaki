@@ -1,35 +1,30 @@
 import { Outlets, adjustPosition, parseHtml } from "./dom";
-import Subject from "./subject";
+import { clamp } from "./funcs";
+import Panel from "./panel";
 
 const VALUE_MIN = 1;
 const VALUE_MAX =20;
 
-export class SizeSelector extends Subject {
-  readonly element: HTMLDivElement;
+export class SizeSelector extends Panel {
+  readonly contents: HTMLElement;
   private _outlets: Outlets;
   private _value: number;
 
-  private _blurCallback: (ev: Event) => void;
-
   constructor(root: HTMLElement, value: number) {
-    super();
+    super(root, "size-selector");
     this._value = value;
     this._outlets = {};
-    this.element = parseHtml(`
-      <div class="size-selector" name="root" tabindex="-1">
-        <ul>
-          <li class="row-preview"><div class="preview" name="preview"></div></li>
-          <li><span>太さ: </span><input type="range" name="slider" min="${VALUE_MIN}" max="${VALUE_MAX}"><input type="number" name="field" min="${VALUE_MIN}" max="${VALUE_MAX}"></li>
-        </ul>
-      </div>
-    `, this, this._outlets) as HTMLDivElement;
-    root.appendChild(this.element);
+    this.contents = parseHtml(`
+      <ul>
+        <li class="row-preview"><div class="preview" name="preview"></div></li>
+        <li><span>太さ: </span><input type="range" name="slider" min="${VALUE_MIN}" max="${VALUE_MAX}"><input type="number" name="field" min="${VALUE_MIN}" max="${VALUE_MAX}"></li>
+      </ul>
+    `, this, this._outlets);
+    this.setContents(this.contents);
 
-    this._blurCallback = (ev: Event) => {
-      if (!isChildOf(ev.target as Element, this.element)) {
-        this.close();
-      }
-    };
+    this.hasTitleBar = false;
+    this.hasCloseButton = false;
+    this.autoClose = true;
 
     this.init();
     this.render();
@@ -44,26 +39,7 @@ export class SizeSelector extends Subject {
     this._outlets["preview"].style.height = `${this._value}px`;
   }
 
-  open(x: number, y: number) {
-    const root = this.element;
-    root.style.left = `${x}px`;
-    root.style.top = `${y}px`;
-    root.style.display = "block";
-    root.focus();
-    adjustPosition(root);
-    
-    window.addEventListener("focusin", this._blurCallback);
-  }
-
-  close() {
-    this._outlets["root"].style.display = "none";
-    window.removeEventListener("focusin", this._blurCallback);
-  }
-
   init() {
-    this._outlets["root"].addEventListener("keydown", (ev) => {
-    });
-
     for (const type of ["slider", "field"]) {
       const elem = this._outlets[type] as HTMLInputElement;
       
@@ -99,26 +75,6 @@ export class SizeSelector extends Subject {
   get value(): number {
     return this._value;
   }
-}
-
-function clamp(value: number, min: number, max: number) {
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return value;
-}
-
-function isChildOf(child: Element | null, parent: Element) {
-  while (child != null) {
-    if (child == parent) {
-      return true;
-    }
-    child = child.parentElement;
-  }
-  return false;
 }
 
 export default SizeSelector;

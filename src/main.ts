@@ -8,13 +8,14 @@ import Color from "./color";
 import ColorPicker from "./color-picker";
 import SizeSelector from "./size-selector";
 import Selector from "./selector";
-import { clamp, isRunnningOnExtension } from "./tools";
+import { clamp, isRunnningOnExtension } from "./funcs";
 import defaultPalette from "./default-palette";
 
 import manifest from "../manifest.json";
 import { getAssetUrl } from "./asset";
 
 import "./scss/main.scss";
+import PanelLayer from "./panel-layer";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -62,6 +63,7 @@ class DiscordTegaki {
   private _paletteForeColor: ColorPicker;
   private _paletteBackgroundColor: ColorPicker;
   private _palettePenSize: SizeSelector;
+  private _panelLayer: PanelLayer;
 
   private _root: HTMLElement;
   private _window: HTMLElement;
@@ -100,6 +102,7 @@ class DiscordTegaki {
     this._paletteBackgroundColor = new ColorPicker(this._root);
     this._paletteBackgroundColor.setPalette(defaultPalette);
     this._palettePenSize = new SizeSelector(this._root, this._state.penSize.value);
+    this._panelLayer = new PanelLayer(this._root, this._canvas);
 
     this.resetStatus();
     
@@ -313,6 +316,7 @@ class DiscordTegaki {
       this._outlets["backgroundColor"].style.backgroundColor = value.css();
       this._canvas.state.backgroundColor.set(value);
       this._paletteBackgroundColor.set(value);
+      this._canvas.requestRender();
     });
     this._state.foreColor.sync();
     this._state.backgroundColor.sync();
@@ -524,7 +528,7 @@ class DiscordTegaki {
   }
 
   onClickClear(ev: Event) {
-    this._canvas.fillWithBackgroundColor();
+    this._canvas.clear();
   }
 
   onClickFill(ev: Event) {
@@ -546,6 +550,11 @@ class DiscordTegaki {
 
   onClickRedo(ev: Event) {
     this._canvas.redo();
+  }
+
+  onClickLayer(ev: MouseEvent) {
+    const rect = this._window.getBoundingClientRect();
+    this._panelLayer.toggle(rect.right + 1, rect.top);
   }
 
   onBlur(ev: Event) {
@@ -627,13 +636,13 @@ class DiscordTegaki {
       win.style.left = "0";
     }
     else if (rect.right > window.innerWidth) {
-      win.style.left = `${window.innerWidth - win.clientWidth}px`;
+      win.style.left = `${window.innerWidth - rect.width}px`;
     }
     if (rect.y < 0) {
       win.style.top = "0";
     }
     else if (rect.bottom > window.innerHeight) {
-      win.style.top = `${window.innerHeight - win.clientHeight}px`;
+      win.style.top = `${window.innerHeight - rect.height}px`;
     }
   }
 

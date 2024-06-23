@@ -4,12 +4,14 @@ import Color from "./color";
 import ObjectPool from "./object-pool";
 import { Rect } from "./rect";
 import TegakiCanvas from "./tegaki-canvas";
+import { Layer } from "./canvas-layer";
 
 export type BlushPath = {x: number; y: number;}[];
 
 export type BlushState = {
   size: number;
   readonly color: Color;
+  composite: GlobalCompositeOperation;
 }
 
 const pool = ObjectPool.sharedPoolFor(Offscreen);
@@ -30,8 +32,76 @@ export abstract class CanvasAction {
 /**
  * 操作: Null
  */
-export class CanvasActionNone extends CanvasAction { exec(): void;
+export class CanvasActionNone extends CanvasAction {
   exec(): void {};
+}
+
+/**
+ * 操作: レイヤー追加
+ */
+export class CanvasActionAddLayer extends CanvasAction {
+  #position: number;
+  #layer: Layer;
+  constructor (canvas: TegakiCanvas, position: number, layer: Layer){
+    super(canvas);
+    this.#position = position;
+    this.#layer = layer;
+  }
+  
+  exec(): void {
+    this.canvas.layers.splice(this.#position, 0, this.#layer);
+    this.canvas.notify("add-layer", {
+      layer: this.#layer,
+      position: this.#position,
+    });
+    this.canvas.selectLayerAt(this.#position);
+  };
+}
+
+/**
+ * 操作: レイヤー削除
+ */
+export class CanvasActionDeleteLayer extends CanvasAction {
+  #position: number;
+  constructor (canvas: TegakiCanvas, position: number){
+    super(canvas);
+    this.#position = position;
+  }
+  
+  exec(): void {
+    const deletedLayer = this.canvas.layers.splice(this.#position, 1)[0];
+    this.canvas.notify("delete-layer", {
+      layer: deletedLayer,
+      position: this.#position,
+    });
+    this.canvas.selectLayerAt(Math.max(0, this.#position - 1));
+  }
+}
+
+/**
+ * 操作: レイヤー移動
+ */
+export class CanvasActionMoveLayer extends CanvasAction {
+  #position: number;
+  #newPosition: number;
+
+  constructor (canvas: TegakiCanvas, position: number, newPosition: number){
+    super(canvas);
+    this.#position = position;
+    this.#newPosition = newPosition;
+  }
+  
+  exec(): void {
+    const layer = this.canvas.layers.splice(this.#position, 1)[0];
+    this.canvas.layers.splice(this.#newPosition, 0, layer);
+
+    this.canvas.notify("move-layer", {
+      layer: layer,
+      from: this.#position,
+      to: this.#newPosition,
+    });
+    this.canvas.selectLayer(layer);
+  }
 }
 
 
@@ -39,28 +109,30 @@ export class CanvasActionNone extends CanvasAction { exec(): void;
  * 操作: 画像描画
  */
 export class CanvasActionDrawImage extends CanvasAction {
+  private _layer: Layer;
   private _image: Offscreen;
   private _dx: number;
   private _dy: number;
 
   constructor(
-    canvas: TegakiCanvas,
+    canvas: TegakiCanvas, layer: Layer,
     image: Offscreen, sx: number, sy: number, sw: number, sh: number,
     dx: number, dy: number
   ) {
     super(canvas);
+    this._layer = layer;
     this._image = pool.get();
     this._image.width = sw;
     this._image.height = sh;
     this._image.context.drawImage(image.canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-
     this._dx = dx;
     this._dy = dy;
   }
 
   exec(): void {
-    const layer = this.canvas.image;
-    layer.context.drawImage(this._image.canvas, this._dx, this._dy);
+    this._layer.context.clearRect(this._dx, this._dy, this._image.width, this._image.height);
+    this._layer.context.drawImage(this._image.canvas, this._dx, this._dy);
+    this._layer.notify("update");
   }
 
   dispose(): void {
@@ -87,14 +159,18 @@ export class CanvasActionResize extends CanvasAction {
   }
 
   exec(): void {
-    const layer = this.canvas.image;
-    const image = pool.get().set(layer);
-    layer.width = this._width*this.canvas.innerScale;
-    layer.height = this._height*this.canvas.innerScale;
-    layer.context.fillStyle = this._backgroundColor.css();
-    layer.context.fillRect(0, 0, layer.width, layer.height);
-    layer.context.drawImage(image.canvas, 0, 0);
+    const image = pool.get();
+    for (let layer of this.canvas.layers) {
+      image.set(layer);
+      layer.width = this._width*this.canvas.innerScale;
+      layer.height = this._height*this.canvas.innerScale;
+      layer.clear();
+      layer.context.drawImage(image.canvas, 0, 0);
+      layer.notify("update");
+    }
     pool.return(image);
+
+    this.canvas.setSize(this._width, this._height);
     this.canvas.updateCanvasSize();
   }
 }
@@ -103,19 +179,21 @@ export class CanvasActionResize extends CanvasAction {
  * 操作: ブラシ描画
  */
 export class CanvasActionDrawPath extends CanvasAction {
+  private _layer: Layer;
   private _blush: BlushState;
   private _path: BlushPath;
 
-  constructor(canvas: TegakiCanvas, blush: BlushState, path: BlushPath) {
+  constructor(canvas: TegakiCanvas, layer: Layer, blush: BlushState, path: BlushPath) {
     super(canvas);
+    this._layer = layer;
     this._blush = blush;
     this._path = Array.from(path);    
   }
 
   exec() {
-    const ctx = this.canvas.image.context;
- 
+    const ctx = this._layer.context;
     drawPath(ctx, this._blush, this._path, this.canvas.innerScale);
+    this._layer.notify("update");
   }
 }
 
@@ -123,26 +201,33 @@ export class CanvasActionDrawPath extends CanvasAction {
  * 操作: リサイズ取り消し
  */
 export class CanvasActionUndoResize extends CanvasAction {
-  _layers: Offscreen[];
+  _layerImages: Offscreen[];
   _width: number;
   _height: number;
 
   constructor(canvas: TegakiCanvas) {
     super(canvas);
-    this._layers = [pool.get().set(canvas.image)];
+    this._layerImages = [];
+    for (const layer of canvas.layers) {
+      this._layerImages.push(pool.get().set(layer));
+    }
     this._width = canvas.width;
     this._height = canvas.height;
   }
 
   exec(): void {
-    const layer = this.canvas.image;
-    layer.set(this._layers[0]);
+    for (let i = 0; i < this.canvas.layers.length; i++) {
+      const layer = this.canvas.layers[i];
+      layer.set(this._layerImages[i]);
+      layer.notify("update");
+    }
+    this.canvas.setSize(this._width, this._height);
     this.canvas.updateCanvasSize();
   }
 
   dispose(): void {
-    for (let layer of this._layers) {
-      pool.return(layer);
+    for (let image of this._layerImages) {
+      pool.return(image);
     }
   }
 }
@@ -152,15 +237,16 @@ export class CanvasActionUndoResize extends CanvasAction {
  */
 export class CanvasActionFlip extends CanvasAction {
   exec() {
-    const layer = this.canvas.image;
-
-    const image = pool.get().set(layer);
-    layer.clear();
-    layer.context.save();
-    layer.context.scale(-1, 1);
-    layer.context.drawImage(image.canvas, - layer.width, 0);
-    layer.context.restore();
-
+    const image = pool.get();
+    for (const layer of this.canvas.layers) {
+      image.set(layer);
+      layer.clear();
+      layer.context.save();
+      layer.context.scale(-1, 1);
+      layer.context.drawImage(image.canvas, - layer.width, 0);
+      layer.context.restore();
+      layer.notify("update");
+    }
     pool.return(image);
   }
 }
@@ -169,17 +255,20 @@ export class CanvasActionFlip extends CanvasAction {
  * 操作: 塗りつぶし
  */
 export class CanvasActionFill extends CanvasAction {
+  private _layer: Layer;
   private readonly _color: Color.Immutable;
 
-  constructor(canvas: TegakiCanvas, color: Color.Immutable) {
+  constructor(canvas: TegakiCanvas, layer: Layer, color: Color.Immutable) {
     super(canvas);
+    this._layer = layer;
     this._color = color.copy();
   }
 
   exec() {
-    const layer = this.canvas.image;
+    const layer = this._layer;
     layer.context.fillStyle = this._color.css();
     layer.context.fillRect(0, 0, layer.width, layer.height);
+    layer.notify("update");
   }
 }
 
@@ -187,16 +276,16 @@ export class CanvasActionFill extends CanvasAction {
  * 操作: 消去
  */
 export class CanvasActionClear extends CanvasAction {
-  private readonly _color: Color.Immutable;
+  private _layer: Layer;
 
-  constructor(canvas: TegakiCanvas, color: Color.Immutable) {
+  constructor(canvas: TegakiCanvas, layer: Layer) {
     super(canvas);
-    this._color = color.copy();
+    this._layer = layer;
   }
 
   exec() {
-    const layer = this.canvas.image;
-    layer.clear();
+    this._layer.clear();
+    this._layer.notify("update");
   }
 }
 
@@ -210,6 +299,7 @@ export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path:
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = blush.color.css();
+  ctx.globalCompositeOperation = blush.composite;
   ctx.lineWidth = blush.size;
 
   ctx.beginPath();

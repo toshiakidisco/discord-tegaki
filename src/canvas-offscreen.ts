@@ -25,8 +25,13 @@ export class Offscreen {
   }
 
   set(offscreen: Offscreen) {
-    this.canvas.width = offscreen.width;
-    this.canvas.height = offscreen.height;
+    if (this.canvas.width == offscreen.width && this.canvas.height == offscreen.height) {
+      this.clear();
+    }
+    else {
+      this.canvas.width = offscreen.width;
+      this.canvas.height = offscreen.height;
+    }
     this.context.drawImage(offscreen.canvas, 0, 0);
     return this;
   }
@@ -43,6 +48,11 @@ export class Offscreen {
   }
   set height(value: number) {
     this.canvas.height = value;
+  }
+
+  setSize(width: number, height: number) {
+    this.canvas.width = width;
+    this.canvas.height = height;
   }
 
   clear() {
