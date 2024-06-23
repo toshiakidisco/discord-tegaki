@@ -116,8 +116,8 @@ export class ColorPicker extends Subject {
     root.style.left = `${x}px`;
     root.style.top = `${y}px`;
     root.style.display = "block";
-    root.focus();
     adjustPosition(root);
+    root.focus();
     
     window.addEventListener("focusin", this._blurCallback);
   }

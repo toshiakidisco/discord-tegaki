@@ -99,3 +99,18 @@ export function adjustPosition(elem: HTMLElement) {
   }
 }
 
+/**
+ * 要素 child が要素 parent 以下の子要素であるか (child == prentの場合もtrue)
+ * @param child 
+ * @param parent 
+ * @returns 
+ */
+export function isChildOf(child: Element | null, parent: Element) {
+  while (child != null) {
+    if (child == parent) {
+      return true;
+    }
+    child = child.parentElement;
+  }
+  return false;
+}

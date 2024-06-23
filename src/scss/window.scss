@@ -1,4 +1,3 @@
-
 /* Variables */
 .disco-tegaki {
   --tegaki-canvas-main-color: rgb(128, 0, 0); 
@@ -8,6 +7,13 @@
   --tegaki-canvas-canvas-margin-right: 4px;
   --tegaki-canvas-tool-size: 24px;
   --tegaki-canvas-width-without-canvas: calc(var(--tegaki-canvas-padding-side)*2 + var(--tegaki-canvas-canvas-margin-right) + var(--tegaki-canvas-tool-size)*2);
+  
+  --button-hover-color: rgb(243, 209, 189);
+  --button-active-color: rgb(230, 189, 166);
+
+  --window-zindex: 100;
+  --panel-zindex: 101;
+  --panel-focused-zindex: 105;
 }
 
 .disco-tegaki.root {
@@ -21,6 +27,28 @@
   -moz-user-select: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.disco-tegaki {
+  button {
+    color: var(--tegaki-canvas-main-color);
+    background-color: transparent;
+    border: 1px solid var(--tegaki-canvas-main-color);
+  }
+  button:hover {
+    background-color: var(--button-hover-color);
+  }
+  button:active {
+    background-color: var(--button-active-color);
+  }
+  button img {
+    -webkit-user-drag: none;
+  }
+
+  .bg-trasnparent {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAACXBIWXMAAAsSAAALEgHS3X78AAAAG3RFWHRTb2Z0d2FyZQBDZWxzeXMgU3R1ZGlvIFRvb2zBp+F8AAAAJUlEQVQYlWM8c+bMfwYkYGxsjMxlYKSDgv///6MoOHv2LL0VAAB6JimFBtCqkwAAAABJRU5ErkJggg==');
+    background-repeat: repeat;
+  }
 }
 
 /* ウィンドウ表示ボタン */
@@ -62,10 +90,10 @@
     border: 1px solid var(--tegaki-canvas-main-color);
   }
   button:hover {
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: var(--button-hover-color);
   }
   button:active {
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: var(--button-active-color);
   }
 
   .tools {
@@ -96,6 +124,10 @@
     }
     > *:disabled {
       filter: opacity(0.3);
+    }
+    
+    > *.separator {
+      width: 15px;
     }
   }
 
@@ -191,8 +223,9 @@
   cursor: nwse-resize;
 }
 
-.disco-tegaki canvas {
+.disco-tegaki .tegaki-canvas canvas {
   cursor: none;
+  display: block;
   overscroll-behavior-x: none;
   touch-action: none;
   max-width: calc(100vw - var(--tegaki-canvas-width-without-canvas));

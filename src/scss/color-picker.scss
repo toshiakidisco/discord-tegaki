@@ -2,7 +2,7 @@
 .disco-tegaki {
   .color-picker, .size-selector {
     position: absolute;
-    z-index: 101;
+    z-index: var(--panel-zindex);
     background: rgb(255, 255, 238);
     border-radius: 8px;
     padding: 8px;
@@ -12,6 +12,10 @@
     > ul > li {
       display: flex;
       align-items: center;
+    }
+
+    &:focus {
+      z-index: var(--panel-focused-zindex);
     }
   }
 
