@@ -8,7 +8,7 @@ import Color from "./color";
 import ColorPicker from "./color-picker";
 import SizeSelector from "./size-selector";
 import Selector from "./selector";
-import { clamp, isRunnningOnExtension } from "./tools";
+import { clamp, isRunnningOnExtension } from "./funcs";
 import defaultPalette from "./default-palette";
 
 import manifest from "../manifest.json";
