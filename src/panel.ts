@@ -22,9 +22,9 @@ export class Panel extends Subject {
     const outlets: Outlets = {};
     const element = parseHtml(`
       <div class="panel" style="display: none;" name="root" tabindex="-1">
-        <div class="titlebar">
+        <div name="titlebar" class="titlebar">
           <div name="titlebar-contents" class="area-titlebar-contents"></div>
-          <div name="titlebar" class="area-title"><span name="title"></span></div>
+          <div name="titlebar-title" class="area-title"><span name="title"></span></div>
           <div name="button-close" class="area-button-close"><button data-on-click="onClickClose"><img src="[asset/button-close.png]"></button></div>
         </div>
         <div name="contents" class="contents"></div>
@@ -49,15 +49,10 @@ export class Panel extends Subject {
       this.#focused = focused;
       
       if (this.#focused) {
-        this.element.setAttribute("data-focused", "");
+        this.#onFocus(ev);
       }
       else {
-        this.element.removeAttribute("data-focused");
-
-        this.onBlur(ev);
-        if (this.autoClose) {
-          this.close();
-        }
+        this.#onBlur(ev);
       }
     };
 
@@ -107,6 +102,17 @@ export class Panel extends Subject {
     const outlets = this.#outlets;
     const button = outlets["button-close"];
     button.style.display = value ? "block" : "none";
+  }
+
+  #hasTitlebar = true;
+  get hasTitleBar(): boolean {
+    return this.#hasCloseButton;
+  }
+  set hasTitleBar(value: boolean) {
+    this.#hasTitlebar = value;
+    const outlets = this.#outlets;
+    const titlebar = outlets["titlebar"];
+    titlebar.style.display = value ? "block" : "none";
   }
 
   get visible(): boolean {
@@ -182,12 +188,19 @@ export class Panel extends Subject {
     const outlets = this.#outlets;
     const win = this.element;
 
+    win.addEventListener("focus", (ev: Event) => {
+      if (! this.#focused) {
+        this.#focused = true;
+        this.#onFocus(ev);
+      }
+    });
+
     let _activePointer: number | null = null;
     // タイトルバードラッグ処理
     {
       let _dragStartPosition = {x: 0, y: 0};
       let _pointerOffset = {x: 0, y: 0};
-      const titlebar = outlets["titlebar"];
+      const titlebar = outlets["titlebar-title"];
       titlebar.addEventListener("pointerdown", (ev: PointerEvent) => {
         if (_activePointer != null) {
           return;
@@ -225,6 +238,19 @@ export class Panel extends Subject {
       });
     }
 
+  }
+
+  #onFocus(ev: Event) {
+    this.element.setAttribute("data-focused", "");
+  }
+
+  #onBlur(ev: Event) {
+    this.element.removeAttribute("data-focused");
+
+    this.onBlur(ev);
+    if (this.autoClose) {
+      this.close();
+    }
   }
 }
 
