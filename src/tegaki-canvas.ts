@@ -611,13 +611,8 @@ export class TegakiCanvas extends Subject {
       const imageData = this._spoitContext.getImageData(0, 0, 1, 1);
       const data = imageData.data;
       const color = new Color(data[0], data[1], data[2]);
-      if (this._state.penMode == "pen") {
-        this._state.foreColor.set(color);
-      }
-      else {
-        this._state.backgroundColor.set(color);
-      }
-      this.notify("spoit", {tool: this._state.penMode, color: color});
+      this._state.foreColor.set(color);
+      this.notify("spoit", {tool: "pen", color: color});
     }
     catch {
     }
