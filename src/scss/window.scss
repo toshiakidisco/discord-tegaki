@@ -56,19 +56,24 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  z-index: 5000;
+  z-index: var(--window-zindex, 100);
   font-size: 16px;
 }
 .disco-tegaki.button-open button {
   cursor: pointer;
   padding: 0 8px;
   border-radius: 4px;
+  border: none;
 
   color: var(--tegaki-canvas-main-color);
   background-color: var(--tegaki-canvas-sub-color);
-}
-.disco-tegaki.button-open button:hover {
-  background-color: rgb(233, 209, 200);
+
+  &:hover {
+    background-color: var(--button-hover-color);
+  }
+  &:active {
+    background-color: var(--button-active-color);
+  }
 }
 
 .disco-tegaki .window {
