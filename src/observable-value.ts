@@ -1,9 +1,7 @@
 import Color from "./color";
 import Subject from "./subject";
 
-type Primitive = string | number | boolean;
-
-export class ObservableValue<T extends Primitive> extends Subject {
+export class ObservableValue<T> extends Subject {
   private _value: T;
 
   constructor(value: T) {
