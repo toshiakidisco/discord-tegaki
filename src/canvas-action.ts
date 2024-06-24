@@ -5,6 +5,7 @@ import ObjectPool from "./object-pool";
 import { Rect } from "./rect";
 import TegakiCanvas from "./tegaki-canvas";
 import { Layer } from "./canvas-layer";
+import TegakiCanvasDocument from "./canvas-document";
 
 export type BlushPath = {x: number; y: number;}[];
 
@@ -34,6 +35,42 @@ export abstract class CanvasAction {
  */
 export class CanvasActionNone extends CanvasAction {
   exec(): void {};
+}
+
+/**
+ * 操作: ドキュメント変更
+ */
+export class CanvasActionChangeDocument extends CanvasAction {
+  #document: TegakiCanvasDocument;
+  constructor (canvas: TegakiCanvas, doc: TegakiCanvasDocument){
+    super(canvas);
+    this.#document = doc;
+  }
+  
+  exec(): void {
+    this.canvas.layers.length = 0;
+    this.canvas.layers.push(...this.#document.layers);
+    this.canvas.state.backgroundColor.set(this.#document.backgroundColor);
+    this.canvas.setSize(this.#document.width, this.#document.height);
+    this.canvas.updateCanvasSize();
+    this.canvas.notify("change-document", this.#document);
+    this.canvas.selectLayerAt(this.#document.layers.length - 1);
+  };
+}
+
+/**
+ * 操作: 背景色変更
+ */
+export class CanvasActionChangeBackgroundColor extends CanvasAction {
+  #color: Color;
+  constructor (canvas: TegakiCanvas, color: Color.Immutable){
+    super(canvas);
+    this.#color = color.copy();
+  }
+  
+  exec(): void {
+    this.canvas.state.backgroundColor.set(this.#color);
+  };
 }
 
 /**
@@ -146,16 +183,13 @@ export class CanvasActionDrawImage extends CanvasAction {
 export class CanvasActionResize extends CanvasAction {
   private _width: number;
   private _height: number;
-  private _backgroundColor: Color.Immutable;
 
   constructor(
     canvas: TegakiCanvas, width: number, height: number,
-    background: Color.Immutable = Color.transparent
   ) {
     super(canvas);
     this._width = width;
     this._height = height;
-    this._backgroundColor = background.copy();
   }
 
   exec(): void {

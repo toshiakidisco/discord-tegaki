@@ -1,4 +1,5 @@
 import { off } from "process";
+import Color from "./color";
 
 export class Offscreen {
   readonly canvas: HTMLCanvasElement;
@@ -55,6 +56,11 @@ export class Offscreen {
 
   clear() {
     this.context.clearRect(0, 0, this.width, this.height);
+  }
+
+  fill(color: Color.Immutable) {
+    this.context.fillStyle = color.css();
+    this.context.fillRect(0, 0, this.width, this.height);
   }
 }
 

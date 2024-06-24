@@ -7,10 +7,12 @@ import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
-import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect, CanvasActionDeleteLayer, CanvasActionAddLayer, CanvasActionClear, CanvasActionMoveLayer } from "./canvas-action";
+import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect, CanvasActionDeleteLayer, CanvasActionAddLayer, CanvasActionClear, CanvasActionMoveLayer, CanvasActionChangeDocument, CanvasActionChangeBackgroundColor } from "./canvas-action";
 import { Rect } from "./rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
+import TegakiCanvasDocument from "./canvas-document";
+import { ObservableColor } from "./observable-value";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -31,8 +33,8 @@ const toolCursors: {[tool: string]: {x: number; y: number;}} = {
 }
 
 class CanvasState extends Subject {
-  readonly foreColor: Color = new Color(128, 0, 0);
-  readonly backgroundColor: Color = new Color(240, 224, 214);
+  readonly foreColor: ObservableColor = new ObservableColor(128, 0, 0);
+  readonly backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
   penMode: PenMode = "pen";
   private _subTool: SubTool = "none";
   penSize: number = 4;
@@ -147,7 +149,7 @@ export class TegakiCanvas extends Subject {
     this.element.appendChild(this.cursorOverlay);
 
 
-    this._layers = [new Layer(this.innerWidth, this.innerHeight)];
+    this._layers = [];
     this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
     this._currentLayerOffscreen = new Offscreen(this.innerWidth, this.innerHeight);
 
@@ -266,7 +268,7 @@ export class TegakiCanvas extends Subject {
    */
   get toolColor(): Color.Immutable {
     if (this._state.penMode == "pen") {
-      return this._state.foreColor;
+      return this._state.foreColor.value;
     }
     else {
       return Color.black;
@@ -449,8 +451,7 @@ export class TegakiCanvas extends Subject {
       this._offscreen.height = this.innerHeight;
     }
 
-    offCtx.fillStyle = this._state.backgroundColor.css();
-    offCtx.fillRect(0, 0, this.width, this.height);
+    this._offscreen.fill(this._state.backgroundColor.value);
 
     // Render image
     offCtx.imageSmoothingEnabled = false;
@@ -475,6 +476,7 @@ export class TegakiCanvas extends Subject {
 
     // Render offscreen to canvas
     ctx.save();
+    ctx.clearRect(0, 0, this.width, this.height);
     ctx.scale(this._scale/this._innerScale, this._scale/this._innerScale);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
@@ -581,11 +583,11 @@ export class TegakiCanvas extends Subject {
       this.notify("change-current-layer");
     });
 
-    
     this._strokeManager.addObserver(this, "update", () => {
       this.requestRender();
     });
 
+    this.reset(this.width, this.height, this._state.backgroundColor.value, true);
     this.requestRender();
   }
 
@@ -640,6 +642,47 @@ export class TegakiCanvas extends Subject {
   // ============================================================
   // キャンバス操作
   // ============================================================
+
+  /**
+   * 新規キャンバス
+   */
+  reset(
+    width: number, height: number,
+    backgroundColor: Color.Immutable = Color.white,
+    resetHistory: boolean = false
+  ) {
+    const layer = new Layer(width * this.innerScale, height * this.innerScale);
+
+    const newDoc = new TegakiCanvasDocument(
+      width, height, [layer], backgroundColor
+    );
+    const action = new CanvasActionChangeDocument(this, newDoc);
+    if (resetHistory) {
+      const undo = new CanvasActionNone(this);
+      this.pushAction(new HistoryNode(action, undo));
+      this._undoStack.clear();
+      this.notify("update-history", this);
+    }
+    else {
+      const oldDoc = new TegakiCanvasDocument(
+        this.width, this.height,
+        this.layers, this._state.backgroundColor.value
+      );
+      const undo = new CanvasActionChangeDocument(this, oldDoc);
+      this.pushAction(new HistoryNode(action, undo));
+    }
+  }
+
+  changeBackgroundColor(color: Color.Immutable) {
+    const currentBgColor = this._state.backgroundColor.value;
+    if (color.equals(this._state.backgroundColor.value)) {
+      return;
+    }
+
+    const action = new CanvasActionChangeBackgroundColor(this, color);
+    const undo = new CanvasActionChangeBackgroundColor(this, currentBgColor);
+    this.pushAction(new HistoryNode(action, undo));
+  }
 
   // --------------------------------------------------
   // Layer
@@ -724,7 +767,7 @@ export class TegakiCanvas extends Subject {
    */
   fill(color?: Color.Immutable) {
     if (typeof color == "undefined") {
-      color = this._state.foreColor;
+      color = this._state.foreColor.value;
     }
     const layer = this.currentLayer;
     const undo = new CanvasActionDrawImage(
@@ -742,7 +785,7 @@ export class TegakiCanvas extends Subject {
    * @param pushAction 操作前にアンドゥ履歴に追加するか
    */
   fillWithBackgroundColor() {
-    this.fill(this._state.backgroundColor);
+    this.fill(this._state.backgroundColor.value);
   }
 
   /**
@@ -860,7 +903,7 @@ export class TegakiCanvas extends Subject {
     else {
       undo = new CanvasActionUndoResize(this);
     }
-    const action = new CanvasActionResize(this, width, height, this._state.backgroundColor);
+    const action = new CanvasActionResize(this, width, height);
     this.pushAction(new HistoryNode(action, undo));
   }
 
@@ -901,7 +944,7 @@ export class TegakiCanvas extends Subject {
     this.cursorOverlay.width = this._width*this._scale;
     this.cursorOverlay.height = this._height*this._scale;
     this.requestRender();
-    this.notify("size-changed", this);
+    this.notify("change-size", this);
   }
 
   /**
@@ -940,6 +983,39 @@ export class TegakiCanvas extends Subject {
 
     return {x, y};
   }
+}
+
+export interface TegakiCanvas {
+  addObserver(observer: Object, name: "update-history",
+    callback: () => void
+  ): void;
+  addObserver(observer: Object, name: "change-document",
+    callback: (doc: TegakiCanvasDocument) => void
+  ): void;
+  addObserver(observer: Object, name: "change-size",
+    callback: () => void
+  ): void;
+  addObserver(observer: Object, name: "change-sub-tool",
+    callback: (subTool: SubTool) => void
+  ): void;
+  addObserver(observer: Object, name: "update-history",
+    callback: () => void
+  ): void;
+  addObserver(observer: Object, name: "add-layer",
+    callback: (ev: {layer: Layer; position: number;}) => void
+  ): void;
+  addObserver(observer: Object, name: "delete-layer",
+    callback: (ev: {layer: Layer; position: number;}) => void
+  ): void;
+  addObserver(observer: Object, name: "move-layer",
+    callback: (ev: {layer: Layer; from: number; to: number;}) => void
+  ): void;
+  addObserver(observer: Object, name: "change-current-layer",
+    callback: (ev: {layer: Layer; position: number;}) => void
+  ): void;
+  addObserver(observer: Object, name: "spoit",
+    callback: (ev: {tool: PenMode, color: Color.Immutable}) => void
+  ): void;
 }
 
 export default TegakiCanvas;

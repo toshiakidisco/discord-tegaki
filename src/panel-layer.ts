@@ -22,7 +22,7 @@ class PanelLayerItem extends Subject {
     this.#outlets = {};
     this.element = parseHtml(`
       <li class="layer-item" data-on-click="onClick">
-        <canvas name="canvas" class="bg-trasnparent" width="${thumbnailWidth}" height="${thumbnailHeight}"></canvas>
+        <canvas name="canvas" class="bg-transparent-s" width="${thumbnailWidth}" height="${thumbnailHeight}"></canvas>
       </li>
     `, this, this.#outlets);
 
@@ -167,6 +167,21 @@ export class PanelLayer extends Panel {
         else {
           item.element.removeAttribute("data-active");
         }
+      }
+    });
+
+    canvas.addObserver(this, "change-document", (doc) => {
+      const layersElem = this.#outlets["layers"];
+      layersElem.innerHTML = "";
+      this.#items.length = 0;
+
+      for (let layer of doc.layers) {
+        const item = new PanelLayerItem(this, layer);
+        this.#items.push(item);
+        if (layer == currentLayer) {
+          item.element.setAttribute("data-active", "");
+        }
+        layersElem.appendChild(item.element);
       }
     });
   }

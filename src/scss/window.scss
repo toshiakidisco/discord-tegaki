@@ -45,8 +45,13 @@
     -webkit-user-drag: none;
   }
 
-  .bg-trasnparent {
-    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAACXBIWXMAAAsSAAALEgHS3X78AAAAG3RFWHRTb2Z0d2FyZQBDZWxzeXMgU3R1ZGlvIFRvb2zBp+F8AAAAJUlEQVQYlWM8c+bMfwYkYGxsjMxlYKSDgv///6MoOHv2LL0VAAB6JimFBtCqkwAAAABJRU5ErkJggg==');
+  .bg-transparent-s {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAAAAADhZOFXAAAAFklEQVR42mM4AwT/gYABDwNEgDh4GAASQDlhZyXAgAAAAABJRU5ErkJggg==');
+    background-repeat: repeat;
+  }
+
+  .bg-transparent-m {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAAAAAA6mKC9AAAAAXNSR0IArs4c6QAAABhJREFUeNpj+A8FZ6CAYYAEYAyYxAAJAAD0J+WB8+cu5gAAAABJRU5ErkJggg==');
     background-repeat: repeat;
   }
 }

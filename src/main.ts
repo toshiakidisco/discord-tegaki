@@ -306,19 +306,23 @@ class DiscordTegaki {
     });
     this._state.eraserSize.sync();
 
-    // Color
+    // Fore Color
     this._state.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
       this._canvas.state.foreColor.set(value);
       this._paletteForeColor.set(value);
     });
+    this._state.foreColor.sync();
+    // Background Color
     this._state.backgroundColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["backgroundColor"].style.backgroundColor = value.css();
-      this._canvas.state.backgroundColor.set(value);
+      this._canvas.changeBackgroundColor(value);
       this._paletteBackgroundColor.set(value);
       this._canvas.requestRender();
     });
-    this._state.foreColor.sync();
+    this._canvas.state.backgroundColor.addObserver(this, "change", (value) => {
+      this._state.backgroundColor.value = value;
+    });
     this._state.backgroundColor.sync();
     
     // Connect palette to ObservableValue
@@ -338,7 +342,7 @@ class DiscordTegaki {
     });
     
     // キャンバスサイズ更新後
-    this._canvas.addObserver(this, "size-changed", () => {
+    this._canvas.addObserver(this, "change-size", () => {
       this.resetStatus();
     })
     // サブツールアイコン更新語
@@ -426,12 +430,10 @@ class DiscordTegaki {
    */
   resetCanvas() {
     this._state.foreColor.value = canvasInitialState.foreColor;
-    this._state.backgroundColor.value = canvasInitialState.backgroundColor;
     this._state.penSize.value = canvasInitialState.penSize;
     this._state.eraserSize.value = canvasInitialState.eraserSize;
     this._state.penMode.value = "pen";
-    this._canvas.resize(canvasInitialState.width, canvasInitialState.height);
-    this._canvas.fillWithBackgroundColor();
+    this._canvas.reset(canvasInitialState.width, canvasInitialState.height, canvasInitialState.backgroundColor);
   }
 
   open(x?: number, y?: number) {
