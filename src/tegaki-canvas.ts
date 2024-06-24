@@ -6,6 +6,14 @@ import Subject from "./subject";
 import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
+import Offscreen from "./canvas-offscreen";
+import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect, CanvasActionDeleteLayer, CanvasActionAddLayer, CanvasActionClear, CanvasActionMoveLayer, CanvasActionChangeDocument, CanvasActionChangeBackgroundColor } from "./canvas-action";
+import { Rect } from "./rect";
+import StrokeManager from "./stroke-manager";
+import { Layer } from "./canvas-layer";
+import TegakiCanvasDocument from "./canvas-document";
+import { ObservableColor } from "./observable-value";
+import { CanvasTool, CanvasToolBlush } from "./canvas-tool";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -25,82 +33,42 @@ const toolCursors: {[tool: string]: {x: number; y: number;}} = {
   "spoit": {x: 1, y: 14},
 }
 
-class CanvasState extends Subject {
-  readonly foreColor: Color = new Color(128, 0, 0);
-  readonly backgroundColor: Color = new Color(240, 224, 214);
-  penMode: PenMode = "pen";
-  _subTool: SubTool = "none";
-  penSize: number = 4;
-  eraserSize: number = 4;
+const HISTORY_MAX = 20;
+class HistoryNode {
+  action: CanvasAction;
+  undo: CanvasAction;
 
-  constructor() {
-    super();
+  constructor(action: CanvasAction, undo: CanvasAction) {
+    this.action = action;
+    this.undo = undo;
   }
 
-  get subTool() {
-    return this._subTool;
+  dispose() {
+    this.action.dispose();
+    this.undo.dispose();
   }
-  set subTool(value: SubTool) {
-    if (this._subTool == value) {
-      return;
-    }
-    this._subTool = value;
-    this.notify("change-sub-tool", value);
-  }
-}
-
-class Offscreen {
-  readonly canvas: HTMLCanvasElement;
-  readonly context: CanvasRenderingContext2D;
-
-  constructor(width: number = 100, height: number = 100) {
-    this.canvas = document.createElement("canvas");
-    this.canvas.width = width;
-    this.canvas.height = height;
-
-    const ctx = this.canvas.getContext("2d");
-    if (ctx == null) {
-      throw new Error("Failed to get OffscreenCanvasRenderingContext2D");
-    }
-    this.context = ctx;
-    this.context.lineCap = "round";
-    this.context.lineJoin = "round";
-  }
-
-  copy() {
-    const copy = new Offscreen(this.width, this.height);
-    copy.context.drawImage(this.canvas, 0, 0);
-    return copy;
-  }
-
-  get width() {
-    return this.canvas.width;
-  }
-  set width(value: number) {
-    this.canvas.width = value;
-  }
-
-  get height() {
-    return this.canvas.height;
-  }
-  set height(value: number) {
-    this.canvas.height = value;
-  }
-}
-
-const HISTORY_MAX = 10;
+};
 
 export class TegakiCanvas extends Subject {
+  readonly element: HTMLDivElement;
+  readonly cursorOverlay: HTMLCanvasElement;
+  readonly cursorContext: CanvasRenderingContext2D;
   readonly canvas: HTMLCanvasElement;
   readonly context: CanvasRenderingContext2D;
-  private _state: CanvasState;
+
+  // 選択中のツール
+  private _currentTool: CanvasTool = CanvasTool.none;
+  // 描画中のツール
+  private _drawingTool: CanvasToolBlush = new CanvasToolBlush("pen", Color.black, 1);
 
   private _width: number;
   private _height: number;
   private _innerScale: number;
+  readonly backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
 
-  private _image: Offscreen;
+  private _layers: Layer[];
   private _offscreen: Offscreen;
+  private _currentLayerOffscreen: Offscreen;
   private _scale: number = 1;
 
   private _mouseX: number = 0;
@@ -108,40 +76,62 @@ export class TegakiCanvas extends Subject {
   private _isMouseEnter: boolean = false;
 
   private _isDrawing: boolean = false;
-  private _drawingPath: {x: number; y: number;}[] = [];
   private _activePointerId: number | null = null;
 
-  private _needsRender: boolean = false;
   private _renderCallback: FrameRequestCallback;
+  private _renderCursorCallback: FrameRequestCallback;
 
-  private _undoStack: Stack<Offscreen> = new Stack();
-  private _redoStack: Stack<Offscreen> = new Stack();
+  private _undoStack: Stack<HistoryNode> = new Stack();
+  private _redoStack: Stack<HistoryNode> = new Stack();
 
+  private _strokeManager: StrokeManager = new StrokeManager();
   private _spoitContext: CanvasRenderingContext2D;
+
+  private _currentLayerPosition: number = 0;
 
   constructor(init: CanvasInit) {
     super();
 
-    this._state = new CanvasState();
     this._width = init.width;
     this._height = init.height;
     this._innerScale = 1;
-    this._state.foreColor.set(init.foreColor);
-    this._state.backgroundColor.set(init.backgroundColor);
+    this.backgroundColor.set(init.backgroundColor);
 
-    this._renderCallback = this.render.bind(this);
+    // Create Elements
+    this.element = document.createElement("div");
+    this.element.className = "tegaki-canvas";
+
     this.canvas = document.createElement("canvas");
+    this.canvas.className = "layer";
     this.canvas.width = this.width;
     this.canvas.height = this.height;
-
-    this._image = new Offscreen(this.innerWidth, this.innerHeight);
-    this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
+    this._renderCallback = this.render.bind(this);
 
     const ctx = this.canvas.getContext("2d");
     if (ctx === null) {
       throw new Error("Failed to get CanvasRendering2DContext");
     }
     this.context = ctx;
+    
+    this.cursorOverlay = document.createElement("canvas");
+    this.cursorOverlay.className = "cursor";
+    this.cursorOverlay.width = this.width;
+    this.cursorOverlay.height = this.height;
+    this._renderCursorCallback = this.renderCursor.bind(this);
+
+    let cursorCtx = this.cursorOverlay.getContext("2d");
+    if (cursorCtx === null) {
+      throw new Error("Failed to get CanvasRendering2DContext");
+    }
+    this.cursorContext = cursorCtx;
+
+    this.element.appendChild(this.canvas);
+    this.element.appendChild(this.cursorOverlay);
+
+
+    this._layers = [];
+    this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
+    this._currentLayerOffscreen = new Offscreen(this.innerWidth, this.innerHeight);
 
     // Create 2D context for spoit
     const spoitCanvas = document.createElement("canvas");
@@ -156,8 +146,28 @@ export class TegakiCanvas extends Subject {
     this.init();
   }
 
-  get state() {
-    return this._state;
+  get currentLayer(): Layer {
+    return this._layers[this._currentLayerPosition];
+  }
+
+  get currentLayerPosition(): number {
+    return this._currentLayerPosition;
+  }
+
+  get layers(): Layer[] {
+    return this._layers;
+  }
+
+  get currentTool() {
+    return this._currentTool;
+  }
+  set currentTool(tool: CanvasTool) {
+    this._currentTool = tool;
+    this.requestRenderCursor();
+  }
+
+  get drawingTool() {
+    return this._drawingTool;
   }
 
   get width() {
@@ -166,6 +176,14 @@ export class TegakiCanvas extends Subject {
 
   get height() {
     return this._height;
+  }
+
+  setSize(width: number, height: number) {
+    if (this._width == width && this._height == height) {
+      return;
+    }
+    this._width = width;
+    this._height = height;
   }
 
   /**
@@ -203,8 +221,7 @@ export class TegakiCanvas extends Subject {
       return;
     }
     this._scale = value;
-    this.canvas.width = this.width*this.scale;
-    this.canvas.height = this.height*this.scale;
+    this.updateCanvasSize();
     this.requestRender();
     this.notify("scale-changed", value);
   }
@@ -226,12 +243,18 @@ export class TegakiCanvas extends Subject {
    * 選択中ツールのサイズ
    */
   get toolSize() {
-    if (this._state.penMode == "pen") {
-      return this._state.penSize;
-    }
-    else {
-      return this._state.eraserSize;
-    }
+    return this._drawingTool.size;
+  }
+
+  /**
+   * 選択中ツールの色
+   */
+  get toolColor(): Color.Immutable {
+    return this._drawingTool.color.value;
+  }
+
+  get toolComposite(): GlobalCompositeOperation {
+    return this._drawingTool.composite;
   }
 
   /**
@@ -248,17 +271,16 @@ export class TegakiCanvas extends Subject {
     const a = document.createElement("a");
     const fileName = `tegaki-${Date.now()}.png`;
     a.setAttribute("download", fileName);
-    a.setAttribute("href", this._image.canvas.toDataURL());
+    a.setAttribute("href", this._offscreen.canvas.toDataURL());
     a.click();
   }
-
 
   /**
    * クリップボードに画像をコピー
    */
   copyToClipboard(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this._image.canvas.toBlob((blob) => {
+      this._offscreen.canvas.toBlob((blob) => {
         if (blob == null) {
           reject(new Error("Failed to get blob from canvas"));
           return;
@@ -282,7 +304,124 @@ export class TegakiCanvas extends Subject {
     });
 
   }
+  
+  private _needsRenderCursor = false;
+  /**
+   * カーソル再描画の要求フラグを立てる
+   */
+  requestRenderCursor() {
+    if (this._needsRenderCursor) {
+      return;
+    }
+    this._needsRenderCursor = true;
+    requestAnimationFrame(this._renderCursorCallback);
+  }
 
+  // カーソルの描画領域
+  private _cursorRect = new Rect(0, 0, 0, 0);
+  // カーソルとして表示するツール
+  private _cursorTool = CanvasTool.none;
+  /**
+   * カーソル描画処理
+   */
+  renderCursor() {
+    this._needsRenderCursor = false;
+
+    const ctx = this.cursorContext;
+    ctx.clearRect(
+      this._cursorRect.x, this._cursorRect.y,
+      this._cursorRect.width, this._cursorRect.height
+    );
+    
+    if (! this._isMouseEnter) {
+      this._cursorRect.width = 0;
+      return;
+    }
+    
+    let cursorTool;
+    // Render cursor
+    if (
+      this._isDrawing ||
+      (this.currentTool instanceof CanvasToolBlush && this._isMouseEnter)
+    ) {
+      cursorTool = CanvasTool.none;
+      const tool = this._isDrawing ? this._drawingTool : this.currentTool;
+
+      const toolSize = tool.size;
+      const offset = toolSize%2 == 0 ? 0 : 0.5;
+      const displayPenSize = toolSize * this.scale;
+      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      
+      position.x = (position.x + offset)*this.scale | 0;
+      position.y = (position.y + offset)*this.scale | 0;
+
+      // カーソル包含矩形
+      let cl: number;
+      let ct: number;
+      let cw: number;
+      let ch: number;
+
+      ctx.save();
+      // カーソルをクリップ領域として描く
+      // 円形
+      if (displayPenSize >= 8) {
+        ctx.beginPath();
+        ctx.arc(
+          position.x + offset,
+          position.y + offset,
+          displayPenSize/2+1.1, 0, 2*Math.PI
+        );
+        ctx.arc(
+          position.x + offset,
+          position.y + offset,
+          displayPenSize/2+0.4, 0, 2*Math.PI
+        );
+        ctx.clip("evenodd");
+
+        cl = position.x - displayPenSize/2 - 2;
+        ct = position.y - displayPenSize/2 - 2;
+        cw = ch = displayPenSize + 4;
+      }
+      // 十字
+      else {
+        ctx.beginPath();
+        ctx.rect(position.x,   position.y,   1, 1);
+        ctx.rect(position.x-9, position.y,   5, 1);
+        ctx.rect(position.x+5, position.y,   5, 1);
+        ctx.rect(position.x,   position.y-9, 1, 5);
+        ctx.rect(position.x,   position.y+5, 1, 5);
+        ctx.clip();
+
+        cl = position.x - 9;
+        ct = position.y - 9;
+        cw = ch = 19;
+      }
+      // クリップ領域に描画済みの画像を反転フィルタをかけて再描画
+      ctx.filter = "url(#tegaki-canvas-cursor-filter)";
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.canvas, cl, ct, cw, ch, cl, ct, cw, ch);
+      ctx.restore();
+      
+      this._cursorRect.set4f(cl, ct, cw, ch);
+    }
+    else {
+      cursorTool = this._currentTool;
+    }
+
+    // Set cursor css;
+    if (this._cursorTool != cursorTool) {
+      this._cursorTool = cursorTool;
+      const cursorInfo = toolCursors[cursorTool.name];
+      if (typeof cursorInfo == "undefined") {
+        this.cursorOverlay.style.cursor = "none";
+      }
+      else {
+        this.cursorOverlay.style.cursor = `url(${getAssetUrl("asset/cursor-"+cursorTool.name+".cur")}) ${cursorInfo.x} ${cursorInfo.y}, auto`;
+      }
+    }
+  }
+
+  private _needsRender: boolean = false;
   /**
    * 再描画の要求フラグを立てる
    */
@@ -298,88 +437,48 @@ export class TegakiCanvas extends Subject {
    * キャンバス描画処理
    */
   render() {
-    const ctx = this._offscreen.context;
+    const offCtx = this._offscreen.context;
+    const ctx = this.context;
     
     if (
-      this._offscreen.width != this._image.width ||
-      this._offscreen.height != this._image.height
+      this._offscreen.width != this.innerWidth ||
+      this._offscreen.height != this.innerHeight
     ) {
-      this._offscreen.width = this._image.width;
-      this._offscreen.height = this._image.height;
+      this._offscreen.width = this.innerWidth;
+      this._offscreen.height = this.innerHeight;
     }
+
+    this._offscreen.fill(this.backgroundColor.value);
 
     // Render image
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this._image.canvas, 0, 0);
+    offCtx.imageSmoothingEnabled = false;
+    for (let i = 0; i < this._layers.length; i++) {
+      const layer = this._layers[i]
+      
+      // Render current drawing path
+      if (i == this._currentLayerPosition && this._isDrawing) {
+        this._currentLayerOffscreen.set(layer);
+        drawPath(this._currentLayerOffscreen.context, {
+          color: this.toolColor.copy(),
+          size: this.toolSize,
+          composite: this.toolComposite
+        }, this._strokeManager.path);
+        offCtx.drawImage(this._currentLayerOffscreen.canvas, 0, 0);
+      }
+      else {
+        offCtx.drawImage(layer.canvas, 0, 0);
+      }
+    }
     
-    // Render current drawing path
-    this.drawPath(ctx, this._drawingPath);
 
     // Render offscreen to canvas
-    this.context.save();
-    this.context.scale(this._scale/this._innerScale, this._scale/this._innerScale);
-    this.context.imageSmoothingEnabled = true;
-    this.context.imageSmoothingQuality = "high";
-    this.context.drawImage(this._offscreen.canvas, 0, 0);
-    this.context.restore();
-
-    // Render cursor
-    if (this._state.subTool == "none" && (this._isMouseEnter || this._isDrawing)) {
-      const toolSize = this.toolSize;
-      const offset = toolSize%2 == 0 ? 0 : 0.5;
-      const displayPenSize = toolSize * this.scale;
-      const position = this.positionInCanvas(this._mouseX, this._mouseY);
-
-      position.x = (position.x + offset)*this.scale | 0;
-      position.y = (position.y + offset)*this.scale | 0;
-
-      // カーソル包含矩形
-      let cl: number;
-      let ct: number;
-      let cw: number;
-      let ch: number;
-
-      this.context.save();
-      // カーソルをクリップ領域として描く
-      // 円形
-      if (displayPenSize >= 8) {
-        this.context.beginPath();
-        this.context.arc(
-          position.x + offset,
-          position.y + offset,
-          displayPenSize/2+1.1, 0, 2*Math.PI
-        );
-        this.context.arc(
-          position.x + offset,
-          position.y + offset,
-          displayPenSize/2+0.4, 0, 2*Math.PI
-        );
-        this.context.clip("evenodd");
-
-        cl = position.x - displayPenSize/2 - 2;
-        ct = position.y - displayPenSize/2 - 2;
-        cw = ch = displayPenSize + 4;
-      }
-      // 十字
-      else {
-        this.context.beginPath();
-        this.context.rect(position.x,   position.y,   1, 1);
-        this.context.rect(position.x-9, position.y,   5, 1);
-        this.context.rect(position.x+5, position.y,   5, 1);
-        this.context.rect(position.x,   position.y-9, 1, 5);
-        this.context.rect(position.x,   position.y+5, 1, 5);
-        this.context.clip();
-
-        cl = position.x - 9;
-        ct = position.y - 9;
-        cw = ch = 19;
-      }
-      // クリップ領域に描画済みの画像を反転フィルタをかけて再描画
-      this.context.filter = "url(#tegaki-canvas-cursor-filter)";
-      this.context.imageSmoothingEnabled = false;
-      this.context.drawImage(this.canvas, cl, ct, cw, ch, cl, ct, cw, ch);
-      this.context.restore();
-    }
+    ctx.save();
+    ctx.clearRect(0, 0, this.width, this.height);
+    ctx.scale(this._scale/this._innerScale, this._scale/this._innerScale);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(this._offscreen.canvas, 0, 0);
+    ctx.restore();
 
     this._needsRender = false;
   }
@@ -389,34 +488,34 @@ export class TegakiCanvas extends Subject {
    */
   init() {
 
-    this.canvas.addEventListener("pointerdown", (ev: PointerEvent) => {
+    this.cursorOverlay.addEventListener("pointerdown", (ev: PointerEvent) => {
       if (ev.pointerType == "mouse" && ev.button != 0) {
         return;
       }
       if (this._activePointerId != null) {
         this.finishDraw();
-        this.canvas.releasePointerCapture(this._activePointerId);
+        this.cursorOverlay.releasePointerCapture(this._activePointerId);
       }
 
       this._activePointerId = ev.pointerId;
-      this.canvas.setPointerCapture(this._activePointerId);
+      this.cursorOverlay.setPointerCapture(this._activePointerId);
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
 
-      if (this._state.subTool == "spoit") {
+      if (this._currentTool.name == "spoit") {
         this.execSpoit();
       }
       // Pen, Eraser
-      else {
-        this.startDraw();
+      else if (this._currentTool instanceof CanvasToolBlush) {
+        this.startDraw(this._currentTool);
       }
     });
-    this.canvas.addEventListener("pointermove", (ev: PointerEvent) => {
+    this.cursorOverlay.addEventListener("pointermove", (ev: PointerEvent) => {
       if (this._activePointerId == null) {
         this._mouseX = ev.clientX;
         this._mouseY = ev.clientY;
         this._isMouseEnter = true;
-        this.requestRender();
+        this.requestRenderCursor();
         return false;
       }
 
@@ -428,25 +527,23 @@ export class TegakiCanvas extends Subject {
       this._mouseY = ev.clientY;
       this._isMouseEnter = true;
       
-      if (this._state.subTool == "spoit") {
-        this.execSpoit();
-      }
-      // Pen, Eraser
-      else if (this._isDrawing) {
+      // Blush
+      if (this._isDrawing) {
         this.continueDraw();
       }
-      else {
-        this.requestRender();
+      else if (this._currentTool.name == "spoit") {
+        this.execSpoit();
       }
+      this.requestRenderCursor();
     });
-    this.canvas.addEventListener("pointerleave", (ev: PointerEvent) => {
+    this.cursorOverlay.addEventListener("pointerleave", (ev: PointerEvent) => {
       if (this._activePointerId == null) {
         this._isMouseEnter = false;
-        this.requestRender();
+        this.requestRenderCursor();
       }
     });
 
-    this.canvas.addEventListener("pointerup", (ev: PointerEvent) => {
+    this.cursorOverlay.addEventListener("pointerup", (ev: PointerEvent) => {
       if (this._activePointerId != ev.pointerId) {
         return;
       }
@@ -456,7 +553,7 @@ export class TegakiCanvas extends Subject {
       }
       this._activePointerId = null;
     });
-    this.canvas.addEventListener("pointercancel", (ev: Event) => {
+    this.cursorOverlay.addEventListener("pointercancel", (ev: Event) => {
       if (this._activePointerId == null) {
         return;
       }
@@ -464,26 +561,22 @@ export class TegakiCanvas extends Subject {
       if (this._isDrawing) {
         this.finishDraw();
       }
-      this.canvas.releasePointerCapture(this._activePointerId);
       this._activePointerId = null;
     });
     
-    this._state.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
-      if (subTool == "none") {
-        this.canvas.style.cursor = "none";
-      }
-      else {
-        const toolCursor = toolCursors[subTool];
-        this.canvas.style.cursor = `url(${getAssetUrl("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
-      }
-      this.notify("change-sub-tool", subTool);
+    this._strokeManager.addObserver(this, "update", () => {
       this.requestRender();
     });
 
-    // Clear canvas
-    this.clear(false);
+    this.reset(this.width, this.height, this.backgroundColor.value, true);
+    this.requestRender();
   }
 
+  /**
+   * 指定座標の色を現在のツール色にする
+   * @param x 
+   * @param y 
+   */
   execSpoit(x?: number, y?: number) {
     if (typeof x == "undefined" || typeof y == "undefined") {
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
@@ -492,64 +585,214 @@ export class TegakiCanvas extends Subject {
     }
     x = x | 0;
     y = y | 0;
-    if (x < 0 || x >= this._image.width || y < 0 || y >= this._image.height) {
+    if (x < 0 || x >= this.innerWidth || y < 0 || y >= this.innerHeight) {
       return void(0);
     }
     
     try {
-      this._spoitContext.drawImage(this._image.canvas, x, y, 1, 1, 0, 0, 1, 1);
+      this._spoitContext.drawImage(this._offscreen.canvas, x, y, 1, 1, 0, 0, 1, 1);
       const imageData = this._spoitContext.getImageData(0, 0, 1, 1);
       const data = imageData.data;
       const color = new Color(data[0], data[1], data[2]);
-      if (this._state.penMode == "pen") {
-        this._state.foreColor.set(color);
-      }
-      else {
-        this._state.backgroundColor.set(color);
-      }
-      this.notify("spoit", {tool: this._state.penMode, color: color});
+      this.notify("spoit", {color: color});
     }
     catch {
     }
   }
 
+  selectLayer(layer: Layer) {
+    const position = this._layers.indexOf(layer);
+    if (position == -1) {
+      throw new Error(`Specified layer is not found`);
+    }
+    this.selectLayerAt(position);
+  }
+
+  selectLayerAt(position: number) {
+    if (position >= this._layers.length) {
+      throw new RangeError(`position must be less than layers.length`);
+    }
+    this._currentLayerPosition = position;
+    this.notify("change-current-layer", {
+      position: position,
+      layer: this.currentLayer
+    });
+  }
+
+  // ============================================================
+  // キャンバス操作
+  // ============================================================
+
+  /**
+   * 新規キャンバス
+   */
+  reset(
+    width: number, height: number,
+    backgroundColor: Color.Immutable = Color.white,
+    resetHistory: boolean = false
+  ) {
+    const layer = new Layer(width * this.innerScale, height * this.innerScale);
+
+    const newDoc = new TegakiCanvasDocument(
+      width, height, [layer], backgroundColor
+    );
+    const action = new CanvasActionChangeDocument(this, newDoc);
+    if (resetHistory) {
+      const undo = new CanvasActionNone(this);
+      this.pushAction(new HistoryNode(action, undo));
+      this._undoStack.clear();
+      this.notify("update-history", this);
+    }
+    else {
+      const oldDoc = new TegakiCanvasDocument(
+        this.width, this.height,
+        this.layers, this.backgroundColor.value
+      );
+      const undo = new CanvasActionChangeDocument(this, oldDoc);
+      this.pushAction(new HistoryNode(action, undo));
+    }
+  }
+
+  changeBackgroundColor(color: Color.Immutable) {
+    const currentBgColor = this.backgroundColor.value;
+    if (color.equals(this.backgroundColor.value)) {
+      return;
+    }
+
+    const action = new CanvasActionChangeBackgroundColor(this, color);
+    const undo = new CanvasActionChangeBackgroundColor(this, currentBgColor);
+    this.pushAction(new HistoryNode(action, undo));
+  }
+
+  // --------------------------------------------------
+  // Layer
+  // --------------------------------------------------
+  /**
+   * Add a new layer to $position
+   * @param position 
+   */
+  newLayer(position: number) {
+    if (position > this._layers.length || position < 0) {
+      throw new RangeError(`position is out of range`);
+    }
+    const layer = new Layer(this.innerWidth, this.innerHeight);
+
+    const undo = new CanvasActionDeleteLayer(this, position);
+    const action = new CanvasActionAddLayer(this, position, layer);
+    this.pushAction(new HistoryNode(action, undo));
+  }
+
+  /**
+   * Delete layer
+   * @param layer 
+   */
+  deleteLayer(layer: Layer) {
+    const position = this._layers.indexOf(layer);
+    if (position == -1) {
+      throw new Error("Specified layer is not found");
+    }
+    this.deleteLayerAt(position);
+  } 
+  /**
+   * Delete layer at $position
+   * @param position 
+   */
+  deleteLayerAt(position: number) {
+    if (position >= this._layers.length || position < 0) {
+      throw new RangeError(`position is out of range`);
+    }
+    if (this._layers.length == 1) {
+      return;
+    }
+    const layer = this._layers[position];
+
+    const undo = new CanvasActionAddLayer(this, position, layer);
+    const action = new CanvasActionDeleteLayer(this, position);
+    this.pushAction(new HistoryNode(action, undo));
+  }
+
+  moveLayer(layer: Layer, newPosition: number) {
+    const position = this._layers.indexOf(layer);
+    if (position == -1) {
+      throw new Error("Specified layer is not found");
+    }
+    this.moveLayerAt(position, newPosition);
+  }
+
+  moveLayerAt(position: number, newPosition: number) {
+    if (position >= this._layers.length || position < 0) {
+      throw new RangeError(`position is out of range`);
+    }
+    if (newPosition >= this._layers.length || newPosition < 0) {
+      return;
+    }
+    const undo = new CanvasActionMoveLayer(this, newPosition, position);
+    const action = new CanvasActionMoveLayer(this, position, newPosition);
+    this.pushAction(new HistoryNode(action, undo));
+  }
+
+  moveLayerRelatively(layer: Layer, n: number) {
+    const position = this._layers.indexOf(layer);
+    if (position == -1) {
+      throw new Error("Specified layer is not found");
+    }
+    this.moveLayerAt(position, position + n);
+  }
+  
+  // --------------------------------------------------
+  // Draw
+  // --------------------------------------------------
   /**
    * 描画色での塗りつぶし
    */
-  fill() {
-    this.addHistory();
-    this._image.context.fillStyle = this._state.foreColor.css();
-    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
-    this.requestRender();
+  fill(color: Color.Immutable) {
+    const layer = this.currentLayer;
+    const undo = new CanvasActionDrawImage(
+      this, layer,
+      layer, 0, 0, layer.width, layer.height,
+      0, 0
+    );
+
+    const action = new CanvasActionFill(this, layer, color)
+    this.pushAction(new HistoryNode(action, undo));
   }
 
   /**
    * 背景色での塗りつぶし
-   * @param addHistory 操作前にアンドゥ履歴に追加するか
+   * @param pushAction 操作前にアンドゥ履歴に追加するか
    */
-  clear(addHistory: boolean = true) {
-    if (addHistory) {
-      this.addHistory();
-    }
-    this._image.context.fillStyle = this._state.backgroundColor.css();
-    this._image.context.fillRect(0, 0, this._image.width, this._image.height);
-    this.requestRender();
+  fillWithBackgroundColor() {
+    this.fill(this.backgroundColor.value);
   }
 
-  private startDraw() {
+  /**
+   * 画像の消去
+   */
+  clear() {
+    const layer = this.currentLayer;
+    const undo = new CanvasActionDrawImage(
+      this, layer,
+      layer, 0, 0, layer.width, layer.height,
+      0, 0
+    );
+    const action = new CanvasActionClear(this, layer);
+    this.pushAction(new HistoryNode(action, undo));
+  }
+
+  private startDraw(blushTool: CanvasToolBlush) {
     if (this._isDrawing) {
       this.finishDraw();
     }
     this._isDrawing = true;
+    this._drawingTool = blushTool;
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x;
-    position.y = position.y;
+    position.x = position.x | 0;
+    position.y = position.y | 0;
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
-    this._drawingPath.push(position);
-    
+    this._strokeManager.start(position.x, position.y);
     this.requestRender();
   }
 
@@ -559,13 +802,12 @@ export class TegakiCanvas extends Subject {
     }
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x;
-    position.y = position.y;
+    position.x = position.x | 0;
+    position.y = position.y | 0;
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
-    this._drawingPath.push(position);
-    
+    this._strokeManager.move(position.x, position.y);
     this.requestRender();
   }
 
@@ -574,86 +816,54 @@ export class TegakiCanvas extends Subject {
       return;
     }
 
-    if (this._drawingPath.length == 0) {
-      return;
-    }
-    this.addHistory();
-    this.drawPath(this._image.context, this._drawingPath);
-    this._isDrawing = false;
-    this._drawingPath.length = 0;
-
-    this.requestRender();
-  }
-
-  /**
-   * パスの描画
-   */
-  private drawPath(ctx: CanvasRenderingContext2D, path: {x: number, y: number}[]) {
-    if (path.length == 0) {
+    if (! this._strokeManager.isActive) {
       return;
     }
     
-    ctx.save();
-    ctx.scale(this._innerScale, this._innerScale);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "bevel";
-    if (this._state.penMode == "pen") {
-      ctx.strokeStyle = this._state.foreColor.css();
-      ctx.lineWidth = this._state.penSize;
+    this._strokeManager.finish();
+    const pathRect = Rect.intersection(
+      getPathBoundingRect(this._strokeManager.path, this.toolSize, 1),
+      new Rect(0, 0, this.innerWidth, this.innerHeight)
+    );
+
+    const layer = this.currentLayer;
+    let undo: CanvasAction;
+    if (pathRect.isEmpty()) {
+      undo = new CanvasActionNone(this);
     }
     else {
-      ctx.strokeStyle = this._state.backgroundColor.css();
-      ctx.lineWidth = this._state.eraserSize;
+      undo = new CanvasActionDrawImage(
+        this, layer, layer,
+        pathRect.x, pathRect.y, pathRect.width, pathRect.height,
+        pathRect.x, pathRect.y
+      );
     }
-    ctx.globalAlpha = 0.6;
-    ctx.beginPath();
-    const fisrtPoint = path[0];
-    ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
-    for (let i = 1; i < path.length; i++) {
-      const point = path[i]
-      ctx.lineTo(point.x, point.y);
-    }
-    ctx.stroke();
-    ctx.globalAlpha = 0.94;
-    ctx.lineWidth -= ctx.lineWidth == 1 ? 0.4 : 1.4;
-    ctx.beginPath();
-    ctx.moveTo(fisrtPoint.x, fisrtPoint.y);
-    for (let i = 1; i < path.length; i++) {
-      const point = path[i]
-      ctx.lineTo(point.x, point.y);
-    }
-    ctx.stroke();
-
-    ctx.filter = "none";
-    ctx.fillStyle = "#fff";
-    for (let point of path) {
-    }
-
-
-    ctx.restore();
+    const action = new CanvasActionDrawPath(
+      this, layer, {
+        size: this.toolSize,
+        color: this.toolColor.copy(),
+        composite: this.toolComposite,
+      }, this._strokeManager.path
+    );
+    
+    this.pushAction(new HistoryNode(action, undo));
+    this._isDrawing = false;
   }
 
   /**
    * 画像の左右反転
    */
   flip() {
-    this.addHistory();
-
-    const pool = ObjectPool.sharedPoolFor(Offscreen);
-    const oldImage = this._image;
-    const image = pool.get();
-    image.width = oldImage.width;
-    image.height = oldImage.height;
-    image.context.save();
-    image.context.scale(-1, 1);
-    image.context.drawImage(oldImage.canvas, - image.width, 0);
-    image.context.restore();
-    this._image = image;
-    pool.return(oldImage);
-
-    this.requestRender();
+    const undo = new CanvasActionFlip(this);
+    const action = new CanvasActionFlip(this);
+    this.pushAction(new HistoryNode(action, undo));
   }
 
+  /**
+   * キャンバスのリサイズ
+   * @param width 
+   * @param height 
+   */
   resize(width: number, height: number) {
     width = width | 0;
     height = height | 0;
@@ -664,91 +874,78 @@ export class TegakiCanvas extends Subject {
       throw new RangeError("height must be greater than 0");
     }
 
-    this.addHistory();
-
-    const pool = ObjectPool.sharedPoolFor(Offscreen);
-    const oldImage = this._image;
-    const image = pool.get();
-    image.width = width*this.innerScale;
-    image.height = height*this.innerScale;
-    image.context.fillStyle = this._state.backgroundColor.css();
-    image.context.fillRect(0, 0, image.width, image.height);
-    image.context.drawImage(oldImage.canvas, 0, 0);
-    this._image = image;
-    pool.return(oldImage);
-    this._refrectImageSizeToCanvasSize();
-    this.requestRender();
+    let undo: CanvasAction;
+    if (width > this.width && height > this.height) {
+      undo = new CanvasActionResize(this, this.width, this.height);
+    }
+    else {
+      undo = new CanvasActionUndoResize(this);
+    }
+    const action = new CanvasActionResize(this, width, height);
+    this.pushAction(new HistoryNode(action, undo));
   }
 
+  /**
+   * 取り消し
+   */
   undo() {
     if (this._undoStack.length == 0) {
       return;
     }
     const node = this._undoStack.pop();
-    this._redoStack.push(this._image);
-    this._image = node;
-    this._refrectImageSizeToCanvasSize();
+    node.undo.exec();
+    this._redoStack.push(node);
     this.requestRender();
     this.notify("update-history", this);
   }
+
+  /**
+   * やり直し 
+   */
   redo() {
     if (this._redoStack.length == 0) {
       return;
     }
     const node = this._redoStack.pop();
-    this._undoStack.push(this._image);
-    this._image = node;
-    this._refrectImageSizeToCanvasSize();
+    node.action.exec();
+    this._undoStack.push(node);
     this.requestRender();
     this.notify("update-history", this);
   }
 
   /**
-   * 現在のimageプロパティから、キャンバスサイズを反映する。
+   * 現在のwidth, height, scaleプロパティから、canvas 要素のサイズを反映する。
    */
-  private _refrectImageSizeToCanvasSize() {
-    const w = this._image.width/this.innerScale;
-    const h = this._image.height/this.innerScale;
-    if (this._width == w && this._height == h) {
-      return;
-    }
-    this._width = this._image.width/this.innerScale;
-    this._height = this._image.height/this.innerScale;
+  updateCanvasSize() {
     this.canvas.width = this._width*this._scale;
     this.canvas.height = this._height*this._scale;
-
-    this.notify("size-changed", this);
+    this.cursorOverlay.width = this._width*this._scale;
+    this.cursorOverlay.height = this._height*this._scale;
+    this.requestRender();
+    this.notify("change-size", this);
   }
 
   /**
-   * 現在の画像をアンドゥ履歴に追加
+   * キャンバス操作の実行
    */
-  addHistory() {
-    const pool = ObjectPool.sharedPoolFor(Offscreen);
-    const node = pool.get();
-    if (
-      node.width != this._image.width ||
-      node.height != this._image.height
-    ) {
-      node.width = this._image.width;
-      node.height = this._image.height;
-    }
-    node.context.drawImage(this._image.canvas, 0, 0);
+  pushAction(node: HistoryNode) {
+    node.action.exec();
     this._undoStack.push(node);
 
     // delete the oldest history
     if (this._undoStack.length > HISTORY_MAX) {
       let oldestNode = this._undoStack.shift();
-      pool.return(oldestNode);
+      oldestNode.dispose();
     }
 
     // clean redo stack
     while (this._redoStack.length > 0) {
       let redoNode = this._redoStack.pop();
-      pool.return(redoNode);
+      redoNode.dispose();
     }
 
     this.notify("update-history", this);
+    this.requestRender();
   }
 
   /**
@@ -759,11 +956,44 @@ export class TegakiCanvas extends Subject {
    */
   positionInCanvas(x: number, y: number) {
     const rect = this.canvas.getBoundingClientRect();
-    x = ((x - rect.x)*this.innerWidth/rect.width) | 0;
-    y = ((y - rect.y)*this.innerHeight/rect.height) | 0;
+    x = ((x - rect.x)*this.innerWidth/rect.width);
+    y = ((y - rect.y)*this.innerHeight/rect.height);
 
     return {x, y};
   }
+}
+
+export interface TegakiCanvas {
+  addObserver(observer: Object, name: "update-history",
+    callback: () => void
+  ): void;
+  addObserver(observer: Object, name: "change-document",
+    callback: (doc: TegakiCanvasDocument) => void
+  ): void;
+  addObserver(observer: Object, name: "change-size",
+    callback: () => void
+  ): void;
+  addObserver(observer: Object, name: "change-sub-tool",
+    callback: (subTool: SubTool) => void
+  ): void;
+  addObserver(observer: Object, name: "update-history",
+    callback: () => void
+  ): void;
+  addObserver(observer: Object, name: "add-layer",
+    callback: (ev: {layer: Layer; position: number;}) => void
+  ): void;
+  addObserver(observer: Object, name: "delete-layer",
+    callback: (ev: {layer: Layer; position: number;}) => void
+  ): void;
+  addObserver(observer: Object, name: "move-layer",
+    callback: (ev: {layer: Layer; from: number; to: number;}) => void
+  ): void;
+  addObserver(observer: Object, name: "change-current-layer",
+    callback: (ev: {layer: Layer; position: number;}) => void
+  ): void;
+  addObserver(observer: Object, name: "spoit",
+    callback: (ev: {color: Color.Immutable}) => void
+  ): void;
 }
 
 export default TegakiCanvas;

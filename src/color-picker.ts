@@ -1,6 +1,8 @@
 import { Outlets, adjustPosition, parseHtml } from "./dom";
-import Subject from "./subject";
 import Color from "./color";
+import Panel from "./panel";
+import { clamp } from "./funcs";
+import Offscreen from "./canvas-offscreen";
 
 type ColorChar = "r" | "g" | "b";
 const RGBColorChars: ColorChar[] = ["r", "g", "b"] as const;
@@ -16,49 +18,51 @@ type PaletteItem = {
   readonly color: Color;
 }
 
-export class ColorPicker extends Subject {
-  readonly element: HTMLDivElement;
+export class ColorPicker extends Panel {
+  readonly contents: HTMLElement;
   private _outlets: Outlets;
   private _color: Color;
 
   private _palette: PaletteItem[];
-
-  private _blurCallback: (ev: Event) => void;
+  private _dragging: boolean = false;
 
   constructor(root: HTMLElement, r: number = 255, g: number = 255, b: number = 255) {
-    super();
+    super(root, "color-picker");
     this._color = new Color(255, 255, 255);
     this._outlets = {};
-    this.element = parseHtml(`
-      <div class="color-picker" name="root" tabindex="-1">
-        <div class="content">
-          <div class="area-palette">
-            <ul name="colors" class="colors">
-            </ul>
-          </div>
-          <div class="area-picker">
-            <ul>
-              <li><div class="preview" name="preview"></div></li>
-              <li>
-                <span class="color-char">R:</span>
-                <input type="range" name="slider-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
-                <input type="number" name="field-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
-              </li>
-              <li>
-                <span class="color-char">G:</span>
-                <input type="range" name="slider-g" min="${VALUE_MIN}" max="${VALUE_MAX}">
-                <input type="number" name="field-g" min="${VALUE_MIN}" max="${VALUE_MAX}">
-              </li>
-              <li>
-                <span class="color-char">B:</span>
-                <input type="range" name="slider-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
-                <input type="number" name="field-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
-              </li>
-            </ul>
-          </div>
+    this.contents = parseHtml(`
+      <div class="wrap">
+        <div class="area-palette">
+          <ul name="colors" class="colors">
+          </ul>
+        </div>
+        <div class="area-picker">
+          <ul>
+            <li><div class="preview" name="preview" draggable="true" data-on-drag="onDragPreview" data-on-dragstart="onDragPreviewStart" data-on-dragend="onDragPreviewEnd"></div></li>
+            <li>
+              <span class="color-char">R:</span>
+              <input type="range" name="slider-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
+              <input type="number" name="field-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
+            </li>
+            <li>
+              <span class="color-char">G:</span>
+              <input type="range" name="slider-g" min="${VALUE_MIN}" max="${VALUE_MAX}">
+              <input type="number" name="field-g" min="${VALUE_MIN}" max="${VALUE_MAX}">
+            </li>
+            <li>
+              <span class="color-char">B:</span>
+              <input type="range" name="slider-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
+              <input type="number" name="field-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
+            </li>
+          </ul>
         </div>
       </div>
-    `, this, this._outlets) as HTMLDivElement;
+    `, this, this._outlets);
+    this.setContents(this.contents);
+
+    this.hasTitleBar = false;
+    this.hasCloseButton = false;
+    this.autoClose = true;
 
     // Create palette
     this._palette = [];
@@ -69,23 +73,26 @@ export class ColorPicker extends Subject {
         elem.style.backgroundColor = "#FFFFFF";
         colorsElem.appendChild(elem);
         const color = new Color(255, 255, 255);
-        this._palette.push({
+        const item = {
           element: elem, color: color
-        });
+        };
+        this._palette.push(item);
         elem.onclick = () => {
           this.set(color);
           this.notify("change", this._color as Color.Immutable);
         };
+        elem.addEventListener("dragover", (ev: DragEvent) => {
+          ev.preventDefault();
+        }, false);
+        elem.addEventListener("drop", (ev: DragEvent) => {
+          ev.preventDefault();
+          if (this._dragging) {
+            item.color.set(this.color);
+            item.element.style.backgroundColor = item.color.css();
+          }
+        });
       }
     }
-
-    root.appendChild(this.element);
-
-    this._blurCallback = (ev: Event) => {
-      if (!isChildOf(ev.target as Element, this.element)) {
-        this.close();
-      }
-    };
 
     this.init();
     this.render();
@@ -102,35 +109,7 @@ export class ColorPicker extends Subject {
     this._outlets["preview"].style.backgroundColor = this._color.css();
   }
 
-  toggle(x: number, y: number) {
-    if (this.element.style.display == "block") {
-      this.close();
-    }
-    else {
-      this.open(x, y);
-    }
-  }
-
-  open(x: number, y: number) {
-    const root = this.element;
-    root.style.left = `${x}px`;
-    root.style.top = `${y}px`;
-    root.style.display = "block";
-    root.focus();
-    adjustPosition(root);
-    
-    window.addEventListener("focusin", this._blurCallback);
-  }
-
-  close() {
-    this._outlets["root"].style.display = "none";
-    window.removeEventListener("focusin", this._blurCallback);
-  }
-
   init() {
-    this._outlets["root"].addEventListener("keydown", (ev) => {
-    });
-
     for (const c of RGBColorChars) {
       for (const type of ["slider", "field"]) {
         const elem = this._outlets[type + "-" + c] as HTMLInputElement;
@@ -178,26 +157,17 @@ export class ColorPicker extends Subject {
       item.element.style.backgroundColor = color.css();
     }
   }
-}
-
-function clamp(value: number, min: number, max: number) {
-  if (value < min) {
-    return min;
+  
+  onDragPreview(ev: DragEvent) {
   }
-  if (value > max) {
-    return max;
+  
+  onDragPreviewStart(ev: DragEvent) {
+    this._dragging = true;
   }
-  return value;
-}
-
-function isChildOf(child: Element | null, parent: Element) {
-  while (child != null) {
-    if (child == parent) {
-      return true;
-    }
-    child = child.parentElement;
+  
+  onDragPreviewEnd(ev: DragEvent) {
+    this._dragging = false;
   }
-  return false;
 }
 
 export default ColorPicker;

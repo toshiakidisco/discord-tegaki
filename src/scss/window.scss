@@ -1,4 +1,3 @@
-
 /* Variables */
 .disco-tegaki {
   --tegaki-canvas-main-color: rgb(128, 0, 0); 
@@ -8,6 +7,13 @@
   --tegaki-canvas-canvas-margin-right: 4px;
   --tegaki-canvas-tool-size: 24px;
   --tegaki-canvas-width-without-canvas: calc(var(--tegaki-canvas-padding-side)*2 + var(--tegaki-canvas-canvas-margin-right) + var(--tegaki-canvas-tool-size)*2);
+  
+  --button-hover-color: rgb(243, 209, 189);
+  --button-active-color: rgb(230, 189, 166);
+
+  --window-zindex: 100;
+  --panel-zindex: 101;
+  --panel-focused-zindex: 105;
 }
 
 .disco-tegaki.root {
@@ -18,7 +24,36 @@
   height: 0;
   z-index: 100;
 
+  -moz-user-select: none;
+  -webkit-user-select: none;
   user-select: none;
+}
+
+.disco-tegaki {
+  button {
+    color: var(--tegaki-canvas-main-color);
+    background-color: transparent;
+    border: 1px solid var(--tegaki-canvas-main-color);
+  }
+  button:hover {
+    background-color: var(--button-hover-color);
+  }
+  button:active {
+    background-color: var(--button-active-color);
+  }
+  button img {
+    -webkit-user-drag: none;
+  }
+
+  .bg-transparent-s {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAAAAADhZOFXAAAAFklEQVR42mM4AwT/gYABDwNEgDh4GAASQDlhZyXAgAAAAABJRU5ErkJggg==');
+    background-repeat: repeat;
+  }
+
+  .bg-transparent-m {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAAAAAA6mKC9AAAAAXNSR0IArs4c6QAAABhJREFUeNpj+A8FZ6CAYYAEYAyYxAAJAAD0J+WB8+cu5gAAAABJRU5ErkJggg==');
+    background-repeat: repeat;
+  }
 }
 
 /* ウィンドウ表示ボタン */
@@ -26,19 +61,24 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  z-index: 5000;
+  z-index: var(--window-zindex, 100);
   font-size: 16px;
 }
 .disco-tegaki.button-open button {
   cursor: pointer;
   padding: 0 8px;
   border-radius: 4px;
+  border: none;
 
   color: var(--tegaki-canvas-main-color);
   background-color: var(--tegaki-canvas-sub-color);
-}
-.disco-tegaki.button-open button:hover {
-  background-color: rgb(233, 209, 200);
+
+  &:hover {
+    background-color: var(--button-hover-color);
+  }
+  &:active {
+    background-color: var(--button-active-color);
+  }
 }
 
 .disco-tegaki .window {
@@ -60,10 +100,10 @@
     border: 1px solid var(--tegaki-canvas-main-color);
   }
   button:hover {
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: var(--button-hover-color);
   }
   button:active {
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: var(--button-active-color);
   }
 
   .tools {
@@ -86,6 +126,9 @@
     > *:active {
       background-color: transparent;
     }
+    > *[data-active] {
+      background-color: rgb(175, 227, 240);
+    }
     > *[data-on-click]:enabled:hover {
       background-color: rgb(243, 209, 189);
     }
@@ -94,6 +137,10 @@
     }
     > *:disabled {
       filter: opacity(0.3);
+    }
+    
+    > *.separator {
+      width: 15px;
     }
   }
 
@@ -134,6 +181,16 @@
 
     .area-draw {
       line-height: 1;
+    }
+
+    .tegaki-canvas {
+      position: relative;
+    }
+
+    .tegaki-canvas > canvas.cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
     }
 
     .area-tools {
@@ -179,8 +236,9 @@
   cursor: nwse-resize;
 }
 
-.disco-tegaki canvas {
+.disco-tegaki .tegaki-canvas canvas {
   cursor: none;
+  display: block;
   overscroll-behavior-x: none;
   touch-action: none;
   max-width: calc(100vw - var(--tegaki-canvas-width-without-canvas));

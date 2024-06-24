@@ -2,18 +2,19 @@ import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
 import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
+import { CanvasTool, CanvasToolBlush, CanvasToolSpoit } from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./observable-value";
 import Color from "./color";
 import ColorPicker from "./color-picker";
 import SizeSelector from "./size-selector";
 import Selector from "./selector";
-import { clamp, isRunnningOnExtension } from "./tools";
+import { clamp, isRunnningOnExtension } from "./funcs";
 import defaultPalette from "./default-palette";
+import { getAssetUrl } from "./asset";
+import PanelLayer from "./panel-layer";
 
 import manifest from "../manifest.json";
-import { getAssetUrl } from "./asset";
-
 import "./scss/main.scss";
 
 const DEFAULT_CANVAS_WIDTH = 344;
@@ -47,12 +48,16 @@ const canvasInitialState: CanvasInitialState = {
 }
 
 class State {
-  penMode: ObservableValue<PenMode> = new ObservableValue("pen");
-  penSize: ObservableValue<number> = new ObservableValue(4);
-  eraserSize: ObservableValue<number> = new ObservableValue(4);
-  foreColor: ObservableColor = new ObservableColor(128, 0, 0);;
-  backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
+  readonly tool: ObservableValue<CanvasTool> = new ObservableValue(CanvasTool.none);
+  readonly backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
 }
+
+// ウィンドウ上のツール名一覧
+const toolIcons = [
+  "pen",
+  "eraser",
+  "spoit",
+];
 
 class DiscordTegaki {
   private _outlets: Outlets;
@@ -62,13 +67,25 @@ class DiscordTegaki {
   private _paletteForeColor: ColorPicker;
   private _paletteBackgroundColor: ColorPicker;
   private _palettePenSize: SizeSelector;
+  private _panelLayer: PanelLayer;
 
   private _root: HTMLElement;
   private _window: HTMLElement;
   private _keyDownTime: Map<string, number> = new Map();
 
+  private _toolPen = new CanvasToolBlush(
+    "pen", canvasInitialState.foreColor, canvasInitialState.penSize
+  );
+  private _toolEraser = new CanvasToolBlush(
+    "eraser", Color.white, canvasInitialState.eraserSize
+  );
+  private _toolSpoit = new CanvasToolSpoit();
+  private _previousTool: CanvasTool = CanvasTool.none;
+  private _nextPreviousTool: CanvasTool = CanvasTool.none;
+
   constructor() {
     this._state = new State();
+    this._state.tool.value = this._toolPen;
     this._outlets = {};
 
     this._root = parseHtml(htmlWindow, this, this._outlets);
@@ -80,8 +97,9 @@ class DiscordTegaki {
       foreColor: new Color(128, 0, 0),
       backgroundColor: new Color(240, 224, 214),
     });
-    this._outlets["area-draw"].appendChild(this._canvas.canvas);
+    this._outlets["area-draw"].appendChild(this._canvas.element);
 
+    // Webアプリ版向け調整
     if (isRunnningOnExtension) {
       parseHtml(htmlButtonOpen, this, this._outlets);
       document.body.appendChild(this._outlets["button-open"]);
@@ -99,7 +117,8 @@ class DiscordTegaki {
     this._paletteForeColor.setPalette(defaultPalette);
     this._paletteBackgroundColor = new ColorPicker(this._root);
     this._paletteBackgroundColor.setPalette(defaultPalette);
-    this._palettePenSize = new SizeSelector(this._root, this._state.penSize.value);
+    this._palettePenSize = new SizeSelector(this._root, 1);
+    this._panelLayer = new PanelLayer(this._root, this._canvas);
 
     this.resetStatus();
     
@@ -242,9 +261,32 @@ class DiscordTegaki {
       });
     }
 
+    // ブラウザウィンドウ関連イベント処理
     window.addEventListener("resize", (ev) => {
       this.adjustWindow();
     });
+    window.addEventListener("blur", (ev) => {
+      this.onBlur(ev);
+    });
+    if (!isRunnningOnExtension) {
+      window.addEventListener("focus", (ev) => {
+        this._root.focus();
+      });
+    }
+
+    /**
+     * デフォルトのタッチ操作制御
+     */
+    this._root.addEventListener("touchstart", (ev: TouchEvent) => {
+      if (ev.touches && ev.touches.length > 1) {
+        ev.preventDefault();
+      }
+    }, {passive: false});
+    this._root.addEventListener("touchmove", (ev: TouchEvent) => {
+      if (ev.touches && ev.touches.length > 1) {
+        ev.preventDefault();
+      }
+    }, {passive: false});
   }
 
   /**
@@ -252,66 +294,60 @@ class DiscordTegaki {
    */
   bind() {
     // Connect ObservableValue to views
-    // PenMode
-    this._state.penMode.addObserver(this, "change", (val: PenMode) => {
+    // ツール
+    this._state.tool.addObserver(this, "change", (tool: CanvasTool) => {
+      this._previousTool = this._nextPreviousTool;
+      this._nextPreviousTool = tool;
+
       // ツールアイコン切替
-      for (const name of ["pen", "eraser"]) {
-        const icon = this._outlets[`icon-${name}`] as HTMLImageElement;
-        const active = val == name ? "active" : "deactive";
-        icon.src = getAssetUrl(`asset/tool-${name}-${active}.png`);
+      for (const name of toolIcons) {
+        const icon = this._outlets[`tool-${name}`] as HTMLImageElement;
+        if (name == tool.name) {
+          icon.setAttribute("data-active", "");
+        }
+        else {
+          icon.removeAttribute("data-active");
+        }
       }
       this.onUpdateToolSize();
 
-      this._canvas.state.penMode = val;
+      this._canvas.currentTool = tool;
     });
-    this._state.penMode.sync();
+    this._state.tool.sync();
 
-    // PenSize
-    this._state.penSize.addObserver(this, "change", (val: number) => {
-      this._canvas.state.penSize = val;
-      this.onUpdateToolSize();
-    });
-    this._state.penSize.sync();
-
-    // EraserSize
-    this._state.eraserSize.addObserver(this, "change", (val: number) => {
-      this._canvas.state.eraserSize = val;
-      this.onUpdateToolSize();
-    });
-    this._state.eraserSize.sync();
-
-    // Color
-    this._state.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
+    // Fore Color
+    this._toolPen.color.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
-      this._canvas.state.foreColor.set(value);
       this._paletteForeColor.set(value);
     });
+    this._toolPen.color.sync();
+    // Background Color
     this._state.backgroundColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["backgroundColor"].style.backgroundColor = value.css();
-      this._canvas.state.backgroundColor.set(value);
+      this._canvas.changeBackgroundColor(value);
       this._paletteBackgroundColor.set(value);
+      this._canvas.requestRender();
     });
-    this._state.foreColor.sync();
+    this._canvas.backgroundColor.addObserver(this, "change", (value) => {
+      this._state.backgroundColor.value = value;
+    });
     this._state.backgroundColor.sync();
     
     // Connect palette to ObservableValue
     this._paletteForeColor.addObserver(this, "change", (c: Color.Immutable) => {
-      this._state.foreColor.value = c;
+      this._toolPen.color.value = c;
     });
     this._paletteBackgroundColor.addObserver(this, "change", (c: Color.Immutable) => {
       this._state.backgroundColor.value = c;
     });
     this._palettePenSize.addObserver(this, "change", (n: number) => {
-      if (this._state.penMode.value == "pen") {
-        this._state.penSize.value = n;
-      }
-      else {
-        this._state.eraserSize.value = n;
-      }
+      console.log(n);
+      this._state.tool.value.size = n;
+      this.onUpdateToolSize();
     });
     
     // キャンバスサイズ更新後
-    this._canvas.addObserver(this, "size-changed", () => {
+    this._canvas.addObserver(this, "change-size", () => {
       this.resetStatus();
     })
     // サブツールアイコン更新語
@@ -324,13 +360,8 @@ class DiscordTegaki {
     this._canvas.addObserver(this, "update-history", this.updateUndoRedoIcon);
     this.updateUndoRedoIcon();
     // スポイト後の色更新
-    this._canvas.addObserver(this, "spoit", (ev: {tool: PenMode, color: Color.Immutable}) => {
-      if (ev.tool == "pen") {
-        this._state.foreColor.value = ev.color;
-      }
-      else {
-        this._state.backgroundColor.value = ev.color;
-      }
+    this._canvas.addObserver(this, "spoit", (ev: {color: Color.Immutable}) => {
+      this._toolPen.color.value = ev.color;
     });
   }
 
@@ -356,13 +387,7 @@ class DiscordTegaki {
    * 選択中のツールのサイズをViewに反映
    */
   private onUpdateToolSize() {
-    let size: number;
-    if (this._state.penMode.value == "pen") {
-      size = this._state.penSize.value;
-    }
-    else {
-      size = this._state.eraserSize.value;
-    }
+    let size: number = this._state.tool.value.size;
     this._outlets["tool-size-value"].innerText = size.toString();
     this._palettePenSize.value = size;
   }
@@ -398,13 +423,11 @@ class DiscordTegaki {
    * キャンバスを初期状態にリセット
    */
   resetCanvas() {
-    this._state.foreColor.value = canvasInitialState.foreColor;
-    this._state.backgroundColor.value = canvasInitialState.backgroundColor;
-    this._state.penSize.value = canvasInitialState.penSize;
-    this._state.eraserSize.value = canvasInitialState.eraserSize;
-    this._state.penMode.value = "pen";
-    this._canvas.resize(canvasInitialState.width, canvasInitialState.height);
-    this._canvas.clear(false);
+    this._toolPen.color.value = canvasInitialState.foreColor;
+    this._toolPen.size = canvasInitialState.penSize;
+    this._toolEraser.size = canvasInitialState.eraserSize;
+    this._state.tool.value = this._toolPen;
+    this._canvas.reset(canvasInitialState.width, canvasInitialState.height, canvasInitialState.backgroundColor);
   }
 
   open(x?: number, y?: number) {
@@ -472,11 +495,11 @@ class DiscordTegaki {
   }
 
   onClickPen(ev: Event) {
-    this._state.penMode.value = "pen";
+    this._state.tool.value = this._toolPen;
   }
 
   onClickEraser(ev: Event) {
-    this._state.penMode.value = "eraser";
+    this._state.tool.value = this._toolEraser;
   }
 
   onClickPenSize(ev: MouseEvent) {
@@ -492,12 +515,7 @@ class DiscordTegaki {
   }
 
   onClickSpoit(ev: Event) {
-    if (this._canvas.state.subTool == "spoit") {
-      this._canvas.state.subTool = "none";
-    }
-    else {
-      this._canvas.state.subTool = "spoit";
-    }
+    this._state.tool.value = this._toolSpoit;
   }
 
   onClickClear(ev: Event) {
@@ -505,7 +523,7 @@ class DiscordTegaki {
   }
 
   onClickFill(ev: Event) {
-    this._canvas.fill();
+    this._canvas.fill(this._toolPen.color.value);
   }
 
   onClickFlip(ev: Event) {
@@ -525,18 +543,21 @@ class DiscordTegaki {
     this._canvas.redo();
   }
 
+  onClickLayer(ev: MouseEvent) {
+    const rect = this._window.getBoundingClientRect();
+    this._panelLayer.toggle(rect.right + 1, rect.top);
+  }
+
   onBlur(ev: Event) {
-    this._canvas.state.subTool = "none";
+    for (const key of this._keyDownTime.keys()) {
+      this._onKeyUp(key);
+    }
     this._keyDownTime.clear();
   }
 
   onKeydown(ev: KeyboardEvent) {
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
-
-    if (ev.repeat) {
-      return;
-    }
 
     // Undo & Redo
     if (ev.ctrlKey) {
@@ -546,46 +567,54 @@ class DiscordTegaki {
       else if (ev.key == "y") {
         this._canvas.redo();
       }
-      else if (ev.key == "c") {
+      else if (ev.key == "c" && !ev.repeat) {
         this.onClickCopy();
       }
       return;
     }
     
-    // Change tool
-    if (ev.key == "e" && this._state.penMode.value != "eraser") {
-      this._state.penMode.value = "eraser";
-      this._keyDownTime.set("e", Date.now());
+    if (ev.repeat) {
+      return;
     }
-    else if (ev.key == "n" && this._state.penMode.value != "pen") {
-      this._state.penMode.value = "pen";
-      this._keyDownTime.set("n", Date.now());
+
+    // Change tool
+    if (ev.key == "e" && this._state.tool.value != this._toolEraser) {
+      this._state.tool.value = this._toolEraser;
+      this._keyDownTime.set(ev.key, Date.now());
+    }
+    else if (ev.key == "n" && this._state.tool.value != this._toolPen) {
+      this._state.tool.value = this._toolPen;
+      this._keyDownTime.set(ev.key, Date.now());
     }
     else if (ev.key == "Alt") {
       ev.preventDefault();
-      this._canvas.state.subTool = "spoit";
+      this._state.tool.value = this._toolSpoit;
+      this._keyDownTime.set(ev.key, Date.now());
     }
   }
 
   onKeyup(ev: KeyboardEvent) {
-    if (ev.key == "Alt" && this._canvas.state.subTool == "spoit") {
-      this._canvas.state.subTool = "none";
+    this._onKeyUp(ev.key);
+  }
+  private _onKeyUp(key: string) {
+    if (key == "Alt" && this._state.tool.value == this._toolSpoit) {
+      this._state.tool.value = this._previousTool;
     }
-    if (ev.key == "e") {
+    if (key == "e") {
       const downTime = this._keyDownTime.get("e");
       this._keyDownTime.delete("e");
       if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
         return;
       }
-      this._state.penMode.value = "pen";
+      this._state.tool.value = this._previousTool;
     }
-    else if (ev.key == "n") {
+    else if (key == "n") {
       const downTime = this._keyDownTime.get("n");
       this._keyDownTime.delete("n");
       if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
         return;
       }
-      this._state.penMode.value = "eraser";
+      this._state.tool.value = this._previousTool;
     }
   }
 
@@ -604,13 +633,13 @@ class DiscordTegaki {
       win.style.left = "0";
     }
     else if (rect.right > window.innerWidth) {
-      win.style.left = `${window.innerWidth - win.clientWidth}px`;
+      win.style.left = `${window.innerWidth - rect.width}px`;
     }
     if (rect.y < 0) {
       win.style.top = "0";
     }
     else if (rect.bottom > window.innerHeight) {
-      win.style.top = `${window.innerHeight - win.clientHeight}px`;
+      win.style.top = `${window.innerHeight - rect.height}px`;
     }
   }
 
@@ -625,8 +654,6 @@ class DiscordTegaki {
   }
 }
 
-console.log(isRunnningOnExtension);
-
 if (
   (! isRunnningOnExtension) || 
   location.href.startsWith("https://discord.com/app") ||
@@ -639,5 +666,3 @@ if (
 
   console.log("[Discord Tegaki]launched");
 }
-
-console.log("[Discord-Tegaki] Finish Launching");

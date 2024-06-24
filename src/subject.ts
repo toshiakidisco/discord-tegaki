@@ -1,4 +1,10 @@
-export default class Subject {
+export interface IFSubject {
+  addObserver(observer: Object, name: string, callback: Function): void;
+  removeObserver(observer: Object, name?: string, callback?: Function): boolean;
+  notify(name: string, data?: any): void;
+}
+
+export default class Subject implements IFSubject {
   #registers: Map<string, {observer: Object, callback: Function}[]> = new Map();
 
   /**

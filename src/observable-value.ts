@@ -1,9 +1,7 @@
 import Color from "./color";
 import Subject from "./subject";
 
-type Primitive = string | number | boolean;
-
-export class ObservableValue<T extends Primitive> extends Subject {
+export class ObservableValue<T> extends Subject {
   private _value: T;
 
   constructor(value: T) {
@@ -29,8 +27,9 @@ export class ObservableValue<T extends Primitive> extends Subject {
 
 export interface ObservableValue<T> extends Subject {
   notify(name: "change", value: T): void;
+  addObserver(observer: Object, name: "change",
+    callback: (value: T) => void): void;
 }
-
 
 export class ObservableColor extends Subject {
   private _value: Color;
@@ -43,8 +42,15 @@ export class ObservableColor extends Subject {
   get value(): Color.Immutable {
     return this._value;
   }
-  set value(newValue: Color.Immutable) {
-    this._value.set(newValue);
+  set value(color: Color.Immutable) {
+    this.set(color);
+  }
+
+  set(color: Color.Immutable) {
+    if (this._value.equals(color)) {
+      return;
+    }
+    this._value.set(color);
     this.notify("change", this._value as Color.Immutable);
   }
 
@@ -55,4 +61,6 @@ export class ObservableColor extends Subject {
 
 export interface ObservableColor extends Subject {
   notify(name: "change", value: Color.Immutable): void;
+  addObserver(observer: Object, name: "change",
+    callback: (value: Color.Immutable) => void): void;
 }

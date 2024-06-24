@@ -3,8 +3,11 @@
 Discord上に、生まれたばかりの掲示板っぽく使えるお絵かき機能を追加します。
 Google Chrome, Edgeで動作確認済み。
 
-Chrome ウェブストア (v1.0.1)
-https://chromewebstore.google.com/detail/discotegaki/eiaogpnffnhfkddeenblefkjbijlflhd
+- Chrome ウェブストア (v1.1.0)
+  - https://chromewebstore.google.com/detail/discotegaki/eiaogpnffnhfkddeenblefkjbijlflhd
+
+- Webアプリ版
+  - https://toshiakidisco.github.io/discord-tegaki/
 
 不具合修正・機能追加が発生した場合、ストアへの反映には時間がかかるため、先行してGitHubリポジトリのリリースに公開していきます。
  (野良アプリとしてのインストールになります。ご了承ください。)
@@ -31,6 +34,21 @@ $ npm run build
 ```
 
 ## リリースノート
+v1.2.0
+- レイヤー機能の追加
+  - それに伴いツールの挙動変更
+  - 消しゴムツールは透明色での上書きに
+  - サブカラーを変更すると下地の色が変化
+  - スポイトは常にメインカラーに反映
+- 簡易的な手ブレ補正の追加
+- 取り消しの履歴数を10件から20件に増加
+- 色のプレビューをパレットにドラッグ&ドロップでパレットの色を変更できるように
+- 他、いろいろ最適化等
+
+v1.1.1
+- Webアプリ版公開
+- キャンバス拡大・縮小時の挙動変化 (中心を維持 → 左上を維持)
+
 v1.1.0
 - カラーパレットの追加
 - スポイト機能の追加
