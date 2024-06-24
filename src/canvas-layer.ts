@@ -22,7 +22,6 @@ export class Layer extends Offscreen implements IFSubject {
   }
 
   // Adapter パターンで IFSubjectを実装
-
   addObserver(observer: Object, name: string, callback: Function): void {
     this.#subject.addObserver(observer, name, callback);
   }

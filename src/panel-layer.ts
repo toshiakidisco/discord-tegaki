@@ -22,6 +22,7 @@ class PanelLayerItem extends Subject {
     this.#outlets = {};
     this.element = parseHtml(`
       <li class="layer-item" data-on-click="onClick">
+        <div name="visibility" class="block-visibility" data-on-click="onCliCKVisibility"></div>
         <canvas name="canvas" class="bg-transparent-s" width="${thumbnailWidth}" height="${thumbnailHeight}"></canvas>
       </li>
     `, this, this.#outlets);
@@ -36,6 +37,16 @@ class PanelLayerItem extends Subject {
       if (this.#parent.visible) {
         this.requestRender();
       }
+    });
+    const visibilityBlock = this.#outlets["visibility"];
+    if (layer.isVisible) {
+      visibilityBlock.setAttribute("data-visible", "");
+    }
+    layer.addObserver(this, "show", () => {
+      visibilityBlock.setAttribute("data-visible", "");
+    });
+    layer.addObserver(this, "hide", () => {
+      visibilityBlock.removeAttribute("data-visible");
     });
 
     this.requestRender();
@@ -75,6 +86,12 @@ class PanelLayerItem extends Subject {
 
   onClick(ev: MouseEvent) {
     this.#parent.canvas.selectLayer(this.#layer);
+  }
+  
+  onCliCKVisibility(ev: MouseEvent) {
+    ev.stopPropagation();
+    this.#layer.isVisible = !this.#layer.isVisible;
+    this.#parent.canvas.requestRender();
   }
 
   dispose() {

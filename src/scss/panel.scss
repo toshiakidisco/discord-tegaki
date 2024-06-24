@@ -85,7 +85,6 @@
     height: 36px;
     display: flex;
     align-items: center;
-    justify-content: center;
   }
   .layers > *[data-active] {
     background-color: var(--tegaki-canvas-sub-color);
@@ -95,7 +94,24 @@
     border-bottom: none;
   }
 
+  .layers > * .block-visibility {
+    width: 26px;
+    height: 100%;
+    border-right: 1px solid var(--tegaki-canvas-main-color);
+    background-color: var(--background-color);
+  }
+  .layers > * .block-visibility[data-visible] {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAPElEQVR42mNwL/BhoCVmGLVg1ALaWKCnpPSfHDzgFpBlGcVx8B8CaGcB1KBRC4anBYQtGS3sRi0YJhYAAEFAcqGi8cq+AAAAAElFTkSuQmCC');
+    background-position: center center;
+    background-repeat: no-repeat;
+  }
+
+  .layers > * .block-thumbnail {
+    text-align: center;
+  }
+
   .layers > * canvas{
     display: block;
+    margin-left: 2px;
   }
 }
