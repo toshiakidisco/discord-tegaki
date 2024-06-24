@@ -126,6 +126,9 @@
     > *:active {
       background-color: transparent;
     }
+    > *[data-active] {
+      background-color: rgb(175, 227, 240);
+    }
     > *[data-on-click]:enabled:hover {
       background-color: rgb(243, 209, 189);
     }

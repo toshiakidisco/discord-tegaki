@@ -50,7 +50,7 @@ export class CanvasActionChangeDocument extends CanvasAction {
   exec(): void {
     this.canvas.layers.length = 0;
     this.canvas.layers.push(...this.#document.layers);
-    this.canvas.state.backgroundColor.set(this.#document.backgroundColor);
+    this.canvas.backgroundColor.set(this.#document.backgroundColor);
     this.canvas.setSize(this.#document.width, this.#document.height);
     this.canvas.updateCanvasSize();
     this.canvas.notify("change-document", this.#document);
@@ -69,7 +69,7 @@ export class CanvasActionChangeBackgroundColor extends CanvasAction {
   }
   
   exec(): void {
-    this.canvas.state.backgroundColor.set(this.#color);
+    this.canvas.backgroundColor.set(this.#color);
   };
 }
 

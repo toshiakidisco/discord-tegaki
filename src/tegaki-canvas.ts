@@ -13,6 +13,7 @@ import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import { ObservableColor } from "./observable-value";
+import { CanvasTool, CanvasToolBlush } from "./canvas-tool";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -30,30 +31,6 @@ type CanvasInit = {
 
 const toolCursors: {[tool: string]: {x: number; y: number;}} = {
   "spoit": {x: 1, y: 14},
-}
-
-class CanvasState extends Subject {
-  readonly foreColor: ObservableColor = new ObservableColor(128, 0, 0);
-  readonly backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
-  penMode: PenMode = "pen";
-  private _subTool: SubTool = "none";
-  penSize: number = 4;
-  eraserSize: number = 4;
-
-  constructor() {
-    super();
-  }
-
-  get subTool() {
-    return this._subTool;
-  }
-  set subTool(value: SubTool) {
-    if (this._subTool == value) {
-      return;
-    }
-    this._subTool = value;
-    this.notify("change-sub-tool", value);
-  }
 }
 
 const HISTORY_MAX = 20;
@@ -78,11 +55,16 @@ export class TegakiCanvas extends Subject {
   readonly cursorContext: CanvasRenderingContext2D;
   readonly canvas: HTMLCanvasElement;
   readonly context: CanvasRenderingContext2D;
-  private _state: CanvasState;
+
+  // 選択中のツール
+  private _currentTool: CanvasTool = CanvasTool.none;
+  // 描画中のツール
+  private _drawingTool: CanvasToolBlush = new CanvasToolBlush("pen", Color.black, 1);
 
   private _width: number;
   private _height: number;
   private _innerScale: number;
+  readonly backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
 
   private _layers: Layer[];
   private _offscreen: Offscreen;
@@ -110,12 +92,10 @@ export class TegakiCanvas extends Subject {
   constructor(init: CanvasInit) {
     super();
 
-    this._state = new CanvasState();
     this._width = init.width;
     this._height = init.height;
     this._innerScale = 1;
-    this._state.foreColor.set(init.foreColor);
-    this._state.backgroundColor.set(init.backgroundColor);
+    this.backgroundColor.set(init.backgroundColor);
 
     // Create Elements
     this.element = document.createElement("div");
@@ -178,8 +158,16 @@ export class TegakiCanvas extends Subject {
     return this._layers;
   }
 
-  get state() {
-    return this._state;
+  get currentTool() {
+    return this._currentTool;
+  }
+  set currentTool(tool: CanvasTool) {
+    this._currentTool = tool;
+    this.requestRenderCursor();
+  }
+
+  get drawingTool() {
+    return this._drawingTool;
   }
 
   get width() {
@@ -255,34 +243,18 @@ export class TegakiCanvas extends Subject {
    * 選択中ツールのサイズ
    */
   get toolSize() {
-    if (this._state.penMode == "pen") {
-      return this._state.penSize;
-    }
-    else {
-      return this._state.eraserSize;
-    }
+    return this._drawingTool.size;
   }
 
   /**
    * 選択中ツールの色
    */
   get toolColor(): Color.Immutable {
-    if (this._state.penMode == "pen") {
-      return this._state.foreColor.value;
-    }
-    else {
-      return Color.black;
-    }
+    return this._drawingTool.color.value;
   }
 
   get toolComposite(): GlobalCompositeOperation {
-    this.context.globalCompositeOperation;
-    if (this._state.penMode == "pen") {
-      return "source-over";
-    }
-    else {
-      return "destination-out";
-    }
+    return this._drawingTool.composite;
   }
 
   /**
@@ -347,6 +319,8 @@ export class TegakiCanvas extends Subject {
 
   // カーソルの描画領域
   private _cursorRect = new Rect(0, 0, 0, 0);
+  // カーソルとして表示するツール
+  private _cursorTool = CanvasTool.none;
   /**
    * カーソル描画処理
    */
@@ -363,9 +337,17 @@ export class TegakiCanvas extends Subject {
       this._cursorRect.width = 0;
       return;
     }
+    
+    let cursorTool;
     // Render cursor
-    if (this._state.subTool == "none" && (this._isMouseEnter || this._isDrawing)) {
-      const toolSize = this.toolSize;
+    if (
+      this._isDrawing ||
+      (this.currentTool instanceof CanvasToolBlush && this._isMouseEnter)
+    ) {
+      cursorTool = CanvasTool.none;
+      const tool = this._isDrawing ? this._drawingTool : this.currentTool;
+
+      const toolSize = tool.size;
       const offset = toolSize%2 == 0 ? 0 : 0.5;
       const displayPenSize = toolSize * this.scale;
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
@@ -422,6 +404,21 @@ export class TegakiCanvas extends Subject {
       
       this._cursorRect.set4f(cl, ct, cw, ch);
     }
+    else {
+      cursorTool = this._currentTool;
+    }
+
+    // Set cursor css;
+    if (this._cursorTool != cursorTool) {
+      this._cursorTool = cursorTool;
+      const cursorInfo = toolCursors[cursorTool.name];
+      if (typeof cursorInfo == "undefined") {
+        this.cursorOverlay.style.cursor = "none";
+      }
+      else {
+        this.cursorOverlay.style.cursor = `url(${getAssetUrl("asset/cursor-"+cursorTool.name+".cur")}) ${cursorInfo.x} ${cursorInfo.y}, auto`;
+      }
+    }
   }
 
   private _needsRender: boolean = false;
@@ -451,7 +448,7 @@ export class TegakiCanvas extends Subject {
       this._offscreen.height = this.innerHeight;
     }
 
-    this._offscreen.fill(this._state.backgroundColor.value);
+    this._offscreen.fill(this.backgroundColor.value);
 
     // Render image
     offCtx.imageSmoothingEnabled = false;
@@ -505,12 +502,12 @@ export class TegakiCanvas extends Subject {
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
 
-      if (this._state.subTool == "spoit") {
+      if (this._currentTool.name == "spoit") {
         this.execSpoit();
       }
       // Pen, Eraser
-      else {
-        this.startDraw();
+      else if (this._currentTool instanceof CanvasToolBlush) {
+        this.startDraw(this._currentTool);
       }
     });
     this.cursorOverlay.addEventListener("pointermove", (ev: PointerEvent) => {
@@ -530,12 +527,12 @@ export class TegakiCanvas extends Subject {
       this._mouseY = ev.clientY;
       this._isMouseEnter = true;
       
-      if (this._state.subTool == "spoit") {
-        this.execSpoit();
-      }
-      // Pen, Eraser
-      else if (this._isDrawing) {
+      // Blush
+      if (this._isDrawing) {
         this.continueDraw();
+      }
+      else if (this._currentTool.name == "spoit") {
+        this.execSpoit();
       }
       this.requestRenderCursor();
     });
@@ -567,27 +564,11 @@ export class TegakiCanvas extends Subject {
       this._activePointerId = null;
     });
     
-    // Observer state
-    this._state.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
-      if (subTool == "none") {
-        this.cursorOverlay.style.cursor = "none";
-      }
-      else {
-        const toolCursor = toolCursors[subTool];
-        this.cursorOverlay.style.cursor = `url(${getAssetUrl("asset/cursor-"+subTool+".cur")}) ${toolCursor.x} ${toolCursor.y}, auto`;
-      }
-      this.notify("change-sub-tool", subTool);
-      this.requestRender();
-    });
-    this._state.addObserver(this, "change-current-layer", () => {
-      this.notify("change-current-layer");
-    });
-
     this._strokeManager.addObserver(this, "update", () => {
       this.requestRender();
     });
 
-    this.reset(this.width, this.height, this._state.backgroundColor.value, true);
+    this.reset(this.width, this.height, this.backgroundColor.value, true);
     this.requestRender();
   }
 
@@ -613,8 +594,7 @@ export class TegakiCanvas extends Subject {
       const imageData = this._spoitContext.getImageData(0, 0, 1, 1);
       const data = imageData.data;
       const color = new Color(data[0], data[1], data[2]);
-      this._state.foreColor.set(color);
-      this.notify("spoit", {tool: "pen", color: color});
+      this.notify("spoit", {color: color});
     }
     catch {
     }
@@ -666,7 +646,7 @@ export class TegakiCanvas extends Subject {
     else {
       const oldDoc = new TegakiCanvasDocument(
         this.width, this.height,
-        this.layers, this._state.backgroundColor.value
+        this.layers, this.backgroundColor.value
       );
       const undo = new CanvasActionChangeDocument(this, oldDoc);
       this.pushAction(new HistoryNode(action, undo));
@@ -674,8 +654,8 @@ export class TegakiCanvas extends Subject {
   }
 
   changeBackgroundColor(color: Color.Immutable) {
-    const currentBgColor = this._state.backgroundColor.value;
-    if (color.equals(this._state.backgroundColor.value)) {
+    const currentBgColor = this.backgroundColor.value;
+    if (color.equals(this.backgroundColor.value)) {
       return;
     }
 
@@ -765,10 +745,7 @@ export class TegakiCanvas extends Subject {
   /**
    * 描画色での塗りつぶし
    */
-  fill(color?: Color.Immutable) {
-    if (typeof color == "undefined") {
-      color = this._state.foreColor.value;
-    }
+  fill(color: Color.Immutable) {
     const layer = this.currentLayer;
     const undo = new CanvasActionDrawImage(
       this, layer,
@@ -785,7 +762,7 @@ export class TegakiCanvas extends Subject {
    * @param pushAction 操作前にアンドゥ履歴に追加するか
    */
   fillWithBackgroundColor() {
-    this.fill(this._state.backgroundColor.value);
+    this.fill(this.backgroundColor.value);
   }
 
   /**
@@ -802,11 +779,12 @@ export class TegakiCanvas extends Subject {
     this.pushAction(new HistoryNode(action, undo));
   }
 
-  private startDraw() {
+  private startDraw(blushTool: CanvasToolBlush) {
     if (this._isDrawing) {
       this.finishDraw();
     }
     this._isDrawing = true;
+    this._drawingTool = blushTool;
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
     position.x = position.x | 0;
@@ -1014,7 +992,7 @@ export interface TegakiCanvas {
     callback: (ev: {layer: Layer; position: number;}) => void
   ): void;
   addObserver(observer: Object, name: "spoit",
-    callback: (ev: {tool: PenMode, color: Color.Immutable}) => void
+    callback: (ev: {color: Color.Immutable}) => void
   ): void;
 }
 
