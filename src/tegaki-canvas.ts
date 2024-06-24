@@ -450,13 +450,17 @@ export class TegakiCanvas extends Subject {
 
     this._offscreen.fill(this.backgroundColor.value);
 
-    // Render image
+    // Render Layers
     offCtx.imageSmoothingEnabled = false;
     for (let i = 0; i < this._layers.length; i++) {
       const layer = this._layers[i]
+
+      if (! layer.isVisible) {
+        continue;
+      }
       
-      // Render current drawing path
       if (i == this._currentLayerPosition && this._isDrawing) {
+        // ストローク中なら曲線を描画してからレイヤーイメージを描画
         this._currentLayerOffscreen.set(layer);
         drawPath(this._currentLayerOffscreen.context, {
           color: this.toolColor.copy(),
@@ -506,7 +510,10 @@ export class TegakiCanvas extends Subject {
         this.execSpoit();
       }
       // Pen, Eraser
-      else if (this._currentTool instanceof CanvasToolBlush) {
+      else if (
+        this._currentTool instanceof CanvasToolBlush &&
+        this.currentLayer.isVisible
+      ) {
         this.startDraw(this._currentTool);
       }
     });
