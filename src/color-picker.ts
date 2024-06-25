@@ -163,10 +163,12 @@ export class ColorPicker extends Panel {
   
   onDragPreviewStart(ev: DragEvent) {
     this._dragging = true;
+    ev.stopPropagation();
   }
   
   onDragPreviewEnd(ev: DragEvent) {
     this._dragging = false;
+    ev.stopPropagation();
   }
 }
 
