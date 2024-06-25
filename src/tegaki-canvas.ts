@@ -31,6 +31,7 @@ type CanvasInit = {
 
 const toolCursors: {[tool: string]: {x: number; y: number;}} = {
   "spoit": {x: 1, y: 14},
+  "prohibit": {x: 7, y: 7},
 }
 
 const HISTORY_MAX = 20;
@@ -320,7 +321,7 @@ export class TegakiCanvas extends Subject {
   // カーソルの描画領域
   private _cursorRect = new Rect(0, 0, 0, 0);
   // カーソルとして表示するツール
-  private _cursorTool = CanvasTool.none;
+  private _cursorName = "none";
   /**
    * カーソル描画処理
    */
@@ -338,13 +339,14 @@ export class TegakiCanvas extends Subject {
       return;
     }
     
-    let cursorTool;
+    let cursorName: string;
+    const isBlushTool = this.currentTool instanceof CanvasToolBlush;
     // Render cursor
-    if (
-      this._isDrawing ||
-      (this.currentTool instanceof CanvasToolBlush && this._isMouseEnter)
-    ) {
-      cursorTool = CanvasTool.none;
+    if ((!this.currentLayer.isVisible) && isBlushTool) {
+      cursorName = "prohibit";
+    }
+    else if (this._isDrawing || isBlushTool) {
+      cursorName = "none";
       const tool = this._isDrawing ? this._drawingTool : this.currentTool;
 
       const toolSize = tool.size;
@@ -405,18 +407,18 @@ export class TegakiCanvas extends Subject {
       this._cursorRect.set4f(cl, ct, cw, ch);
     }
     else {
-      cursorTool = this._currentTool;
+      cursorName = this._currentTool.name;
     }
 
     // Set cursor css;
-    if (this._cursorTool != cursorTool) {
-      this._cursorTool = cursorTool;
-      const cursorInfo = toolCursors[cursorTool.name];
+    if (this._cursorName != cursorName) {
+      this._cursorName = cursorName;
+      const cursorInfo = toolCursors[cursorName];
       if (typeof cursorInfo == "undefined") {
         this.cursorOverlay.style.cursor = "none";
       }
       else {
-        this.cursorOverlay.style.cursor = `url(${getAssetUrl("asset/cursor-"+cursorTool.name+".cur")}) ${cursorInfo.x} ${cursorInfo.y}, auto`;
+        this.cursorOverlay.style.cursor = `url(${getAssetUrl("asset/cursor-"+cursorName+".png")}) ${cursorInfo.x} ${cursorInfo.y}, auto`;
       }
     }
   }

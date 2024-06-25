@@ -91,7 +91,7 @@
   }
 
   .layers > * + * {
-    border-bottom: none;
+    margin-bottom: -1px;
   }
 
   .layers > * .block-visibility {
