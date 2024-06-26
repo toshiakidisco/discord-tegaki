@@ -2,6 +2,7 @@
 .disco-tegaki {
   --tegaki-canvas-main-color: rgb(128, 0, 0); 
   --tegaki-canvas-sub-color: rgb(240, 224, 214);
+  --background-color: rgb(255, 255, 238);
 
   --tegaki-canvas-padding-side: 16px;
   --tegaki-canvas-canvas-margin-right: 4px;
@@ -88,7 +89,7 @@
   touch-action: none;
 
   overflow: hidden;
-  background: rgb(255, 255, 238);
+  background: var(--background-color);
   border-radius: 8px;
   box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.8);
   color: var(--tegaki-canvas-main-color);
@@ -217,7 +218,7 @@
 
 .disco-tegaki .area-bottom {
   margin-top: 4px;
-  padding: 0 16px 8px 16px;
+  padding: 0 16px 4px 16px;
   display: flex;
   align-items: center;
 
@@ -229,8 +230,8 @@
 
 .disco-tegaki .area-resize {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 18px;
+  height: 18px;
   right: 0;
   bottom: 0;
   cursor: nwse-resize;

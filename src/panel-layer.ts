@@ -2,11 +2,14 @@ import Layer from "./canvas-layer";
 import Offscreen from "./canvas-offscreen";
 import { Outlets, parseHtml } from "./dom";
 import Panel from "./panel"
+import PanelSlider from "./panel-slider";
 import Subject from "./subject";
 import TegakiCanvas from "./tegaki-canvas";
 
 const thumbnailWidth = 48;
 const thumbnailHeight = 32;
+
+const opacityIconColor = "48, 23, 23";
 
 class PanelLayerItem extends Subject {
   readonly element: HTMLElement;
@@ -22,7 +25,13 @@ class PanelLayerItem extends Subject {
     this.#outlets = {};
     this.element = parseHtml(`
       <li class="layer-item" data-on-click="onClick">
+        <div name="visibility" class="block-visibility" data-on-click="onCliCKVisibility"></div>
+        <div class="block-thumbnail">
         <canvas name="canvas" class="bg-transparent-s" width="${thumbnailWidth}" height="${thumbnailHeight}"></canvas>
+        </div>
+        <div class="block-opacity">
+          <div class="icon-opacity bg-transparent-s" data-on-click="onClickOpacity"><div name="opacity-color" class="opacity-color"></div></div>
+        </div>
       </li>
     `, this, this.#outlets);
 
@@ -37,6 +46,24 @@ class PanelLayerItem extends Subject {
         this.requestRender();
       }
     });
+    // Visibility Action
+    const visibilityBlock = this.#outlets["visibility"];
+    if (layer.isVisible) {
+      visibilityBlock.setAttribute("data-visible", "");
+    }
+    layer.observables.isVisible.addObserver(this, "change", (isVisible) => {
+      if (isVisible) {
+        visibilityBlock.setAttribute("data-visible", "");
+      }
+      else {
+        visibilityBlock.removeAttribute("data-visible");
+      }
+      this.#parent.canvas.requestRender();
+    });
+    layer.observables.opacity.addObserver(this, "change", (opacity) => {
+      this.updateOpacityIcon();
+    });
+    this.updateOpacityIcon();
 
     this.requestRender();
   }
@@ -73,8 +100,33 @@ class PanelLayerItem extends Subject {
     );
   }
 
+  updateOpacityIcon() {
+    const icon = this.#outlets["opacity-color"];
+    icon.style.backgroundColor = `rgba(${opacityIconColor}, ${this.#layer.opacity})`;
+  }
+
   onClick(ev: MouseEvent) {
     this.#parent.canvas.selectLayer(this.#layer);
+  }
+  
+  onCliCKVisibility(ev: MouseEvent) {
+    ev.stopPropagation();
+    this.#layer.isVisible = !this.#layer.isVisible;
+  }
+
+  onClickOpacity(ev: MouseEvent) {
+    ev.stopPropagation();
+    const slider = this.#parent.opacitySlider;
+    
+    slider.close();
+    slider.bind(this.#layer.observables.opacity, "read");
+    slider.addObserver(this, "change", (value: number) => {
+      this.#parent.canvas.changeLayerOpacity(this.#layer, value);
+    });
+    slider.addObserver(this, "close", () => {
+      slider.removeObserver(this);
+    });
+    slider.open(ev.clientX, ev.clientY);
   }
 
   dispose() {
@@ -88,8 +140,17 @@ export class PanelLayer extends Panel {
   #contents: HTMLElement;
   #canvas: TegakiCanvas;
 
+  readonly opacitySlider: PanelSlider;
+
   constructor(parent: HTMLElement, canvas: TegakiCanvas) {
     super(parent, "panel-layer");
+    this.opacitySlider = new PanelSlider(parent, 0);
+    this.opacitySlider.setRange(0, 1);
+    this.opacitySlider.step = 0.01;
+    this.opacitySlider.scale = 100;
+    this.opacitySlider.addObserver(this, "change", () => {
+      this.#canvas.requestRender();
+    });
 
     this.#contents = parseHtml(`
       <div name="contents">

@@ -141,6 +141,24 @@ export class CanvasActionMoveLayer extends CanvasAction {
   }
 }
 
+/**
+ * 操作: レイヤー透明度変更
+ */
+export class CanvasActionChangeLayerOpacity extends CanvasAction {
+  readonly layer: Layer;
+  readonly opacity: number;
+
+  constructor (canvas: TegakiCanvas, layer: Layer, opacity: number){
+    super(canvas);
+    this.layer = layer;
+    this.opacity = opacity;
+  }
+  
+  exec(): void {
+    this.layer.opacity = this.opacity;
+  }
+}
+
 
 /**
  * 操作: 画像描画
