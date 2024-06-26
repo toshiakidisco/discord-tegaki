@@ -64,6 +64,16 @@ export class CanvasToolSpoit extends CanvasTool{
   override set size(value: number) {}
 }
 
+export class CanvasToolBucket extends CanvasTool {
+  override get name() {
+    return "bucket";
+  }
+  override get size(): number {
+    return 1;
+  }
+  override set size(value: number) {}
+}
+
 export namespace CanvasTool {
   export const none = new CanvasToolNone();
 }

@@ -24,15 +24,33 @@ export type SubTool = "none" | "spoit" | "bucket";
 const cursorFilterSvg = parseSvg(cursorFilterSvgCode);
 document.body.appendChild(cursorFilterSvg);
 
-type CanvasInit = {
+/**
+ * キャンバス作成時のパラメータ
+ */
+export type CanvasInit = {
   width: number,
   height: number,
   foreColor: Color.Immutable,
   backgroundColor: Color.Immutable
 };
 
+/**
+ * バケツ塗りのオプション
+ */
+export type BucketOption = {
+  /** 色許容誤差 */
+  tolerance?: number;
+  /** 隙間閉じ */
+  closeGap?: number;
+  /** 領域拡張 */
+  expand?: number;
+  /** 透明度 */
+  opacity?: number;
+};
+
 const toolCursors: {[tool: string]: {x: number; y: number;}} = {
   "spoit": {x: 1, y: 14},
+  "bucket": {x: 2, y: 17},
   "prohibit": {x: 7, y: 7},
 }
 
@@ -536,6 +554,9 @@ export class TegakiCanvas extends Subject {
       if (this._currentTool.name == "spoit") {
         this.execSpoit();
       }
+      else if (this._currentTool.name == "bucket") {
+        this.bucketFill(this._mouseX, this._mouseY);
+      }
       // Pen, Eraser
       else if (
         this._currentTool instanceof CanvasToolBlush &&
@@ -607,7 +628,7 @@ export class TegakiCanvas extends Subject {
   }
 
   /**
-   * 指定座標の色を現在のツール色にする
+   * 指定座標の色を取得し通知する
    * @param x 
    * @param y 
    */
@@ -617,6 +638,16 @@ export class TegakiCanvas extends Subject {
       x = position.x;
       y = position.y;
     }
+    const color = this.getColorAt(x, y);
+    if (typeof color !== "undefined") {
+      this.notify("spoit", color);
+    }
+  }
+
+  /**
+   * 指定座標の色の取得
+   */
+  getColorAt(x: number, y:number): Color | undefined {
     x = x | 0;
     y = y | 0;
     if (x < 0 || x >= this.innerWidth || y < 0 || y >= this.innerHeight) {
@@ -628,10 +659,10 @@ export class TegakiCanvas extends Subject {
       const imageData = this._spoitContext.getImageData(0, 0, 1, 1);
       const data = imageData.data;
       const color = new Color(data[0], data[1], data[2]);
-      this.notify("spoit", {color: color});
+      return color;
     }
-    catch {
-    }
+    catch {}
+    return void(0);
   }
 
   selectLayer(layer: Layer) {
@@ -811,6 +842,13 @@ export class TegakiCanvas extends Subject {
   }
 
   /**
+   * バケツ塗り
+   */
+  bucketFill(x: number, y: number, option?: BucketOption) {
+    this.createBucketFillImage(x, y, option);
+  }
+
+  /**
    * 画像の消去
    */
   clear() {
@@ -928,6 +966,28 @@ export class TegakiCanvas extends Subject {
     }
     const action = new CanvasActionResize(this, width, height);
     this.pushAction(new HistoryNode(action, undo));
+  }
+
+  // --------------------------------------------------
+
+  /**
+   * 塗り結果の画像作成
+   */
+  createBucketFillImage(x: number, y: number, option?: BucketOption) {
+    const tolerance = option?.tolerance || 0;
+    const closeGap = option?.closeGap || 0;
+    const expand = option?.expand || 0;
+    const opacity = option?.opacity || 1;
+
+    const color = this.getColorAt(x, y);
+    if (typeof color === "undefined") {
+      return;
+    }
+
+    const fr = color.r/255;
+    const fg = color.g/255;
+    const fb = color.b/255;
+
   }
 
   /**

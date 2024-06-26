@@ -2,7 +2,7 @@ import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
 import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
-import { CanvasTool, CanvasToolBlush, CanvasToolSpoit } from "./canvas-tool";
+import { CanvasTool, CanvasToolBlush, CanvasToolBucket, CanvasToolSpoit } from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./observable-value";
 import Color from "./color";
@@ -57,6 +57,7 @@ const toolIcons = [
   "pen",
   "eraser",
   "spoit",
+  "bucket",
 ];
 
 class DiscordTegaki {
@@ -80,6 +81,7 @@ class DiscordTegaki {
     "eraser", Color.white, canvasInitialState.eraserSize
   );
   private _toolSpoit = new CanvasToolSpoit();
+  private _toolBucket = new CanvasToolBucket();
   private _previousTool: CanvasTool = CanvasTool.none;
   private _nextPreviousTool: CanvasTool = CanvasTool.none;
 
@@ -516,6 +518,10 @@ class DiscordTegaki {
 
   onClickSpoit(ev: Event) {
     this._state.tool.value = this._toolSpoit;
+  }
+
+  onClickBucket(ev: Event) {
+    this._state.tool.value = this._toolBucket;
   }
 
   onClickClear(ev: Event) {
