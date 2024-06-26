@@ -15,7 +15,7 @@ export default class Subject implements IFSubject {
    */
   addObserver(observer: Object, name: string, callback: Function) {
     let register = this.#registers.get(name);
-    if (! register) {
+    if (typeof register === "undefined") {
       register = [];
       this.#registers.set(name, register);
     }
@@ -46,7 +46,7 @@ export default class Subject implements IFSubject {
   #removeObserver(observer: Object): boolean {
     let result = false;
     for (let name of this.#registers.keys()) {
-      result = result || this.#removeObserverName(observer, name);
+      result = this.#removeObserverName(observer, name) || result;
     }
     return result;
   }

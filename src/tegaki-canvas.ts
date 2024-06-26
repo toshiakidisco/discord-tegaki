@@ -7,13 +7,15 @@ import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
-import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect, CanvasActionDeleteLayer, CanvasActionAddLayer, CanvasActionClear, CanvasActionMoveLayer, CanvasActionChangeDocument, CanvasActionChangeBackgroundColor } from "./canvas-action";
+import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect, CanvasActionDeleteLayer, CanvasActionAddLayer, CanvasActionClear, CanvasActionMoveLayer, CanvasActionChangeDocument, CanvasActionChangeBackgroundColor, CanvasActionChangeLayerOpacity } from "./canvas-action";
 import { Rect } from "./rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import { ObservableColor } from "./observable-value";
 import { CanvasTool, CanvasToolBlush } from "./canvas-tool";
+import { off } from "process";
+import { clamp } from "./funcs";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -38,6 +40,7 @@ const HISTORY_MAX = 20;
 class HistoryNode {
   action: CanvasAction;
   undo: CanvasAction;
+  time: number = Date.now();
 
   constructor(action: CanvasAction, undo: CanvasAction) {
     this.action = action;
@@ -47,6 +50,25 @@ class HistoryNode {
   dispose() {
     this.action.dispose();
     this.undo.dispose();
+  }
+
+  mergeWith(node: HistoryNode): HistoryNode | undefined {
+    const a0 = node.action;
+    const a1 = this.action;
+    const u0 = node.undo;
+    const u1 = this.undo;
+    if (
+      a0 instanceof CanvasActionChangeLayerOpacity &&
+      a1 instanceof CanvasActionChangeLayerOpacity &&
+      u0 instanceof CanvasActionChangeLayerOpacity &&
+      u1 instanceof CanvasActionChangeLayerOpacity &&
+      a0.layer == a1.layer
+    ) {
+      return new HistoryNode(
+        new CanvasActionChangeLayerOpacity(a0.canvas, a0.layer, a1.opacity),
+        new CanvasActionChangeLayerOpacity(a0.canvas, a0.layer, u0.opacity)
+      );
+    }
   }
 };
 
@@ -453,6 +475,7 @@ export class TegakiCanvas extends Subject {
     this._offscreen.fill(this.backgroundColor.value);
 
     // Render Layers
+    offCtx.save();
     offCtx.imageSmoothingEnabled = false;
     for (let i = 0; i < this._layers.length; i++) {
       const layer = this._layers[i]
@@ -460,7 +483,9 @@ export class TegakiCanvas extends Subject {
       if (! layer.isVisible) {
         continue;
       }
-      
+      const opacity = layer.opacity;
+      offCtx.globalAlpha = opacity;
+
       if (i == this._currentLayerPosition && this._isDrawing) {
         // ストローク中なら曲線を描画してからレイヤーイメージを描画
         this._currentLayerOffscreen.set(layer);
@@ -475,7 +500,7 @@ export class TegakiCanvas extends Subject {
         offCtx.drawImage(layer.canvas, 0, 0);
       }
     }
-    
+    offCtx.restore();
 
     // Render offscreen to canvas
     ctx.save();
@@ -747,6 +772,17 @@ export class TegakiCanvas extends Subject {
     }
     this.moveLayerAt(position, position + n);
   }
+
+  changeLayerOpacity(layer: Layer, opacity: number) {
+    opacity = clamp(opacity, 0, 1);
+    if (layer.opacity == opacity) {
+      return;
+    }
+
+    const undo = new CanvasActionChangeLayerOpacity(this, layer, layer.opacity);
+    const action = new CanvasActionChangeLayerOpacity(this, layer, opacity);
+    this.pushAction(new HistoryNode(action, undo));
+  }
   
   // --------------------------------------------------
   // Draw
@@ -939,6 +975,19 @@ export class TegakiCanvas extends Subject {
    */
   pushAction(node: HistoryNode) {
     node.action.exec();
+
+    // 短期間の操作の場合、直近の履歴とマージ
+    if (this._redoStack.length == 0) {
+      const lastNode = this._undoStack.peek();
+      if (typeof lastNode !== "undefined" && node.time - lastNode.time < 1000) {
+        const mergedNode = node.mergeWith(lastNode);
+        if (typeof mergedNode !== "undefined") {
+          this._undoStack.pop();
+          node = mergedNode;
+        }
+      }
+    }
+
     this._undoStack.push(node);
 
     // delete the oldest history

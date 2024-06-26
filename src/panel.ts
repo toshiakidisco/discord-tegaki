@@ -138,18 +138,17 @@ export class Panel extends Subject {
   }
 
   open(x: number, y: number) {
-    if (this.visible) {
-      return;
-    }
-    this.#visible = true;
     const win = this.element;
+    if (! this.visible) {
+      this.#visible = true;
+      window.addEventListener("focusin", this.#onFocusOther);
+    }
+
     win.style.left = `${x}px`;
     win.style.top = `${y}px`;
     win.style.display = "block";
     adjustPosition(win);
     win.focus();
-    
-    window.addEventListener("focusin", this.#onFocusOther);
 
     this.notify("open");
   }
