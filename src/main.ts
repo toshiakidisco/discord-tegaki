@@ -429,6 +429,7 @@ class DiscordTegaki {
     this._toolEraser.size = canvasInitialState.eraserSize;
     this._state.tool.value = this._toolPen;
     this._canvas.reset(canvasInitialState.width, canvasInitialState.height, canvasInitialState.backgroundColor);
+    this.onUpdateToolSize();
   }
 
   open(x?: number, y?: number) {
