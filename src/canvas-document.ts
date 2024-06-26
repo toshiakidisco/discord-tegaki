@@ -34,4 +34,8 @@ export class TegakiCanvasDocument {
   }
 }
 
+export interface TegakiCanvasDocument {
+  addObserver(observer: Object, name: "update-image", callback:(canvas: this) => void): void;
+}
+
 export default TegakiCanvasDocument;

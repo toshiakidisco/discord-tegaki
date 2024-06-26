@@ -349,6 +349,7 @@ class DiscordTegaki {
     // キャンバスサイズ更新後
     this._canvas.addObserver(this, "change-size", () => {
       this.resetStatus();
+      this.adjustWindow();
     })
     // サブツールアイコン更新語
     this._canvas.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
@@ -474,7 +475,6 @@ class DiscordTegaki {
   private _changeScale(newScale: number) {
     const lastScale = this._canvas.scale;
     this._canvas.scale = newScale;
-    this.adjustWindow();
 
     this.resetStatus();
   }
