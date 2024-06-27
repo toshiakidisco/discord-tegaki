@@ -1043,7 +1043,7 @@ export class TegakiCanvas extends Subject {
         "[G]": color.g.toString(),
         "[B]": color.b.toString(),
         "[CLOSE_GAP]": (closeGap/2).toString(),
-        "[T]": (-3-3*255*255*tolerance/30).toString(),
+        "[T]": (-3-3*255*255*tolerance/CanvasTool.Bucket.toleranceMax).toString(),
       };
       drawImageWithSVGFilter(
         fillMask.context,

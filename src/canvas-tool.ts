@@ -159,6 +159,9 @@ export namespace CanvasTool {
       this.obaservables.opacity.value = value;
     }
   }
+  export namespace Bucket {
+    export const toleranceMax = 50;
+  }
 }
 
 export default CanvasTool;
