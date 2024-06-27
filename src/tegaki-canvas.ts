@@ -15,7 +15,7 @@ import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import { ObservableColor } from "./observable-value";
-import { CanvasTool, CanvasToolBlush } from "./canvas-tool";
+import { CanvasTool, CanvasToolBlush, CanvasToolBucket } from "./canvas-tool";
 import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./object-pool";
 
@@ -572,9 +572,14 @@ export class TegakiCanvas extends Subject {
       if (this._currentTool.name == "spoit") {
         this.execSpoit();
       }
-      else if (this._currentTool.name == "bucket") {
+      else if (this._currentTool instanceof CanvasToolBucket) {
         const position = this.positionInCanvas(this._mouseX, this._mouseY);
-        this.bucketFill(this.currentLayer, position.x, position.y, this.foreColor);
+        this.bucketFill(this.currentLayer, position.x, position.y, this.foreColor, {
+          closeGap: this._currentTool.closeGap,
+          expand: this._currentTool.expand,
+          tolerance: this._currentTool.tolerance,
+          opacity: this._currentTool.opacity,
+        });
       }
       // Pen, Eraser
       else if (
@@ -869,9 +874,9 @@ export class TegakiCanvas extends Subject {
       x = position.x;
       y = position.y;
     }
+
     const fillImage = offscreenPool.get().setSize(this.innerWidth, this.innerHeight);
     const rect = this.createBucketFillImage(fillImage, x, y, fillColor, option);
-    console.log(rect);
     if (typeof rect === "undefined" || rect.isEmpty()) {
       offscreenPool.return(fillImage);
       return;
@@ -1037,7 +1042,7 @@ export class TegakiCanvas extends Subject {
         "[G]": color.g.toString(),
         "[B]": color.b.toString(),
         "[CLOSE_GAP]": (closeGap/2).toString(),
-        "[1+255T]": (1+255*tolerance).toString(),
+        "[T]": (-1-3*255*255*tolerance/30).toString(),
       };
       drawImageWithSVGFilter(
         fillMask.context,

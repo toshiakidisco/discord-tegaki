@@ -16,6 +16,7 @@ import PanelLayer from "./panel-layer";
 
 import manifest from "../manifest.json";
 import "./scss/main.scss";
+import PanelBucket from "./panel-bucket";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -69,6 +70,7 @@ class DiscordTegaki {
   private _paletteBackgroundColor: ColorPicker;
   private _palettePenSize: SizeSelector;
   private _panelLayer: PanelLayer;
+  private _panelBucket: PanelBucket;
 
   private _root: HTMLElement;
   private _window: HTMLElement;
@@ -121,6 +123,7 @@ class DiscordTegaki {
     this._paletteBackgroundColor.setPalette(defaultPalette);
     this._palettePenSize = new SizeSelector(this._root, 1);
     this._panelLayer = new PanelLayer(this._root, this._canvas);
+    this._panelBucket = new PanelBucket(this._root, this._toolBucket);
 
     this.resetStatus();
     
@@ -427,9 +430,6 @@ class DiscordTegaki {
    * キャンバスを初期状態にリセット
    */
   resetCanvas() {
-    this._canvas.foreColor = canvasInitialState.foreColor;
-    this._toolPen.size = canvasInitialState.penSize;
-    this._toolEraser.size = canvasInitialState.eraserSize;
     this._state.tool.value = this._toolPen;
     this._canvas.reset(canvasInitialState.width, canvasInitialState.height, canvasInitialState.backgroundColor);
     this.onUpdateToolSize();
@@ -498,38 +498,45 @@ class DiscordTegaki {
     this._window.style.display = "none";
   }
 
-  onClickPen(ev: Event) {
+  onClickPen(ev: PointerEvent) {
     this._state.tool.value = this._toolPen;
   }
 
-  onClickEraser(ev: Event) {
+  onClickEraser(ev: PointerEvent) {
     this._state.tool.value = this._toolEraser;
   }
 
-  onClickPenSize(ev: MouseEvent) {
+  onClickPenSize(ev: PointerEvent) {
     this._palettePenSize.open(ev.clientX, ev.clientY);
     ev.stopPropagation();
     ev.preventDefault();
   }
 
-  onClickForeColor(ev: MouseEvent) {
-    this._paletteForeColor.open(ev.clientX, ev.clientY);
+  onClickForeColor(ev: PointerEvent) {
     ev.stopPropagation();
     ev.preventDefault();
+    this._paletteForeColor.open(ev.clientX, ev.clientY);
   }
 
-  onClickBackgroundColor(ev: MouseEvent) {
-    this._paletteBackgroundColor.open(ev.clientX, ev.clientY);
+  onClickBackgroundColor(ev: PointerEvent) {
     ev.stopPropagation();
     ev.preventDefault();
+    this._paletteBackgroundColor.open(ev.clientX, ev.clientY);
   }
 
   onClickSpoit(ev: Event) {
     this._state.tool.value = this._toolSpoit;
   }
 
-  onClickBucket(ev: Event) {
-    this._state.tool.value = this._toolBucket;
+  onClickBucket(ev: PointerEvent) {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (this._state.tool.value == this._toolBucket) {
+      this._panelBucket.open(ev.clientX, ev.clientY);
+    }
+    else {
+      this._state.tool.value = this._toolBucket;
+    }
   }
 
   onClickClear(ev: Event) {

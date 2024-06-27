@@ -78,7 +78,7 @@ export class CanvasToolBucket extends CanvasTool {
     super();
     this.obaservables = {
       tolerance: new ObservableValue<number>(0),
-      closeGap: new ObservableValue<number>(5),
+      closeGap: new ObservableValue<number>(0),
       expand: new ObservableValue<number>(1),
       opacity: new ObservableValue<number>(1),
     };

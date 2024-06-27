@@ -40,9 +40,7 @@ export function getConnectedPixels(width: number, height: number, src: Uint8Clam
     const sx = seeds.pop() as number;
     const sp = (sy*width + sx)*4 + 3;
 
-    console.log({sx, sy, sp});
     if (dst[sp] != 0) {
-      console.log("already processed");
       continue;
     }
 
