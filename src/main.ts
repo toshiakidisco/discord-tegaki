@@ -2,7 +2,7 @@ import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
 import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
-import { CanvasTool, CanvasToolBlush, CanvasToolBucket, CanvasToolSpoit } from "./canvas-tool";
+import { CanvasTool, CanvasToolBlush, CanvasToolSpoit } from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./observable-value";
 import Color from "./color";
@@ -16,7 +16,6 @@ import PanelLayer from "./panel-layer";
 
 import manifest from "../manifest.json";
 import "./scss/main.scss";
-import PanelBucket from "./panel-bucket";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -58,7 +57,6 @@ const toolIcons = [
   "pen",
   "eraser",
   "spoit",
-  "bucket",
 ];
 
 class DiscordTegaki {
@@ -70,20 +68,18 @@ class DiscordTegaki {
   private _paletteBackgroundColor: ColorPicker;
   private _palettePenSize: SizeSelector;
   private _panelLayer: PanelLayer;
-  private _panelBucket: PanelBucket;
 
   private _root: HTMLElement;
   private _window: HTMLElement;
   private _keyDownTime: Map<string, number> = new Map();
 
   private _toolPen = new CanvasToolBlush(
-    "pen", canvasInitialState.penSize
+    "pen", canvasInitialState.foreColor, canvasInitialState.penSize
   );
   private _toolEraser = new CanvasToolBlush(
-    "eraser", canvasInitialState.eraserSize
+    "eraser", Color.white, canvasInitialState.eraserSize
   );
   private _toolSpoit = new CanvasToolSpoit();
-  private _toolBucket = new CanvasToolBucket();
   private _previousTool: CanvasTool = CanvasTool.none;
   private _nextPreviousTool: CanvasTool = CanvasTool.none;
 
@@ -123,7 +119,6 @@ class DiscordTegaki {
     this._paletteBackgroundColor.setPalette(defaultPalette);
     this._palettePenSize = new SizeSelector(this._root, 1);
     this._panelLayer = new PanelLayer(this._root, this._canvas);
-    this._panelBucket = new PanelBucket(this._root, this._toolBucket);
 
     this.resetStatus();
     
@@ -321,12 +316,11 @@ class DiscordTegaki {
     this._state.tool.sync();
 
     // Fore Color
-    this._canvas.observable.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
+    this._toolPen.color.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
       this._paletteForeColor.set(value);
     });
-    this._canvas.observable.foreColor.sync();
-
+    this._toolPen.color.sync();
     // Background Color
     this._state.backgroundColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["backgroundColor"].style.backgroundColor = value.css();
@@ -341,7 +335,7 @@ class DiscordTegaki {
     
     // Connect palette to ObservableValue
     this._paletteForeColor.addObserver(this, "change", (c: Color.Immutable) => {
-      this._canvas.foreColor = c;
+      this._toolPen.color.value = c;
     });
     this._paletteBackgroundColor.addObserver(this, "change", (c: Color.Immutable) => {
       this._state.backgroundColor.value = c;
@@ -368,7 +362,7 @@ class DiscordTegaki {
     this.updateUndoRedoIcon();
     // スポイト後の色更新
     this._canvas.addObserver(this, "spoit", (ev: {color: Color.Immutable}) => {
-      this._canvas.foreColor = ev.color;
+      this._toolPen.color.value = ev.color;
     });
   }
 
@@ -430,6 +424,9 @@ class DiscordTegaki {
    * キャンバスを初期状態にリセット
    */
   resetCanvas() {
+    this._toolPen.color.value = canvasInitialState.foreColor;
+    this._toolPen.size = canvasInitialState.penSize;
+    this._toolEraser.size = canvasInitialState.eraserSize;
     this._state.tool.value = this._toolPen;
     this._canvas.reset(canvasInitialState.width, canvasInitialState.height, canvasInitialState.backgroundColor);
     this.onUpdateToolSize();
@@ -498,29 +495,23 @@ class DiscordTegaki {
     this._window.style.display = "none";
   }
 
-  onClickPen(ev: PointerEvent) {
+  onClickPen(ev: Event) {
     this._state.tool.value = this._toolPen;
   }
 
-  onClickEraser(ev: PointerEvent) {
+  onClickEraser(ev: Event) {
     this._state.tool.value = this._toolEraser;
   }
 
-  onClickPenSize(ev: PointerEvent) {
+  onClickPenSize(ev: MouseEvent) {
     this._palettePenSize.open(ev.clientX, ev.clientY);
-    ev.stopPropagation();
-    ev.preventDefault();
   }
 
-  onClickForeColor(ev: PointerEvent) {
-    ev.stopPropagation();
-    ev.preventDefault();
+  onClickForeColor(ev: MouseEvent) {
     this._paletteForeColor.open(ev.clientX, ev.clientY);
   }
 
-  onClickBackgroundColor(ev: PointerEvent) {
-    ev.stopPropagation();
-    ev.preventDefault();
+  onClickBackgroundColor(ev: MouseEvent) {
     this._paletteBackgroundColor.open(ev.clientX, ev.clientY);
   }
 
@@ -528,23 +519,12 @@ class DiscordTegaki {
     this._state.tool.value = this._toolSpoit;
   }
 
-  onClickBucket(ev: PointerEvent) {
-    ev.stopPropagation();
-    ev.preventDefault();
-    if (this._state.tool.value == this._toolBucket) {
-      this._panelBucket.open(ev.clientX, ev.clientY);
-    }
-    else {
-      this._state.tool.value = this._toolBucket;
-    }
-  }
-
   onClickClear(ev: Event) {
     this._canvas.clear();
   }
 
   onClickFill(ev: Event) {
-    this._canvas.fill(this._canvas.foreColor);
+    this._canvas.fill(this._toolPen.color.value);
   }
 
   onClickFlip(ev: Event) {
