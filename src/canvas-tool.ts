@@ -30,16 +30,45 @@ class CanvasToolNone extends CanvasTool {
 
 export class CanvasToolBlush extends CanvasTool{
   penMode: PenMode;
-  size: number;
+  readonly obaservables: {
+    size: ObservableValue<number>;
+    opacity: ObservableValue<number>;
+    blur: ObservableValue<number>;
+  }
 
   constructor(penMode: PenMode, size: number) {
     super();
+    this.obaservables = {
+      size: new ObservableValue<number>(size),
+      opacity: new ObservableValue<number>(1),
+      blur: new ObservableValue<number>(1),
+    };
     this.penMode = penMode;
-    this.size = size;
   }
-
+  
   override get name() {
     return this.penMode;
+  }
+
+  override get size(): number {
+    return this.obaservables.size.value;
+  }
+  override set size(value: number) {
+    this.obaservables.size.value = value;
+  }
+
+  get opacity(): number {
+    return this.obaservables.opacity.value;
+  }
+  set opacity(value: number) {
+    this.obaservables.opacity.value = value;
+  }
+
+  get blur(): number {
+    return this.obaservables.blur.value;
+  }
+  set blur(value: number) {
+    this.obaservables.blur.value = value;
   }
 
   get composite(): GlobalCompositeOperation {
@@ -64,13 +93,9 @@ export class CanvasToolSpoit extends CanvasTool{
 
 export class CanvasToolBucket extends CanvasTool {
   readonly obaservables: {
-    /** 色許容誤差 */
     tolerance: ObservableValue<number>;
-    /** 隙間閉じ */
     closeGap: ObservableValue<number>;
-    /** 領域拡張 */
     expand: ObservableValue<number>;
-    /** 透明度 */
     opacity: ObservableValue<number>;
   };
 
