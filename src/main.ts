@@ -508,14 +508,20 @@ class DiscordTegaki {
 
   onClickPenSize(ev: MouseEvent) {
     this._palettePenSize.open(ev.clientX, ev.clientY);
+    ev.stopPropagation();
+    ev.preventDefault();
   }
 
   onClickForeColor(ev: MouseEvent) {
     this._paletteForeColor.open(ev.clientX, ev.clientY);
+    ev.stopPropagation();
+    ev.preventDefault();
   }
 
   onClickBackgroundColor(ev: MouseEvent) {
     this._paletteBackgroundColor.open(ev.clientX, ev.clientY);
+    ev.stopPropagation();
+    ev.preventDefault();
   }
 
   onClickSpoit(ev: Event) {
