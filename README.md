@@ -3,7 +3,7 @@
 Discord上に、生まれたばかりの掲示板っぽく使えるお絵かき機能を追加します。
 Google Chrome, Edgeで動作確認済み。
 
-- Chrome ウェブストア (v1.1.0)
+- Chrome ウェブストア
   - https://chromewebstore.google.com/detail/discotegaki/eiaogpnffnhfkddeenblefkjbijlflhd
 
 - Webアプリ版
@@ -15,7 +15,11 @@ Google Chrome, Edgeで動作確認済み。
 ## 使い方
 インストールすると、Discordの画面の右下に「手書き」ボタンが表示されるので、クリックするとお絵かきできるウィンドウが表示されます。
 
+![手書きボタン](img/manual-01-tegaki-button.jpg)
+
 自由にお絵かきしたあとは「コピー」ボタンでクリップボードにコピーができるので、そのまま投稿欄にペーストすることが可能です。
+
+![手書きボタン](img/manual-01-copy-button.jpg)
 
 ### ショートカット
 - Ctrl + Z: 取り消し
@@ -24,6 +28,20 @@ Google Chrome, Edgeで動作確認済み。
 - N: 鉛筆ツール (長押しで一時切替)
 - E: 消しゴムツール (長押しで一時切替)
 - Alt: スポイトツール (一時切替)
+
+### アイコンの説明
+
+#### タイトル部分
+![タイトルバー アイコン](img/manual-02-titlebar.jpg)
+
+#### サイド部分
+![サイド アイコン](img/manual-02-side.jpg)
+
+#### 色選択パネル
+![色選択パネル](img/manual-02-color-picker.jpg)
+
+#### レイヤーパネル
+![レイヤーパネル](img/manual-02-layer.jpg)
 
 
 ## ビルド
