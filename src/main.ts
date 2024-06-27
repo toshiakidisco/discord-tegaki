@@ -496,6 +496,7 @@ class DiscordTegaki {
 
   onClickClose(ev: Event) {
     this._window.style.display = "none";
+    this._panelLayer.close();
   }
 
   onClickPen(ev: PointerEvent) {
