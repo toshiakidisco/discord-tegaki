@@ -664,7 +664,10 @@ export class TegakiCanvas extends Subject {
     }
     const color = this.getColorAt(x, y);
     if (typeof color !== "undefined") {
-      this.notify("spoit", color);
+      this.notify("spoit", {
+        x: x, y: y,
+        color: color,
+      });
     }
   }
 
