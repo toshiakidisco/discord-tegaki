@@ -130,7 +130,7 @@ export class TegakiCanvas extends Subject {
   private _redoStack: Stack<HistoryNode> = new Stack();
 
   private _strokeManager: StrokeManager = new StrokeManager();
-  private _spoitContext: CanvasRenderingContext2D;
+  private _spoitContext: OffscreenCanvasRenderingContext2D;
 
   private _currentLayerPosition: number = 0;
 
@@ -149,7 +149,7 @@ export class TegakiCanvas extends Subject {
     this._innerScale = 1;
     this.backgroundColor.set(init.backgroundColor);
 
-    // Create Elements
+    // Create canvas for image
     this.element = document.createElement("div");
     this.element.className = "tegaki-canvas";
 
@@ -165,6 +165,7 @@ export class TegakiCanvas extends Subject {
     }
     this.context = ctx;
     
+    // Create canvas for cursor
     this.cursorOverlay = document.createElement("canvas");
     this.cursorOverlay.className = "cursor";
     this.cursorOverlay.width = this.width;
@@ -180,15 +181,12 @@ export class TegakiCanvas extends Subject {
     this.element.appendChild(this.canvas);
     this.element.appendChild(this.cursorOverlay);
 
-
     this._layers = [];
     this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
     this._currentLayerOffscreen = new Offscreen(this.innerWidth, this.innerHeight);
 
     // Create 2D context for spoit
-    const spoitCanvas = document.createElement("canvas");
-    spoitCanvas.width = 1;
-    spoitCanvas.height = 1;
+    const spoitCanvas = new OffscreenCanvas(1, 1);
     const spoitContext = spoitCanvas.getContext("2d", {willReadFrequently: true});
     if (spoitContext === null) {
       throw new Error("Failed to get CanvasRendering2DContext");
@@ -236,7 +234,7 @@ export class TegakiCanvas extends Subject {
   get height() {
     return this._height;
   }
-
+  
   setSize(width: number, height: number) {
     if (this._width == width && this._height == height) {
       return;
@@ -1055,7 +1053,7 @@ export class TegakiCanvas extends Subject {
     }
 
     // 隣接領域検索
-    const imageData = fillMask.context.getImageData(0, 0, fillMask.width, fillMask.height);
+    const imageData = getImageData(fillMask.canvas, 0, 0, fillMask.canvas.width, fillMask.canvas.height);
     const src = imageData.data;
 
     const regionToFill = getConnectedPixels(
@@ -1225,6 +1223,30 @@ function drawImageWithSVGFilter(
   context.filter = "url(#tegaki-canvas-svg-filter)";
   context.drawImage(image, 0, 0);
   context.restore();
+}
+
+let _imageDataCanvas: OffscreenCanvas | undefined;
+function getImageData(
+  canvas: HTMLCanvasElement,
+  x: number = 0, y: number = 0,
+  width: number = canvas.width, height: number = canvas.height
+) {
+  if (typeof _imageDataCanvas === "undefined") {
+    _imageDataCanvas = new OffscreenCanvas(width, height);
+  }
+  else {
+    _imageDataCanvas.width = width;
+    _imageDataCanvas.height = height;
+  }
+  const ctx = _imageDataCanvas.getContext("2d", {
+    willReadFrequently: true,
+  });
+  if (ctx == null) {
+    throw new Error("Failed to get RenderingContext2D");
+  }
+
+  ctx.drawImage(canvas, x, y, width, height, 0, 0, width, height);
+  return ctx.getImageData(0, 0, width, height);
 }
 
 export default TegakiCanvas;
