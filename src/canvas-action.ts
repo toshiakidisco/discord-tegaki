@@ -3,7 +3,7 @@ import Offscreen from "./canvas-offscreen";
 import Color from "./color";
 import ObjectPool from "./object-pool";
 import { Rect } from "./rect";
-import TegakiCanvas, { BucketOption } from "./tegaki-canvas";
+import TegakiCanvas from "./tegaki-canvas";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 
@@ -168,13 +168,11 @@ export class CanvasActionDrawImage extends CanvasAction {
   private _image: Offscreen;
   private _dx: number;
   private _dy: number;
-  private _copy: boolean;
 
   constructor(
     canvas: TegakiCanvas, layer: Layer,
     image: Offscreen, sx: number, sy: number, sw: number, sh: number,
-    dx: number, dy: number,
-    copy: boolean = true
+    dx: number, dy: number
   ) {
     super(canvas);
     this._layer = layer;
@@ -184,15 +182,11 @@ export class CanvasActionDrawImage extends CanvasAction {
     this._image.context.drawImage(image.canvas, sx, sy, sw, sh, 0, 0, sw, sh);
     this._dx = dx;
     this._dy = dy;
-    this._copy = copy;
   }
 
   exec(): void {
-    const ctx = this._layer.context;
-    if (this._copy) {
-      ctx.clearRect(this._dx, this._dy, this._image.width, this._image.height);
-    }
-    ctx.drawImage(this._image.canvas, this._dx, this._dy);
+    this._layer.context.clearRect(this._dx, this._dy, this._image.width, this._image.height);
+    this._layer.context.drawImage(this._image.canvas, this._dx, this._dy);
     this._layer.notify("update");
   }
 
