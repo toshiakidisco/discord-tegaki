@@ -1,0 +1,22 @@
+<!-- ベースを指定色で塗りつぶす -->
+<feFlood flood-color="rgb([R], [G], [B])"/>
+<!-- 差の絶対値で合成 -->
+<feBlend in2="SourceGraphic" mode="difference" result="diff" />
+<!-- 各ピクセルを差の2乗に -->
+<feBlend in="diff" in2="diff" mode="multiply"/>
+<!-- 指定色部分が透明、それ以外を黒に -->
+<!-- T = -1 - 3*255^2*Tolerance/100-->
+<feColorMatrix type="matrix" values="
+  0 0 0 0 0
+  0 0 0 0 0
+  0 0 0 0 0
+  65025 65025 65025 0 [T]" />
+<!-- 隙間閉じの分だけ黒を拡張 -->
+<feMorphology operator="dilate" radius="[CLOSE_GAP]" />
+<!-- 反転して同じ作業 -->
+<feColorMatrix type="matrix" values="
+  0 0 0 0 0
+  0 0 0 0 0
+  0 0 0 0 0
+  0 0 0 -1 1" />
+<feMorphology operator="dilate" radius="[CLOSE_GAP]" />
