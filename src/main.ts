@@ -2,7 +2,7 @@ import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
 import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
-import { CanvasTool, CanvasToolBlush, CanvasToolBucket, CanvasToolSpoit } from "./canvas-tool";
+import CanvasTool from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./observable-value";
 import Color from "./color";
@@ -76,14 +76,14 @@ class DiscordTegaki {
   private _window: HTMLElement;
   private _keyDownTime: Map<string, number> = new Map();
 
-  private _toolPen = new CanvasToolBlush(
+  private _toolPen = new CanvasTool.Blush(
     "pen", canvasInitialState.penSize
   );
-  private _toolEraser = new CanvasToolBlush(
+  private _toolEraser = new CanvasTool.Blush(
     "eraser", canvasInitialState.eraserSize
   );
-  private _toolSpoit = new CanvasToolSpoit();
-  private _toolBucket = new CanvasToolBucket();
+  private _toolSpoit = new CanvasTool.Spoit();
+  private _toolBucket = new CanvasTool.Bucket();
   private _previousTool: CanvasTool = CanvasTool.none;
   private _nextPreviousTool: CanvasTool = CanvasTool.none;
 
@@ -368,6 +368,7 @@ class DiscordTegaki {
     this.updateUndoRedoIcon();
     // スポイト後の色更新
     this._canvas.addObserver(this, "spoit", (ev: {color: Color.Immutable}) => {
+      console.log();
       this._canvas.foreColor = ev.color;
     });
   }

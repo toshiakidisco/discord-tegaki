@@ -9,13 +9,13 @@ import fillImageFilterCode from "raw-loader!./fill-image-filter.svg";
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
-import CanvasAction, { CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect, CanvasActionDeleteLayer, CanvasActionAddLayer, CanvasActionClear, CanvasActionMoveLayer, CanvasActionChangeDocument, CanvasActionChangeBackgroundColor, CanvasActionChangeLayerOpacity } from "./canvas-action";
+import CanvasAction, { drawPath, getPathBoundingRect } from "./canvas-action";
 import { Rect } from "./rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import { ObservableColor } from "./observable-value";
-import { CanvasTool, CanvasToolBlush, CanvasToolBucket } from "./canvas-tool";
+import CanvasTool from "./canvas-tool";
 import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./object-pool";
 
@@ -80,15 +80,15 @@ class HistoryNode {
     const u0 = node.undo;
     const u1 = this.undo;
     if (
-      a0 instanceof CanvasActionChangeLayerOpacity &&
-      a1 instanceof CanvasActionChangeLayerOpacity &&
-      u0 instanceof CanvasActionChangeLayerOpacity &&
-      u1 instanceof CanvasActionChangeLayerOpacity &&
+      a0 instanceof CanvasAction.ChangeLayerOpacity &&
+      a1 instanceof CanvasAction.ChangeLayerOpacity &&
+      u0 instanceof CanvasAction.ChangeLayerOpacity &&
+      u1 instanceof CanvasAction.ChangeLayerOpacity &&
       a0.layer == a1.layer
     ) {
       return new HistoryNode(
-        new CanvasActionChangeLayerOpacity(a0.canvas, a0.layer, a1.opacity),
-        new CanvasActionChangeLayerOpacity(a0.canvas, a0.layer, u0.opacity)
+        new CanvasAction.ChangeLayerOpacity(a0.canvas, a0.layer, a1.opacity),
+        new CanvasAction.ChangeLayerOpacity(a0.canvas, a0.layer, u0.opacity)
       );
     }
   }
@@ -104,7 +104,7 @@ export class TegakiCanvas extends Subject {
   // 選択中のツール
   private _currentTool: CanvasTool = CanvasTool.none;
   // 描画中のツール
-  private _drawingTool: CanvasToolBlush = new CanvasToolBlush("pen", 1);
+  private _drawingTool: CanvasTool.Blush = new CanvasTool.Blush("pen", 1);
 
   private _width: number;
   private _height: number;
@@ -234,7 +234,7 @@ export class TegakiCanvas extends Subject {
   get height() {
     return this._height;
   }
-  
+
   setSize(width: number, height: number) {
     if (this._width == width && this._height == height) {
       return;
@@ -396,7 +396,7 @@ export class TegakiCanvas extends Subject {
     }
     
     let cursorName: string;
-    const isBlushTool = this.currentTool instanceof CanvasToolBlush;
+    const isBlushTool = this.currentTool instanceof CanvasTool.Blush;
     // Render cursor
     if ((!this.currentLayer.isVisible) && isBlushTool) {
       cursorName = "prohibit";
@@ -570,7 +570,7 @@ export class TegakiCanvas extends Subject {
       if (this._currentTool.name == "spoit") {
         this.execSpoit();
       }
-      else if (this._currentTool instanceof CanvasToolBucket) {
+      else if (this._currentTool instanceof CanvasTool.Bucket) {
         const position = this.positionInCanvas(this._mouseX, this._mouseY);
         this.bucketFill(this.currentLayer, position.x, position.y, this.foreColor, {
           closeGap: this._currentTool.closeGap,
@@ -581,7 +581,7 @@ export class TegakiCanvas extends Subject {
       }
       // Pen, Eraser
       else if (
-        this._currentTool instanceof CanvasToolBlush &&
+        this._currentTool instanceof CanvasTool.Blush &&
         this.currentLayer.isVisible
       ) {
         this.startDraw(this._currentTool);
@@ -726,9 +726,9 @@ export class TegakiCanvas extends Subject {
     const newDoc = new TegakiCanvasDocument(
       width, height, [layer], backgroundColor
     );
-    const action = new CanvasActionChangeDocument(this, newDoc);
+    const action = new CanvasAction.ChangeDocument(this, newDoc);
     if (resetHistory) {
-      const undo = new CanvasActionNone(this);
+      const undo = new CanvasAction.None(this);
       this.pushAction(new HistoryNode(action, undo));
       this._undoStack.clear();
       this.notify("update-history", this);
@@ -738,7 +738,7 @@ export class TegakiCanvas extends Subject {
         this.width, this.height,
         this.layers, this.backgroundColor.value
       );
-      const undo = new CanvasActionChangeDocument(this, oldDoc);
+      const undo = new CanvasAction.ChangeDocument(this, oldDoc);
       this.pushAction(new HistoryNode(action, undo));
     }
   }
@@ -749,8 +749,8 @@ export class TegakiCanvas extends Subject {
       return;
     }
 
-    const action = new CanvasActionChangeBackgroundColor(this, color);
-    const undo = new CanvasActionChangeBackgroundColor(this, currentBgColor);
+    const action = new CanvasAction.ChangeBackgroundColor(this, color);
+    const undo = new CanvasAction.ChangeBackgroundColor(this, currentBgColor);
     this.pushAction(new HistoryNode(action, undo));
   }
 
@@ -767,8 +767,8 @@ export class TegakiCanvas extends Subject {
     }
     const layer = new Layer(this.innerWidth, this.innerHeight);
 
-    const undo = new CanvasActionDeleteLayer(this, position);
-    const action = new CanvasActionAddLayer(this, position, layer);
+    const undo = new CanvasAction.DeleteLayer(this, position);
+    const action = new CanvasAction.AddLayer(this, position, layer);
     this.pushAction(new HistoryNode(action, undo));
   }
 
@@ -796,8 +796,8 @@ export class TegakiCanvas extends Subject {
     }
     const layer = this._layers[position];
 
-    const undo = new CanvasActionAddLayer(this, position, layer);
-    const action = new CanvasActionDeleteLayer(this, position);
+    const undo = new CanvasAction.AddLayer(this, position, layer);
+    const action = new CanvasAction.DeleteLayer(this, position);
     this.pushAction(new HistoryNode(action, undo));
   }
 
@@ -816,8 +816,8 @@ export class TegakiCanvas extends Subject {
     if (newPosition >= this._layers.length || newPosition < 0) {
       return;
     }
-    const undo = new CanvasActionMoveLayer(this, newPosition, position);
-    const action = new CanvasActionMoveLayer(this, position, newPosition);
+    const undo = new CanvasAction.MoveLayer(this, newPosition, position);
+    const action = new CanvasAction.MoveLayer(this, position, newPosition);
     this.pushAction(new HistoryNode(action, undo));
   }
 
@@ -835,8 +835,8 @@ export class TegakiCanvas extends Subject {
       return;
     }
 
-    const undo = new CanvasActionChangeLayerOpacity(this, layer, layer.opacity);
-    const action = new CanvasActionChangeLayerOpacity(this, layer, opacity);
+    const undo = new CanvasAction.ChangeLayerOpacity(this, layer, layer.opacity);
+    const action = new CanvasAction.ChangeLayerOpacity(this, layer, opacity);
     this.pushAction(new HistoryNode(action, undo));
   }
   
@@ -848,13 +848,13 @@ export class TegakiCanvas extends Subject {
    */
   fill(color: Color.Immutable) {
     const layer = this.currentLayer;
-    const undo = new CanvasActionDrawImage(
+    const undo = new CanvasAction.DrawImage(
       this, layer,
       layer, 0, 0, layer.width, layer.height,
       0, 0
     );
 
-    const action = new CanvasActionFill(this, layer, color)
+    const action = new CanvasAction.Fill(this, layer, color)
     this.pushAction(new HistoryNode(action, undo));
   }
 
@@ -883,12 +883,12 @@ export class TegakiCanvas extends Subject {
       return;
     }
     
-    const undo = new CanvasActionDrawImage(
+    const undo = new CanvasAction.DrawImage(
       this, layer, layer,
       rect.x, rect.y, rect.width, rect.height,
       rect.x, rect.y
     );
-    const action = new CanvasActionDrawImage(
+    const action = new CanvasAction.DrawImage(
       this, layer, fillImage, 
       rect.x, rect.y, rect.width, rect.height,
       rect.x, rect.y, false
@@ -903,16 +903,16 @@ export class TegakiCanvas extends Subject {
    */
   clear() {
     const layer = this.currentLayer;
-    const undo = new CanvasActionDrawImage(
+    const undo = new CanvasAction.DrawImage(
       this, layer,
       layer, 0, 0, layer.width, layer.height,
       0, 0
     );
-    const action = new CanvasActionClear(this, layer);
+    const action = new CanvasAction.Clear(this, layer);
     this.pushAction(new HistoryNode(action, undo));
   }
 
-  private startDraw(blushTool: CanvasToolBlush) {
+  private startDraw(blushTool: CanvasTool.Blush) {
     if (this._isDrawing) {
       this.finishDraw();
     }
@@ -962,16 +962,16 @@ export class TegakiCanvas extends Subject {
     const layer = this.currentLayer;
     let undo: CanvasAction;
     if (pathRect.isEmpty()) {
-      undo = new CanvasActionNone(this);
+      undo = new CanvasAction.None(this);
     }
     else {
-      undo = new CanvasActionDrawImage(
+      undo = new CanvasAction.DrawImage(
         this, layer, layer,
         pathRect.x, pathRect.y, pathRect.width, pathRect.height,
         pathRect.x, pathRect.y
       );
     }
-    const action = new CanvasActionDrawPath(
+    const action = new CanvasAction.DrawPath(
       this, layer, {
         size: this.toolSize,
         color: this.foreColor.copy(),
@@ -987,8 +987,8 @@ export class TegakiCanvas extends Subject {
    * 画像の左右反転
    */
   flip() {
-    const undo = new CanvasActionFlip(this);
-    const action = new CanvasActionFlip(this);
+    const undo = new CanvasAction.Flip(this);
+    const action = new CanvasAction.Flip(this);
     this.pushAction(new HistoryNode(action, undo));
   }
 
@@ -1009,12 +1009,12 @@ export class TegakiCanvas extends Subject {
 
     let undo: CanvasAction;
     if (width > this.width && height > this.height) {
-      undo = new CanvasActionResize(this, this.width, this.height);
+      undo = new CanvasAction.Resize(this, this.width, this.height);
     }
     else {
-      undo = new CanvasActionUndoResize(this);
+      undo = new CanvasAction.UndoResize(this);
     }
-    const action = new CanvasActionResize(this, width, height);
+    const action = new CanvasAction.Resize(this, width, height);
     this.pushAction(new HistoryNode(action, undo));
   }
 
@@ -1043,7 +1043,7 @@ export class TegakiCanvas extends Subject {
         "[G]": color.g.toString(),
         "[B]": color.b.toString(),
         "[CLOSE_GAP]": (closeGap/2).toString(),
-        "[T]": (-1-3*255*255*tolerance/30).toString(),
+        "[T]": (-3-3*255*255*tolerance/30).toString(),
       };
       drawImageWithSVGFilter(
         fillMask.context,

@@ -1,8 +1,8 @@
-import { CanvasToolBucket } from "./canvas-tool";
+import CanvasTool from "./canvas-tool";
 import PanelProperties, { PanelPropertiesItem, PanelPropertiesItemNumber } from "./panel-properties";
 
 export class PanelBucket extends PanelProperties{
-  constructor(root: HTMLElement, tool: CanvasToolBucket) {
+  constructor(root: HTMLElement, tool: CanvasTool.Bucket) {
     super(root);
 
     this.addItem(
