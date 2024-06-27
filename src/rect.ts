@@ -27,6 +27,14 @@ export class Rect implements Rect.Immutable {
     return this.width <= 0 || this.height <= 0;
   }
 
+  expand(n: number): this {
+    this.x -= n;
+    this.y -= n;
+    this.width += n*2;
+    this.height += n*2;
+    return this;
+  }
+
   static intersection(r1: Rect, r2: Rect) {
     if (
       r1.x + r1.width  <= r2.x ||
