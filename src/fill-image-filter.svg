@@ -1,0 +1,3 @@
+<feFlood flood-color="rgb([R], [G], [B])"/>
+<feComposite  in2="SourceGraphic" operator="in" />
+<feMorphology operator="dilate" radius="[EXPAND]" />

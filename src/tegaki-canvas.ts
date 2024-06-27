@@ -1,28 +1,30 @@
-import ObjectPool from "./object-pool";
 import Stack from "./stack";
 import Color from "./color";
 import Subject from "./subject";
 
-import cursorFilterSvgCode from "raw-loader!./cursor-filter.svg";
+import svgFilterCode from "raw-loader!./svg-filter.svg";
+import fillMaskFilterCode from "raw-loader!./fill-mask-filter.svg";
+import fillImageFilterCode from "raw-loader!./fill-image-filter.svg";
+
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
-import CanvasAction, { BlushPath, CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect, CanvasActionDeleteLayer, CanvasActionAddLayer, CanvasActionClear, CanvasActionMoveLayer, CanvasActionChangeDocument, CanvasActionChangeBackgroundColor, CanvasActionChangeLayerOpacity } from "./canvas-action";
+import CanvasAction, { CanvasActionDrawImage, CanvasActionFill, CanvasActionFlip, CanvasActionNone, CanvasActionDrawPath, CanvasActionResize, CanvasActionUndoResize, drawPath, getPathBoundingRect, CanvasActionDeleteLayer, CanvasActionAddLayer, CanvasActionClear, CanvasActionMoveLayer, CanvasActionChangeDocument, CanvasActionChangeBackgroundColor, CanvasActionChangeLayerOpacity } from "./canvas-action";
 import { Rect } from "./rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import { ObservableColor } from "./observable-value";
 import { CanvasTool, CanvasToolBlush } from "./canvas-tool";
-import { off } from "process";
-import { clamp } from "./funcs";
+import { clamp, getConnectedPixels } from "./funcs";
+import ObjectPool from "./object-pool";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
 
 // カーソル描画用のフィルタの読み込み
-const cursorFilterSvg = parseSvg(cursorFilterSvgCode);
-document.body.appendChild(cursorFilterSvg);
+const svgFilter = parseSvg(svgFilterCode);
+document.body.appendChild(svgFilter);
 
 /**
  * キャンバス作成時のパラメータ
@@ -48,9 +50,11 @@ export type BucketOption = {
   opacity?: number;
 };
 
+const offscreenPool = ObjectPool.sharedPoolFor(Offscreen);
+
 const toolCursors: {[tool: string]: {x: number; y: number;}} = {
   "spoit": {x: 1, y: 14},
-  "bucket": {x: 2, y: 17},
+  "bucket": {x: 2, y: 12},
   "prohibit": {x: 7, y: 7},
 }
 
@@ -100,7 +104,7 @@ export class TegakiCanvas extends Subject {
   // 選択中のツール
   private _currentTool: CanvasTool = CanvasTool.none;
   // 描画中のツール
-  private _drawingTool: CanvasToolBlush = new CanvasToolBlush("pen", Color.black, 1);
+  private _drawingTool: CanvasToolBlush = new CanvasToolBlush("pen", 1);
 
   private _width: number;
   private _height: number;
@@ -130,8 +134,15 @@ export class TegakiCanvas extends Subject {
 
   private _currentLayerPosition: number = 0;
 
+  readonly observable: {
+    foreColor: ObservableColor;
+  };
+
   constructor(init: CanvasInit) {
     super();
+    this.observable = {
+      foreColor: (new ObservableColor(255, 255, 255)).set(init.foreColor),
+    };
 
     this._width = init.width;
     this._height = init.height;
@@ -185,6 +196,13 @@ export class TegakiCanvas extends Subject {
     this._spoitContext = spoitContext;
 
     this.init();
+  }
+
+  get foreColor(): Color.Immutable {
+    return this.observable.foreColor.value;
+  }
+  set foreColor(color: Color.Immutable) {
+    this.observable.foreColor.set(color);
   }
 
   get currentLayer(): Layer {
@@ -291,7 +309,7 @@ export class TegakiCanvas extends Subject {
    * 選択中ツールの色
    */
   get toolColor(): Color.Immutable {
-    return this._drawingTool.color.value;
+    return this.foreColor;
   }
 
   get toolComposite(): GlobalCompositeOperation {
@@ -555,7 +573,8 @@ export class TegakiCanvas extends Subject {
         this.execSpoit();
       }
       else if (this._currentTool.name == "bucket") {
-        this.bucketFill(this._mouseX, this._mouseY);
+        const position = this.positionInCanvas(this._mouseX, this._mouseY);
+        this.bucketFill(this.currentLayer, position.x, position.y, this.foreColor);
       }
       // Pen, Eraser
       else if (
@@ -844,8 +863,33 @@ export class TegakiCanvas extends Subject {
   /**
    * バケツ塗り
    */
-  bucketFill(x: number, y: number, option?: BucketOption) {
-    this.createBucketFillImage(x, y, option);
+  bucketFill(layer: Layer, x: number, y: number, fillColor: Color.Immutable, option?: BucketOption) {
+    if (typeof x == "undefined" || typeof y == "undefined") {
+      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      x = position.x;
+      y = position.y;
+    }
+    const fillImage = offscreenPool.get().setSize(this.innerWidth, this.innerHeight);
+    const rect = this.createBucketFillImage(fillImage, x, y, fillColor, option);
+    console.log(rect);
+    if (typeof rect === "undefined" || rect.isEmpty()) {
+      offscreenPool.return(fillImage);
+      return;
+    }
+    
+    const undo = new CanvasActionDrawImage(
+      this, layer, layer,
+      rect.x, rect.y, rect.width, rect.height,
+      rect.x, rect.y
+    );
+    const action = new CanvasActionDrawImage(
+      this, layer, fillImage, 
+      rect.x, rect.y, rect.width, rect.height,
+      rect.x, rect.y, false
+    );
+    this.pushAction(new HistoryNode(action, undo));
+
+    offscreenPool.return(fillImage);
   }
 
   /**
@@ -924,7 +968,7 @@ export class TegakiCanvas extends Subject {
     const action = new CanvasActionDrawPath(
       this, layer, {
         size: this.toolSize,
-        color: this.toolColor.copy(),
+        color: this.foreColor.copy(),
         composite: this.toolComposite,
       }, this._strokeManager.path
     );
@@ -973,21 +1017,65 @@ export class TegakiCanvas extends Subject {
   /**
    * 塗り結果の画像作成
    */
-  createBucketFillImage(x: number, y: number, option?: BucketOption) {
+  createBucketFillImage(dst: Offscreen, x: number, y: number, fillColor: Color.Immutable, option?: BucketOption) {
+    x = x | 0;
+    y = y | 0;
     const tolerance = option?.tolerance || 0;
     const closeGap = option?.closeGap || 0;
     const expand = option?.expand || 0;
-    const opacity = option?.opacity || 1;
 
     const color = this.getColorAt(x, y);
     if (typeof color === "undefined") {
       return;
     }
 
-    const fr = color.r/255;
-    const fg = color.g/255;
-    const fb = color.b/255;
+    const fillMask = offscreenPool.get().setSize(this._offscreen.width, this._offscreen.height);
+    // SVG フィルタを使って指定色が不透明の黒、それ以外が透明な画像を抽出
+    {
+      const replaceDict: {[key: string]: string} = {
+        "[R]": color.r.toString(),
+        "[G]": color.g.toString(),
+        "[B]": color.b.toString(),
+        "[CLOSE_GAP]": (closeGap/2).toString(),
+        "[1+255T]": (1+255*tolerance).toString(),
+      };
+      drawImageWithSVGFilter(
+        fillMask.context,
+        this._offscreen.canvas,
+        fillMaskFilterCode, replaceDict
+      );
+    }
 
+    // 隣接領域検索
+    const imageData = fillMask.context.getImageData(0, 0, fillMask.width, fillMask.height);
+    const src = imageData.data;
+
+    const regionToFill = getConnectedPixels(
+      fillMask.width, fillMask.height,
+      src, x, y
+    );
+    const dstImageData = new ImageData(
+      regionToFill.region,
+      fillMask.width, fillMask.height
+    );
+    fillMask.context.putImageData(dstImageData, 0, 0);
+
+    // マスクから塗りつぶし画像の作成
+    {
+      const replaceDict: {[key: string]: string} = {
+        "[R]": (fillColor.r).toString(),
+        "[G]": (fillColor.g).toString(),
+        "[B]": (fillColor.b).toString(),
+        "[EXPAND]": (expand).toString(),
+      };
+      drawImageWithSVGFilter(
+        dst.context,
+        fillMask.canvas,
+        fillImageFilterCode, replaceDict
+      );
+    }
+    offscreenPool.return(fillMask);
+    return regionToFill.rect.expand(expand);
   }
 
   /**
@@ -1112,6 +1200,23 @@ export interface TegakiCanvas {
   addObserver(observer: Object, name: "spoit",
     callback: (ev: {color: Color.Immutable}) => void
   ): void;
+}
+
+function drawImageWithSVGFilter(
+  context: CanvasRenderingContext2D,
+  image: HTMLCanvasElement,
+  code: string, replacer: {[key: string]: string;}
+) {
+  for (let key in replacer) {
+    code = code.replaceAll(key, replacer[key]);
+  }
+
+  const filterElem = document.getElementById("tegaki-canvas-svg-filter") as HTMLElement;
+  filterElem.innerHTML = code;
+  context.save();
+  context.filter = "url(#tegaki-canvas-svg-filter)";
+  context.drawImage(image, 0, 0);
+  context.restore();
 }
 
 export default TegakiCanvas;

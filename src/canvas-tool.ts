@@ -1,5 +1,5 @@
 import Color from "./color";
-import { ObservableColor } from "./observable-value";
+import { ObservableColor, ObservableValue } from "./observable-value";
 
 type PenMode = "pen" | "eraser";
 
@@ -29,14 +29,12 @@ class CanvasToolNone extends CanvasTool {
 }
 
 export class CanvasToolBlush extends CanvasTool{
-  readonly color: ObservableColor = new ObservableColor(0, 0, 0);
   penMode: PenMode;
   size: number;
 
-  constructor(penMode: PenMode, color: Color.Immutable, size: number) {
+  constructor(penMode: PenMode, size: number) {
     super();
     this.penMode = penMode;
-    this.color.set(color);
     this.size = size;
   }
 
@@ -65,6 +63,27 @@ export class CanvasToolSpoit extends CanvasTool{
 }
 
 export class CanvasToolBucket extends CanvasTool {
+  readonly obaservables: {
+    /** 色許容誤差 */
+    tolerance: ObservableValue<number>;
+    /** 隙間閉じ */
+    closeGap: ObservableValue<number>;
+    /** 領域拡張 */
+    expand: ObservableValue<number>;
+    /** 透明度 */
+    opacity: ObservableValue<number>;
+  };
+
+  constructor() {
+    super();
+    this.obaservables = {
+      tolerance: new ObservableValue<number>(0),
+      closeGap: new ObservableValue<number>(5),
+      expand: new ObservableValue<number>(1),
+      opacity: new ObservableValue<number>(1),
+    };
+  }
+
   override get name() {
     return "bucket";
   }
@@ -72,6 +91,35 @@ export class CanvasToolBucket extends CanvasTool {
     return 1;
   }
   override set size(value: number) {}
+  
+  /** 色許容誤差 */
+  get tolerance(): number {
+    return this.obaservables.tolerance.value;
+  }
+  set tolerance(value: number) {
+    this.obaservables.tolerance.value = value;
+  }
+  /** 隙間閉じ */
+  get closeGap(): number {
+    return this.obaservables.closeGap.value;
+  }
+  set closeGap(value: number) {
+    this.obaservables.closeGap.value = value;
+  }
+  /** 領域拡張 */
+  get expand():  number {
+    return this.obaservables.expand.value;
+  }
+  set expand(value: number) {
+    this.obaservables.expand.value = value;
+  }
+  /** 透明度 */
+  get opacity():  number {
+    return this.obaservables.opacity.value;
+  }
+  set opacity(value: number) {
+    this.obaservables.opacity.value = value;
+  }
 }
 
 export namespace CanvasTool {

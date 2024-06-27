@@ -52,6 +52,7 @@ export class Offscreen {
   setSize(width: number, height: number) {
     this.canvas.width = width;
     this.canvas.height = height;
+    return this;
   }
 
   clear() {

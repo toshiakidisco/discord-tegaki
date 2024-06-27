@@ -75,10 +75,10 @@ class DiscordTegaki {
   private _keyDownTime: Map<string, number> = new Map();
 
   private _toolPen = new CanvasToolBlush(
-    "pen", canvasInitialState.foreColor, canvasInitialState.penSize
+    "pen", canvasInitialState.penSize
   );
   private _toolEraser = new CanvasToolBlush(
-    "eraser", Color.white, canvasInitialState.eraserSize
+    "eraser", canvasInitialState.eraserSize
   );
   private _toolSpoit = new CanvasToolSpoit();
   private _toolBucket = new CanvasToolBucket();
@@ -318,11 +318,12 @@ class DiscordTegaki {
     this._state.tool.sync();
 
     // Fore Color
-    this._toolPen.color.addObserver(this, "change", (value: Color.Immutable) => {
+    this._canvas.observable.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
       this._paletteForeColor.set(value);
     });
-    this._toolPen.color.sync();
+    this._canvas.observable.foreColor.sync();
+
     // Background Color
     this._state.backgroundColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["backgroundColor"].style.backgroundColor = value.css();
@@ -337,7 +338,7 @@ class DiscordTegaki {
     
     // Connect palette to ObservableValue
     this._paletteForeColor.addObserver(this, "change", (c: Color.Immutable) => {
-      this._toolPen.color.value = c;
+      this._canvas.foreColor = c;
     });
     this._paletteBackgroundColor.addObserver(this, "change", (c: Color.Immutable) => {
       this._state.backgroundColor.value = c;
@@ -364,7 +365,7 @@ class DiscordTegaki {
     this.updateUndoRedoIcon();
     // スポイト後の色更新
     this._canvas.addObserver(this, "spoit", (ev: {color: Color.Immutable}) => {
-      this._toolPen.color.value = ev.color;
+      this._canvas.foreColor = ev.color;
     });
   }
 
@@ -426,7 +427,7 @@ class DiscordTegaki {
    * キャンバスを初期状態にリセット
    */
   resetCanvas() {
-    this._toolPen.color.value = canvasInitialState.foreColor;
+    this._canvas.foreColor = canvasInitialState.foreColor;
     this._toolPen.size = canvasInitialState.penSize;
     this._toolEraser.size = canvasInitialState.eraserSize;
     this._state.tool.value = this._toolPen;
@@ -530,7 +531,7 @@ class DiscordTegaki {
   }
 
   onClickFill(ev: Event) {
-    this._canvas.fill(this._toolPen.color.value);
+    this._canvas.fill(this._canvas.foreColor);
   }
 
   onClickFlip(ev: Event) {
