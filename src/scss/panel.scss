@@ -154,3 +154,22 @@
     }
   }
 }
+.disco-tegaki .panel-properties {
+  .contents li .item-number {
+    > span {
+      display: block;
+      font-size: 12px;
+    }
+    > div {
+      display: flex;
+      align-items: center;
+      input[type=range] {
+        width: 120px;
+      }
+      input[type=number] {
+        width: 30px;
+        text-align: right;
+      }
+    }
+  }
+}
