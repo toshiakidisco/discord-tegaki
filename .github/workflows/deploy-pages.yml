@@ -1,4 +1,4 @@
-name: NodeJS with Webpack
+name: Deploy GitHub Pages
 
 on:
   push:
@@ -50,7 +50,7 @@ jobs:
       uses: actions/upload-pages-artifact@v3
       with:
         # Upload entire repository
-        path: './dist'
+        path: 'dist'
     
     - name: Deploy to GitHub Pages
       id: deployment
