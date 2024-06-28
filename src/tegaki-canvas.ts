@@ -412,8 +412,8 @@ export class TegakiCanvas extends Subject {
       const displayPenSize = toolSize * this.scale;
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
       
-      position.x = (position.x + offset)*this.scale | 0;
-      position.y = (position.y + offset)*this.scale | 0;
+      position.x = (position.x + offset)*this.scale;
+      position.y = (position.y + offset)*this.scale;
 
       // カーソル包含矩形
       let cl: number;
@@ -922,8 +922,8 @@ export class TegakiCanvas extends Subject {
     this._drawingTool = blushTool;
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x | 0;
-    position.y = position.y | 0;
+    position.x = position.x;
+    position.y = position.y;
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
@@ -937,8 +937,8 @@ export class TegakiCanvas extends Subject {
     }
 
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x | 0;
-    position.y = position.y | 0;
+    position.x = position.x;
+    position.y = position.y;
     if (this.toolSize%2 == 1) {
       position.x += 0.5, position.y += 0.5;
     }
@@ -1106,7 +1106,7 @@ export class TegakiCanvas extends Subject {
         fillMask.width, fillMask.height
       );
       fillMask.context.putImageData(dstImageData, 0, 0);
-      boundingRect.set(regionToFill.rect).expand(expand);
+      boundingRect.set(regionToFill.rect).expand(Math.ceil(expand));
     }
     else {
       boundingRect.set4f(0, 0, fillMask.width, fillMask.height);
@@ -1269,7 +1269,6 @@ function drawImageWithSVGFilter(
   const filterElem = document.getElementById("tegaki-canvas-svg-filter") as HTMLElement;
   filterElem.innerHTML = code;
   context.save();
-  context.clearRect(0, 0, image.width, image.height);
   context.filter = "url(#tegaki-canvas-svg-filter)";
   context.drawImage(image, 0, 0);
   context.restore();
