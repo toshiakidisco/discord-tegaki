@@ -462,7 +462,7 @@ export class TegakiCanvas extends Subject {
       ctx.drawImage(this.canvas, cl, ct, cw, ch, cl, ct, cw, ch);
       ctx.restore();
       
-      this._cursorRect.set4f(cl, ct, cw, ch);
+      this._cursorRect.set4f(cl, ct, cw, ch).expand(1);
     }
     else {
       cursorName = this._currentTool.name;
