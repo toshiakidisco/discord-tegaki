@@ -81,6 +81,7 @@ class HistoryNode {
     const a1 = this.action;
     const u0 = node.undo;
     const u1 = this.undo;
+    // レイヤー透明度
     if (
       a0 instanceof CanvasAction.ChangeLayerOpacity &&
       a1 instanceof CanvasAction.ChangeLayerOpacity &&
@@ -91,6 +92,18 @@ class HistoryNode {
       return new HistoryNode(
         new CanvasAction.ChangeLayerOpacity(a0.canvas, a0.layer, a1.opacity),
         new CanvasAction.ChangeLayerOpacity(a0.canvas, a0.layer, u0.opacity)
+      );
+    }
+    // 背景色
+    else if (
+      a0 instanceof CanvasAction.ChangeBackgroundColor &&
+      a1 instanceof CanvasAction.ChangeBackgroundColor &&
+      u0 instanceof CanvasAction.ChangeBackgroundColor &&
+      u1 instanceof CanvasAction.ChangeBackgroundColor
+    ) {
+      return new HistoryNode(
+        new CanvasAction.ChangeBackgroundColor(a0.canvas, a1.color),
+        new CanvasAction.ChangeBackgroundColor(a0.canvas, u0.color)
       );
     }
   }
@@ -203,6 +216,7 @@ export class TegakiCanvas extends Subject {
     this.updateCanvasSize();
     this.notify("change-document", this.document);
     this.notify("change-background-color", this.backgroundColor);
+    this.selectLayerAt(this.document.layers.length - 1);
   }
 
   get foreColor(): Color.Immutable {

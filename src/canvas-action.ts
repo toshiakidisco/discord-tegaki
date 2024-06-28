@@ -50,7 +50,6 @@ export namespace CanvasAction {
     
     exec(): void {
       this.canvas.document = this.#document;
-      this.canvas.selectLayerAt(this.#document.layers.length - 1);
     };
   }
 
@@ -67,6 +66,10 @@ export namespace CanvasAction {
     exec(): void {
       this.canvas.backgroundColor = this.#color;
     };
+    
+    get color(): Color.Immutable {
+      return this.#color;
+    }
   }
 
   /**
