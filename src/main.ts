@@ -371,6 +371,10 @@ class DiscordTegaki {
       this.prepareAutoSave();
     });
     this.updateUndoRedoIcon();
+    // ページクローズ時自動保存
+    document.addEventListener("visibilitychange", () => {
+      this.forceAutoSave();
+    });
     // スポイト後の色更新
     this._canvas.addObserver(this, "spoit", (ev: {color: Color.Immutable}) => {
       console.log();
@@ -379,7 +383,7 @@ class DiscordTegaki {
   }
 
   prepareAutoSave() {
-    if (this._autoSaveTimer != 0 || this._autoSaveInterval > 0) {
+    if (this._autoSaveTimer != 0 || this._autoSaveInterval <= 0) {
       return;
     }
 
@@ -387,6 +391,15 @@ class DiscordTegaki {
       await this.autoSave();
       this._autoSaveTimer = 0;
     }, this._autoSaveInterval*60*1000);
+  }
+
+  async forceAutoSave() {
+    if (this._autoSaveTimer == 0) {
+      return;
+    }
+    console.log("forceAutoSave");
+    await this.autoSave();
+    this._autoSaveTimer = 0;
   }
 
   async autoSave() {
