@@ -16,6 +16,9 @@ export abstract class CanvasTool {
   abstract get name(): string;
   abstract get size(): number;
   abstract set size(value: number);
+  get resizeable() {
+    return false;
+  }
 }
 
 class CanvasToolNone extends CanvasTool {
@@ -62,6 +65,9 @@ export namespace CanvasTool {
     }
     override set size(value: number) {
       this.obaservables.size.value = value;
+    }
+    override get resizeable() {
+      return true;
     }
 
     get opacity(): number {
