@@ -105,7 +105,7 @@ export class PanelPropertiesItemNumber extends PanelPropertiesItem<number> {
         this.#dispayValue = clamp(newValue, this.#min, this.#max);
         this.render();
       });
-      elem.addEventListener("wheel", (ev: WheelEvent) => {            
+      elem.addEventListener("wheel", (ev: WheelEvent) => {
         ev.preventDefault();
         let newValue = this.value + this.#step*(ev.deltaY > 0 ? -1 : 1); 
         this.value = clamp(newValue, this.#min, this.#max);

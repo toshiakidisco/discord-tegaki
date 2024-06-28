@@ -279,6 +279,8 @@ class DiscordTegaki {
       });
     }
 
+    this._root.addEventListener("wheel", (ev: WheelEvent) => {
+    });
     /**
      * デフォルトのタッチ操作制御
      */
