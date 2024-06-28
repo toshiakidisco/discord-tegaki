@@ -10,6 +10,9 @@
       "js": ["main.js"]
     }
   ],
+  "permissions": [
+    "storage"
+  ],
   "web_accessible_resources": [
     {
       "matches": ["https://discord.com/*"],
