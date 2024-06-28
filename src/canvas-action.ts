@@ -49,12 +49,7 @@ export namespace CanvasAction {
     }
     
     exec(): void {
-      this.canvas.layers.length = 0;
-      this.canvas.layers.push(...this.#document.layers);
-      this.canvas.backgroundColor.set(this.#document.backgroundColor);
-      this.canvas.setSize(this.#document.width, this.#document.height);
-      this.canvas.updateCanvasSize();
-      this.canvas.notify("change-document", this.#document);
+      this.canvas.document = this.#document;
       this.canvas.selectLayerAt(this.#document.layers.length - 1);
     };
   }
@@ -70,7 +65,7 @@ export namespace CanvasAction {
     }
     
     exec(): void {
-      this.canvas.backgroundColor.set(this.#color);
+      this.canvas.backgroundColor = this.#color;
     };
   }
 

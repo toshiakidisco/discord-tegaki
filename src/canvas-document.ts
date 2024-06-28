@@ -1,37 +1,99 @@
 import Layer from "./canvas-layer";
 import Color from "./color";
+import { JsonObject, JsonStructure, JsonValue } from "./json";
+import { ObservableColor, ObservableValue } from "./observable-value";
+import Subject from "./subject";
 
-export class TegakiCanvasDocument {
-  #width: number;
-  #height: number
+export class TegakiCanvasDocument extends Subject {
   readonly #layers: Layer[] = [];
-  readonly #backgroundColor: Color = Color.white.copy();
 
-  constructor(width: number, height: number, layers: Layer[], backgroundColor?: Color.Immutable) {
-    this.#width = width;
-    this.#height = height;
+  readonly observables: {
+    width: ObservableValue<number>;
+    height: ObservableValue<number>;
+    backgroundColor: ObservableColor;
+  };
 
-    this.#layers.push(...layers);
+  constructor(width: number, height: number, layers?: Layer[], backgroundColor?: Color.Immutable) {
+    super();
+    this.observables = {
+      width: new ObservableValue<number>(width),
+      height: new ObservableValue<number>(height),
+      backgroundColor: new ObservableColor(255, 255, 255),
+    };
+
+    if (typeof layers === "undefined" || layers.length == 0) {
+      this.#layers.push(new Layer(width, height));
+    }
+    else {
+      this.#layers.push(...layers);
+    }
     if (backgroundColor) {
-      this.#backgroundColor.set(backgroundColor);
+      this.observables.backgroundColor.set(backgroundColor);
     }
   }
 
   get width() {
-    return this.#width;
+    return this.observables.width.value;
   }
 
   get height() {
-    return this.#height;
+    return this.observables.height.value;
   }
+
+  setSize(width: number, height: number) {
+    this.observables.width.value = width;
+    this.observables.height.value = height;
+    this.notify("change-size", this);
+  }
+
 
   get layers(): Layer[] {
     return this.#layers;
   }
 
   get backgroundColor(): Color.Immutable {
-    return this.#backgroundColor;
+    return this.observables.backgroundColor.value;
   }
+  
+  serialize(): JsonValue {
+    const data = {
+      version: 100,
+      title: "",
+      width: this.width,
+      height: this.height,
+      backgroundColor: this.backgroundColor.serialize(),
+      layers: [] as JsonValue[],
+    };
+    for (const layer of this.#layers) {
+      data.layers.push(layer.serialize());
+    }
+    return data;
+  }
+
+  static async deserialize(data: JsonObject): Promise<TegakiCanvasDocument> {
+    // this.#title = data["title"] as string;
+    const width = data["width"] as number;
+    const height = data["height"] as number;
+    const backgroundColor = Color.deserialize(data["backgroundColor"] as JsonObject);
+    const layers: Layer[] = [];
+    for (const layerData of data["layers"] as JsonObject[]) {
+      const layer = await Layer.deserialize(layerData);
+      layers.push(layer);
+    }
+    const doc = new TegakiCanvasDocument(width, height, layers, backgroundColor);
+    return doc;
+  }
+}
+
+export namespace TegakiCanvasDocument {
+  export const structure: JsonStructure = {
+    "version": "number",
+    "title": "string",
+    "width": "number",
+    "height": "number",
+    "backgroundColor": Color.structure,
+    "layers": [Layer.structure],
+  };
 }
 
 export interface TegakiCanvasDocument {

@@ -14,7 +14,7 @@ import { Rect } from "./rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
-import { ObservableColor } from "./observable-value";
+import { ObservableColor, ObservableValue } from "./observable-value";
 import CanvasTool from "./canvas-tool";
 import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./object-pool";
@@ -108,12 +108,8 @@ export class TegakiCanvas extends Subject {
   // 描画中のツール
   private _drawingTool: CanvasTool.Blush = new CanvasTool.Blush("pen", 1);
 
-  private _width: number;
-  private _height: number;
   private _innerScale: number;
-  readonly backgroundColor: ObservableColor = new ObservableColor(240, 224, 214);
 
-  private _layers: Layer[];
   private _offscreen: Offscreen;
   private _currentLayerOffscreen: Offscreen;
   private _scale: number = 1;
@@ -138,18 +134,20 @@ export class TegakiCanvas extends Subject {
 
   readonly observable: {
     foreColor: ObservableColor;
+    document: ObservableValue<TegakiCanvasDocument>;
   };
 
   constructor(init: CanvasInit) {
     super();
+
+    // Init document
+    const doc = new TegakiCanvasDocument(init.width, init.height, [], init.backgroundColor);
+    this._innerScale = 1;
+
     this.observable = {
+      document: new ObservableValue<TegakiCanvasDocument>(doc),
       foreColor: (new ObservableColor(255, 255, 255)).set(init.foreColor),
     };
-
-    this._width = init.width;
-    this._height = init.height;
-    this._innerScale = 1;
-    this.backgroundColor.set(init.backgroundColor);
 
     // Create canvas for image
     this.element = document.createElement("div");
@@ -183,7 +181,6 @@ export class TegakiCanvas extends Subject {
     this.element.appendChild(this.canvas);
     this.element.appendChild(this.cursorOverlay);
 
-    this._layers = [];
     this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
     this._currentLayerOffscreen = new Offscreen(this.innerWidth, this.innerHeight);
 
@@ -198,6 +195,16 @@ export class TegakiCanvas extends Subject {
     this.init();
   }
 
+  get document() {
+    return this.observable.document.value;
+  }
+  set document(doc: TegakiCanvasDocument) {
+    this.observable.document.value = doc;
+    this.updateCanvasSize();
+    this.notify("change-document", this.document);
+    this.notify("change-background-color", this.backgroundColor);
+  }
+
   get foreColor(): Color.Immutable {
     return this.observable.foreColor.value;
   }
@@ -206,7 +213,7 @@ export class TegakiCanvas extends Subject {
   }
 
   get currentLayer(): Layer {
-    return this._layers[this._currentLayerPosition];
+    return this.document.layers[this._currentLayerPosition];
   }
 
   get currentLayerPosition(): number {
@@ -214,7 +221,7 @@ export class TegakiCanvas extends Subject {
   }
 
   get layers(): Layer[] {
-    return this._layers;
+    return this.document.layers;
   }
 
   get currentTool() {
@@ -230,19 +237,30 @@ export class TegakiCanvas extends Subject {
   }
 
   get width() {
-    return this._width;
+    return this.document.width;
   }
 
   get height() {
-    return this._height;
+    return this.document.height;
   }
 
   setSize(width: number, height: number) {
-    if (this._width == width && this._height == height) {
+    if (this.width == width && this.height == height) {
       return;
     }
-    this._width = width;
-    this._height = height;
+    this.document.setSize(width, height);
+  }
+
+  get backgroundColor(): Color.Immutable {
+    return this.document.backgroundColor;
+  }
+
+  set backgroundColor(color: Color.Immutable) {
+    if (this.document.backgroundColor.equals(color)) {
+      return;
+    }
+    this.document.observables.backgroundColor.set(color);
+    this.notify("change-background-color", color);
   }
 
   /**
@@ -508,13 +526,13 @@ export class TegakiCanvas extends Subject {
       this._offscreen.height = this.innerHeight;
     }
 
-    this._offscreen.fill(this.backgroundColor.value);
+    this._offscreen.fill(this.backgroundColor);
 
     // Render Layers
     offCtx.save();
     offCtx.imageSmoothingEnabled = false;
-    for (let i = 0; i < this._layers.length; i++) {
-      const layer = this._layers[i]
+    for (let i = 0; i < this.layers.length; i++) {
+      const layer = this.layers[i]
 
       if (! layer.isVisible) {
         continue;
@@ -647,7 +665,7 @@ export class TegakiCanvas extends Subject {
       this.requestRender();
     });
 
-    this.reset(this.width, this.height, this.backgroundColor.value, true);
+    this.reset(this.width, this.height, this.backgroundColor, true);
     this.requestRender();
   }
 
@@ -693,7 +711,7 @@ export class TegakiCanvas extends Subject {
   }
 
   selectLayer(layer: Layer) {
-    const position = this._layers.indexOf(layer);
+    const position = this.layers.indexOf(layer);
     if (position == -1) {
       throw new Error(`Specified layer is not found`);
     }
@@ -701,7 +719,7 @@ export class TegakiCanvas extends Subject {
   }
 
   selectLayerAt(position: number) {
-    if (position >= this._layers.length) {
+    if (position >= this.layers.length) {
       throw new RangeError(`position must be less than layers.length`);
     }
     this._currentLayerPosition = position;
@@ -736,18 +754,15 @@ export class TegakiCanvas extends Subject {
       this.notify("update-history", this);
     }
     else {
-      const oldDoc = new TegakiCanvasDocument(
-        this.width, this.height,
-        this.layers, this.backgroundColor.value
-      );
+      const oldDoc = this.document;
       const undo = new CanvasAction.ChangeDocument(this, oldDoc);
       this.pushAction(new HistoryNode(action, undo));
     }
   }
 
   changeBackgroundColor(color: Color.Immutable) {
-    const currentBgColor = this.backgroundColor.value;
-    if (color.equals(this.backgroundColor.value)) {
+    const currentBgColor = this.backgroundColor;
+    if (color.equals(this.backgroundColor)) {
       return;
     }
 
@@ -764,7 +779,7 @@ export class TegakiCanvas extends Subject {
    * @param position 
    */
   newLayer(position: number) {
-    if (position > this._layers.length || position < 0) {
+    if (position > this.layers.length || position < 0) {
       throw new RangeError(`position is out of range`);
     }
     const layer = new Layer(this.innerWidth, this.innerHeight);
@@ -779,7 +794,7 @@ export class TegakiCanvas extends Subject {
    * @param layer 
    */
   deleteLayer(layer: Layer) {
-    const position = this._layers.indexOf(layer);
+    const position = this.layers.indexOf(layer);
     if (position == -1) {
       throw new Error("Specified layer is not found");
     }
@@ -790,13 +805,13 @@ export class TegakiCanvas extends Subject {
    * @param position 
    */
   deleteLayerAt(position: number) {
-    if (position >= this._layers.length || position < 0) {
+    if (position >= this.layers.length || position < 0) {
       throw new RangeError(`position is out of range`);
     }
-    if (this._layers.length == 1) {
+    if (this.layers.length == 1) {
       return;
     }
-    const layer = this._layers[position];
+    const layer = this.layers[position];
 
     const undo = new CanvasAction.AddLayer(this, position, layer);
     const action = new CanvasAction.DeleteLayer(this, position);
@@ -804,7 +819,7 @@ export class TegakiCanvas extends Subject {
   }
 
   moveLayer(layer: Layer, newPosition: number) {
-    const position = this._layers.indexOf(layer);
+    const position = this.layers.indexOf(layer);
     if (position == -1) {
       throw new Error("Specified layer is not found");
     }
@@ -812,10 +827,10 @@ export class TegakiCanvas extends Subject {
   }
 
   moveLayerAt(position: number, newPosition: number) {
-    if (position >= this._layers.length || position < 0) {
+    if (position >= this.layers.length || position < 0) {
       throw new RangeError(`position is out of range`);
     }
-    if (newPosition >= this._layers.length || newPosition < 0) {
+    if (newPosition >= this.layers.length || newPosition < 0) {
       return;
     }
     const undo = new CanvasAction.MoveLayer(this, newPosition, position);
@@ -824,7 +839,7 @@ export class TegakiCanvas extends Subject {
   }
 
   moveLayerRelatively(layer: Layer, n: number) {
-    const position = this._layers.indexOf(layer);
+    const position = this.layers.indexOf(layer);
     if (position == -1) {
       throw new Error("Specified layer is not found");
     }
@@ -865,7 +880,7 @@ export class TegakiCanvas extends Subject {
    * @param pushAction 操作前にアンドゥ履歴に追加するか
    */
   fillWithBackgroundColor() {
-    this.fill(this.backgroundColor.value);
+    this.fill(this.backgroundColor);
   }
 
   /**
@@ -1169,10 +1184,10 @@ export class TegakiCanvas extends Subject {
    * 現在のwidth, height, scaleプロパティから、canvas 要素のサイズを反映する。
    */
   updateCanvasSize() {
-    this.canvas.width = this._width*this._scale;
-    this.canvas.height = this._height*this._scale;
-    this.cursorOverlay.width = this._width*this._scale;
-    this.cursorOverlay.height = this._height*this._scale;
+    this.canvas.width = this.width*this._scale;
+    this.canvas.height = this.height*this._scale;
+    this.cursorOverlay.width = this.width*this._scale;
+    this.cursorOverlay.height = this.height*this._scale;
     this.requestRender();
     this.notify("change-size", this);
   }
@@ -1238,8 +1253,8 @@ export interface TegakiCanvas {
   addObserver(observer: Object, name: "change-size",
     callback: () => void
   ): void;
-  addObserver(observer: Object, name: "change-sub-tool",
-    callback: (subTool: SubTool) => void
+  addObserver(observer: Object, name: "change-background-color",
+    callback: (color: Color.Immutable) => void
   ): void;
   addObserver(observer: Object, name: "update-history",
     callback: () => void
