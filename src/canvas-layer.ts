@@ -2,7 +2,6 @@ import TegakiCanvasDocument from "./canvas-document";
 import Offscreen from "./canvas-offscreen";
 import { clamp } from "./funcs";
 import { ObservableValue } from "./observable-value";
-import { JsonObject, JsonStructure, JsonValue } from "./json";
 import Subject, { IFSubject } from "./subject";
 
 export class Layer extends Offscreen implements IFSubject {
@@ -51,53 +50,6 @@ export class Layer extends Offscreen implements IFSubject {
   notify(name: string, data?: any): void {
     this.#subject.notify(name, data);
   }
-
-  serialize(): JsonValue {
-    return {
-      x: 0,
-      y: 0,
-      width: this.width,
-      height: this.height,
-      opacity: this.opacity,
-      isVisible: this.isVisible,
-      data: this.canvas.toDataURL(),
-    };
-  }
-  static deserialize(data: JsonObject): Promise<Layer> {
-    const x = data["x"] as number;
-    const y = data["y"] as number;
-    const width = data["width"] as number;
-    const height = data["height"] as number;
-    const opacity = data["opacity"] as number;
-    const isVisible = data["isVisible"] as boolean;
-    const layer = new Layer(width, height);
-    layer.opacity = opacity;
-    layer.isVisible = isVisible;
-    const imageData = data["data"] as string;
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        layer.context.drawImage(img, 0, 0);
-        resolve(layer);
-      };
-      img.onerror = (err) => {
-        reject(err);
-      };
-      img.src = imageData;
-    });
-  }
-}
-
-export namespace Layer {
-  export const structure: JsonStructure = {
-    "x": "number",
-    "y": "number",
-    "width": "number",
-    "height": "number",
-    "opacity": "number",
-    "isVisible": "boolean",
-    "data": "string",
-  };
 }
 
 export interface Layer {

@@ -30,320 +30,314 @@ export abstract class CanvasAction {
   dispose(): void {};
 }
 
-export namespace CanvasAction {
-  /**
-   * 操作: Null
-   */
-  export class None extends CanvasAction {
-    exec(): void {};
+/**
+ * 操作: Null
+ */
+export class CanvasActionNone extends CanvasAction {
+  exec(): void {};
+}
+
+/**
+ * 操作: ドキュメント変更
+ */
+export class CanvasActionChangeDocument extends CanvasAction {
+  #document: TegakiCanvasDocument;
+  constructor (canvas: TegakiCanvas, doc: TegakiCanvasDocument){
+    super(canvas);
+    this.#document = doc;
+  }
+  
+  exec(): void {
+    this.canvas.layers.length = 0;
+    this.canvas.layers.push(...this.#document.layers);
+    this.canvas.backgroundColor.set(this.#document.backgroundColor);
+    this.canvas.setSize(this.#document.width, this.#document.height);
+    this.canvas.updateCanvasSize();
+    this.canvas.notify("change-document", this.#document);
+    this.canvas.selectLayerAt(this.#document.layers.length - 1);
+  };
+}
+
+/**
+ * 操作: 背景色変更
+ */
+export class CanvasActionChangeBackgroundColor extends CanvasAction {
+  #color: Color;
+  constructor (canvas: TegakiCanvas, color: Color.Immutable){
+    super(canvas);
+    this.#color = color.copy();
+  }
+  
+  exec(): void {
+    this.canvas.backgroundColor.set(this.#color);
+  };
+}
+
+/**
+ * 操作: レイヤー追加
+ */
+export class CanvasActionAddLayer extends CanvasAction {
+  #position: number;
+  #layer: Layer;
+  constructor (canvas: TegakiCanvas, position: number, layer: Layer){
+    super(canvas);
+    this.#position = position;
+    this.#layer = layer;
+  }
+  
+  exec(): void {
+    this.canvas.layers.splice(this.#position, 0, this.#layer);
+    this.canvas.notify("add-layer", {
+      layer: this.#layer,
+      position: this.#position,
+    });
+    this.canvas.selectLayerAt(this.#position);
+  };
+}
+
+/**
+ * 操作: レイヤー削除
+ */
+export class CanvasActionDeleteLayer extends CanvasAction {
+  #position: number;
+  constructor (canvas: TegakiCanvas, position: number){
+    super(canvas);
+    this.#position = position;
+  }
+  
+  exec(): void {
+    const deletedLayer = this.canvas.layers.splice(this.#position, 1)[0];
+    this.canvas.notify("delete-layer", {
+      layer: deletedLayer,
+      position: this.#position,
+    });
+    this.canvas.selectLayerAt(Math.max(0, this.#position - 1));
+  }
+}
+
+/**
+ * 操作: レイヤー移動
+ */
+export class CanvasActionMoveLayer extends CanvasAction {
+  #position: number;
+  #newPosition: number;
+
+  constructor (canvas: TegakiCanvas, position: number, newPosition: number){
+    super(canvas);
+    this.#position = position;
+    this.#newPosition = newPosition;
+  }
+  
+  exec(): void {
+    const layer = this.canvas.layers.splice(this.#position, 1)[0];
+    this.canvas.layers.splice(this.#newPosition, 0, layer);
+
+    this.canvas.notify("move-layer", {
+      layer: layer,
+      from: this.#position,
+      to: this.#newPosition,
+    });
+    this.canvas.selectLayer(layer);
+  }
+}
+
+/**
+ * 操作: レイヤー透明度変更
+ */
+export class CanvasActionChangeLayerOpacity extends CanvasAction {
+  readonly layer: Layer;
+  readonly opacity: number;
+
+  constructor (canvas: TegakiCanvas, layer: Layer, opacity: number){
+    super(canvas);
+    this.layer = layer;
+    this.opacity = opacity;
+  }
+  
+  exec(): void {
+    this.layer.opacity = this.opacity;
+  }
+}
+
+
+/**
+ * 操作: 画像描画
+ */
+export class CanvasActionDrawImage extends CanvasAction {
+  private _layer: Layer;
+  private _image: Offscreen;
+  private _dx: number;
+  private _dy: number;
+
+  constructor(
+    canvas: TegakiCanvas, layer: Layer,
+    image: Offscreen, sx: number, sy: number, sw: number, sh: number,
+    dx: number, dy: number
+  ) {
+    super(canvas);
+    this._layer = layer;
+    this._image = pool.get();
+    this._image.width = sw;
+    this._image.height = sh;
+    this._image.context.drawImage(image.canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    this._dx = dx;
+    this._dy = dy;
   }
 
-  /**
-   * 操作: ドキュメント変更
-   */
-  export class ChangeDocument extends CanvasAction {
-    #document: TegakiCanvasDocument;
-    constructor (canvas: TegakiCanvas, doc: TegakiCanvasDocument){
-      super(canvas);
-      this.#document = doc;
-    }
-    
-    exec(): void {
-      this.canvas.document = this.#document;
-    };
+  exec(): void {
+    this._layer.context.clearRect(this._dx, this._dy, this._image.width, this._image.height);
+    this._layer.context.drawImage(this._image.canvas, this._dx, this._dy);
+    this._layer.notify("update");
   }
 
-  /**
-   * 操作: 背景色変更
-   */
-  export class ChangeBackgroundColor extends CanvasAction {
-    #color: Color;
-    constructor (canvas: TegakiCanvas, color: Color.Immutable){
-      super(canvas);
-      this.#color = color.copy();
-    }
-    
-    exec(): void {
-      this.canvas.backgroundColor = this.#color;
-    };
-    
-    get color(): Color.Immutable {
-      return this.#color;
-    }
+  dispose(): void {
+    pool.return(this._image);
+  }
+}
+
+/**
+ * 操作: キャンバスサイズ変更
+ */
+export class CanvasActionResize extends CanvasAction {
+  private _width: number;
+  private _height: number;
+
+  constructor(
+    canvas: TegakiCanvas, width: number, height: number,
+  ) {
+    super(canvas);
+    this._width = width;
+    this._height = height;
   }
 
-  /**
-   * 操作: レイヤー追加
-   */
-  export class AddLayer extends CanvasAction {
-    #position: number;
-    #layer: Layer;
-    constructor (canvas: TegakiCanvas, position: number, layer: Layer){
-      super(canvas);
-      this.#position = position;
-      this.#layer = layer;
-    }
-    
-    exec(): void {
-      this.canvas.layers.splice(this.#position, 0, this.#layer);
-      this.canvas.notify("add-layer", {
-        layer: this.#layer,
-        position: this.#position,
-      });
-      this.canvas.selectLayerAt(this.#position);
-    };
-  }
-
-  /**
-   * 操作: レイヤー削除
-   */
-  export class DeleteLayer extends CanvasAction {
-    #position: number;
-    constructor (canvas: TegakiCanvas, position: number){
-      super(canvas);
-      this.#position = position;
-    }
-    
-    exec(): void {
-      const deletedLayer = this.canvas.layers.splice(this.#position, 1)[0];
-      this.canvas.notify("delete-layer", {
-        layer: deletedLayer,
-        position: this.#position,
-      });
-      this.canvas.selectLayerAt(Math.max(0, this.#position - 1));
-    }
-  }
-
-  /**
-   * 操作: レイヤー移動
-   */
-  export class MoveLayer extends CanvasAction {
-    #position: number;
-    #newPosition: number;
-
-    constructor (canvas: TegakiCanvas, position: number, newPosition: number){
-      super(canvas);
-      this.#position = position;
-      this.#newPosition = newPosition;
-    }
-    
-    exec(): void {
-      const layer = this.canvas.layers.splice(this.#position, 1)[0];
-      this.canvas.layers.splice(this.#newPosition, 0, layer);
-
-      this.canvas.notify("move-layer", {
-        layer: layer,
-        from: this.#position,
-        to: this.#newPosition,
-      });
-      this.canvas.selectLayer(layer);
-    }
-  }
-
-  /**
-   * 操作: レイヤー透明度変更
-   */
-  export class ChangeLayerOpacity extends CanvasAction {
-    readonly layer: Layer;
-    readonly opacity: number;
-
-    constructor (canvas: TegakiCanvas, layer: Layer, opacity: number){
-      super(canvas);
-      this.layer = layer;
-      this.opacity = opacity;
-    }
-    
-    exec(): void {
-      this.layer.opacity = this.opacity;
-    }
-  }
-
-
-  /**
-   * 操作: 画像描画
-   */
-  export class DrawImage extends CanvasAction {
-    private _layer: Layer;
-    private _image: Offscreen;
-    private _dx: number;
-    private _dy: number;
-    private _copy: boolean;
-
-    constructor(
-      canvas: TegakiCanvas, layer: Layer,
-      image: Offscreen, sx: number, sy: number, sw: number, sh: number,
-      dx: number, dy: number,
-      copy: boolean = true
-    ) {
-      super(canvas);
-      this._layer = layer;
-      this._image = pool.get();
-      this._image.width = sw;
-      this._image.height = sh;
-      this._image.context.drawImage(image.canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-      this._dx = dx;
-      this._dy = dy;
-      this._copy = copy;
-    }
-
-    exec(): void {
-      const ctx = this._layer.context;
-      if (this._copy) {
-        ctx.clearRect(this._dx, this._dy, this._image.width, this._image.height);
-      }
-      ctx.drawImage(this._image.canvas, this._dx, this._dy);
-      this._layer.notify("update");
-    }
-
-    dispose(): void {
-      pool.return(this._image);
-    }
-  }
-
-  /**
-   * 操作: キャンバスサイズ変更
-   */
-  export class Resize extends CanvasAction {
-    private _width: number;
-    private _height: number;
-
-    constructor(
-      canvas: TegakiCanvas, width: number, height: number,
-    ) {
-      super(canvas);
-      this._width = width;
-      this._height = height;
-    }
-
-    exec(): void {
-      const image = pool.get();
-      for (let layer of this.canvas.layers) {
-        image.set(layer);
-        layer.width = this._width*this.canvas.innerScale;
-        layer.height = this._height*this.canvas.innerScale;
-        layer.clear();
-        layer.context.drawImage(image.canvas, 0, 0);
-        layer.notify("update");
-      }
-      pool.return(image);
-
-      this.canvas.setSize(this._width, this._height);
-      this.canvas.updateCanvasSize();
-    }
-  }
-
-  /**
-   * 操作: ブラシ描画
-   */
-  export class DrawPath extends CanvasAction {
-    private _layer: Layer;
-    private _blush: BlushState;
-    private _path: BlushPath;
-
-    constructor(canvas: TegakiCanvas, layer: Layer, blush: BlushState, path: BlushPath) {
-      super(canvas);
-      this._layer = layer;
-      this._blush = blush;
-      this._path = Array.from(path);    
-    }
-
-    exec() {
-      const ctx = this._layer.context;
-      drawPath(ctx, this._blush, this._path, this.canvas.innerScale);
-      this._layer.notify("update");
-    }
-  }
-
-  /**
-   * 操作: リサイズ取り消し
-   */
-  export class UndoResize extends CanvasAction {
-    _layerImages: Offscreen[];
-    _width: number;
-    _height: number;
-
-    constructor(canvas: TegakiCanvas) {
-      super(canvas);
-      this._layerImages = [];
-      for (const layer of canvas.layers) {
-        this._layerImages.push(pool.get().set(layer));
-      }
-      this._width = canvas.width;
-      this._height = canvas.height;
-    }
-
-    exec(): void {
-      for (let i = 0; i < this.canvas.layers.length; i++) {
-        const layer = this.canvas.layers[i];
-        layer.set(this._layerImages[i]);
-        layer.notify("update");
-      }
-      this.canvas.setSize(this._width, this._height);
-      this.canvas.updateCanvasSize();
-    }
-
-    dispose(): void {
-      for (let image of this._layerImages) {
-        pool.return(image);
-      }
-    }
-  }
-
-  /**
-   * 操作: 反転
-   */
-  export class Flip extends CanvasAction {
-    exec() {
-      const image = pool.get();
-      for (const layer of this.canvas.layers) {
-        image.set(layer);
-        layer.clear();
-        layer.context.save();
-        layer.context.scale(-1, 1);
-        layer.context.drawImage(image.canvas, - layer.width, 0);
-        layer.context.restore();
-        layer.notify("update");
-      }
-      pool.return(image);
-    }
-  }
-
-  /**
-   * 操作: 塗りつぶし
-   */
-  export class Fill extends CanvasAction {
-    private _layer: Layer;
-    private readonly _color: Color.Immutable;
-
-    constructor(canvas: TegakiCanvas, layer: Layer, color: Color.Immutable) {
-      super(canvas);
-      this._layer = layer;
-      this._color = color.copy();
-    }
-
-    exec() {
-      const layer = this._layer;
-      layer.context.fillStyle = this._color.css();
-      layer.context.fillRect(0, 0, layer.width, layer.height);
+  exec(): void {
+    const image = pool.get();
+    for (let layer of this.canvas.layers) {
+      image.set(layer);
+      layer.width = this._width*this.canvas.innerScale;
+      layer.height = this._height*this.canvas.innerScale;
+      layer.clear();
+      layer.context.drawImage(image.canvas, 0, 0);
       layer.notify("update");
     }
+    pool.return(image);
+
+    this.canvas.setSize(this._width, this._height);
+    this.canvas.updateCanvasSize();
+  }
+}
+
+/**
+ * 操作: ブラシ描画
+ */
+export class CanvasActionDrawPath extends CanvasAction {
+  private _layer: Layer;
+  private _blush: BlushState;
+  private _path: BlushPath;
+
+  constructor(canvas: TegakiCanvas, layer: Layer, blush: BlushState, path: BlushPath) {
+    super(canvas);
+    this._layer = layer;
+    this._blush = blush;
+    this._path = Array.from(path);    
   }
 
-  /**
-   * 操作: 消去
-   */
-  export class Clear extends CanvasAction {
-    private _layer: Layer;
+  exec() {
+    const ctx = this._layer.context;
+    drawPath(ctx, this._blush, this._path, this.canvas.innerScale);
+    this._layer.notify("update");
+  }
+}
 
-    constructor(canvas: TegakiCanvas, layer: Layer) {
-      super(canvas);
-      this._layer = layer;
-    }
+/**
+ * 操作: リサイズ取り消し
+ */
+export class CanvasActionUndoResize extends CanvasAction {
+  _layerImages: Offscreen[];
+  _width: number;
+  _height: number;
 
-    exec() {
-      this._layer.clear();
-      this._layer.notify("update");
+  constructor(canvas: TegakiCanvas) {
+    super(canvas);
+    this._layerImages = [];
+    for (const layer of canvas.layers) {
+      this._layerImages.push(pool.get().set(layer));
     }
+    this._width = canvas.width;
+    this._height = canvas.height;
+  }
+
+  exec(): void {
+    for (let i = 0; i < this.canvas.layers.length; i++) {
+      const layer = this.canvas.layers[i];
+      layer.set(this._layerImages[i]);
+      layer.notify("update");
+    }
+    this.canvas.setSize(this._width, this._height);
+    this.canvas.updateCanvasSize();
+  }
+
+  dispose(): void {
+    for (let image of this._layerImages) {
+      pool.return(image);
+    }
+  }
+}
+
+/**
+ * 操作: 反転
+ */
+export class CanvasActionFlip extends CanvasAction {
+  exec() {
+    const image = pool.get();
+    for (const layer of this.canvas.layers) {
+      image.set(layer);
+      layer.clear();
+      layer.context.save();
+      layer.context.scale(-1, 1);
+      layer.context.drawImage(image.canvas, - layer.width, 0);
+      layer.context.restore();
+      layer.notify("update");
+    }
+    pool.return(image);
+  }
+}
+
+/**
+ * 操作: 塗りつぶし
+ */
+export class CanvasActionFill extends CanvasAction {
+  private _layer: Layer;
+  private readonly _color: Color.Immutable;
+
+  constructor(canvas: TegakiCanvas, layer: Layer, color: Color.Immutable) {
+    super(canvas);
+    this._layer = layer;
+    this._color = color.copy();
+  }
+
+  exec() {
+    const layer = this._layer;
+    layer.context.fillStyle = this._color.css();
+    layer.context.fillRect(0, 0, layer.width, layer.height);
+    layer.notify("update");
+  }
+}
+
+/**
+ * 操作: 消去
+ */
+export class CanvasActionClear extends CanvasAction {
+  private _layer: Layer;
+
+  constructor(canvas: TegakiCanvas, layer: Layer) {
+    super(canvas);
+    this._layer = layer;
+  }
+
+  exec() {
+    this._layer.clear();
+    this._layer.notify("update");
   }
 }
 

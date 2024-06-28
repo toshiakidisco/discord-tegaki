@@ -128,12 +128,12 @@
       background-color: transparent;
     }
     > *[data-active] {
-      background-color: rgb(175, 227, 240) !important;
+      background-color: rgb(175, 227, 240);
     }
-    > *:enabled:hover {
+    > *[data-on-click]:enabled:hover {
       background-color: rgb(243, 209, 189);
     }
-    > *:enabled:active {
+    > *[data-on-click]:enabled:active {
       background-color: rgb(230, 189, 166);
     }
     > *:disabled {

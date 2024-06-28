@@ -63,6 +63,7 @@ export class Panel extends Subject {
     this.#autoClose = false,
     this.#hasCloseButton = true,
     this.#parent = parent;
+    this.#parent.appendChild(this.element);
 
     this.#init();
   }
@@ -141,7 +142,6 @@ export class Panel extends Subject {
     if (! this.visible) {
       this.#visible = true;
       window.addEventListener("focusin", this.#onFocusOther);
-      this.#parent.appendChild(this.element);
     }
 
     win.style.left = `${x}px`;
@@ -158,7 +158,6 @@ export class Panel extends Subject {
       return;
     }
     this.#visible = false;
-    this.#parent.removeChild(this.element);
     
     const root = this.element;
     root.style.display = "none";

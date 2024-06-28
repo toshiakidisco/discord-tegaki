@@ -1,5 +1,3 @@
-import { JsonObject, JsonStructure, JsonValue } from "./json";
-
 export class Color implements Color.Immutable {
   r: number;
   g: number;
@@ -49,22 +47,6 @@ export class Color implements Color.Immutable {
       return `rgba(${this.r},${this.g},${this.b},${this.a})`;
     }
   }
-
-  serialize(): JsonValue {
-    return {
-      r: this.r,
-      g: this.g,
-      b: this.b,
-      a: this.a,
-    };
-  }
-  static deserialize(data: JsonObject): Color {
-    const r = data["r"] as number;
-    const g = data["g"] as number;
-    const b = data["b"] as number;
-    const a = (data["a"] || 1) as number;
-    return new Color(r, g, b, a);
-  }
 }
 
 export namespace Color {
@@ -76,15 +58,7 @@ export namespace Color {
     css(): string;
     equals(color: Color.Immutable): boolean;
     copy(): Color;
-    serialize(): JsonValue;
   }
-
-  export const structure: JsonStructure = {
-    "r": "number",
-    "g": "number",
-    "b": "number",
-    "a": "number",
-  };
 
   export const black: Color.Immutable = new Color(0, 0, 0);
   export const white: Color.Immutable = new Color(255, 255, 255);

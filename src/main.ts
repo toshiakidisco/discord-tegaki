@@ -2,7 +2,7 @@ import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
 import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
-import CanvasTool from "./canvas-tool";
+import { CanvasTool, CanvasToolBlush, CanvasToolSpoit } from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./observable-value";
 import Color from "./color";
@@ -16,10 +16,6 @@ import PanelLayer from "./panel-layer";
 
 import manifest from "../manifest.json";
 import "./scss/main.scss";
-import PanelBucket from "./panel-bucket";
-import storage from "./storage";
-import TegakiCanvasDocument from "./canvas-document";
-import { JsonObject, check } from "./json";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -77,19 +73,15 @@ class DiscordTegaki {
   private _window: HTMLElement;
   private _keyDownTime: Map<string, number> = new Map();
 
-  private _toolPen = new CanvasTool.Blush(
-    "pen", canvasInitialState.penSize
+  private _toolPen = new CanvasToolBlush(
+    "pen", canvasInitialState.foreColor, canvasInitialState.penSize
   );
-  private _toolEraser = new CanvasTool.Blush(
-    "eraser", canvasInitialState.eraserSize
+  private _toolEraser = new CanvasToolBlush(
+    "eraser", Color.white, canvasInitialState.eraserSize
   );
-  private _toolSpoit = new CanvasTool.Spoit();
-  private _toolBucket = new CanvasTool.Bucket();
+  private _toolSpoit = new CanvasToolSpoit();
   private _previousTool: CanvasTool = CanvasTool.none;
   private _nextPreviousTool: CanvasTool = CanvasTool.none;
-
-  private _autoSaveInterval: number = 5; // Minutes
-  private _autoSaveTimer: number = 0;
 
   constructor() {
     this._state = new State();
@@ -282,8 +274,6 @@ class DiscordTegaki {
       });
     }
 
-    this._root.addEventListener("wheel", (ev: WheelEvent) => {
-    }, {passive: false});
     /**
      * デフォルトのタッチ操作制御
      */
@@ -338,7 +328,7 @@ class DiscordTegaki {
       this._paletteBackgroundColor.set(value);
       this._canvas.requestRender();
     });
-    this._canvas.addObserver(this, "change-background-color", (value) => {
+    this._canvas.backgroundColor.addObserver(this, "change", (value) => {
       this._state.backgroundColor.value = value;
     });
     this._state.backgroundColor.sync();
@@ -361,53 +351,19 @@ class DiscordTegaki {
       this.resetStatus();
       this.adjustWindow();
     })
-    // キャンバス操作後
-    this._canvas.addObserver(this, "update-history", () => {
-      this.updateUndoRedoIcon();
-      this.prepareAutoSave();
+    // サブツールアイコン更新語
+    this._canvas.addObserver(this, "change-sub-tool", (subTool: SubTool) => {
+      const icon = this._outlets["icon-spoit"] as HTMLImageElement;
+      const active = subTool == "spoit" ? "active" : "deactive";
+      icon.src = getAssetUrl(`asset/tool-spoit-${active}.png`);
     });
+    // Undo, Redo後のアイコン更新
+    this._canvas.addObserver(this, "update-history", this.updateUndoRedoIcon);
     this.updateUndoRedoIcon();
-    // ページクローズ時自動保存
-    document.addEventListener("visibilitychange", () => {
-      this.forceAutoSave();
-    });
     // スポイト後の色更新
     this._canvas.addObserver(this, "spoit", (ev: {color: Color.Immutable}) => {
-      console.log();
-      this._canvas.foreColor = ev.color;
+      this._toolPen.color.value = ev.color;
     });
-  }
-
-  prepareAutoSave() {
-    if (this._autoSaveTimer != 0 || this._autoSaveInterval <= 0) {
-      return;
-    }
-
-    this._autoSaveTimer = window.setTimeout(async () => {
-      await this.autoSave();
-      this._autoSaveTimer = 0;
-    }, this._autoSaveInterval*60*1000);
-  }
-
-  async forceAutoSave() {
-    if (this._autoSaveTimer == 0) {
-      return;
-    }
-    console.log("forceAutoSave");
-    await this.autoSave();
-    this._autoSaveTimer = 0;
-  }
-
-  async autoSave() {
-    const data = this._canvas.document.serialize();
-    await storage.local.set("tegaki-autosave", data);
-    this.showStatus("自動保存されました", 2000);
-  }
-
-  async clearAutoSave() {
-    window.clearTimeout(this._autoSaveTimer);
-    this._autoSaveTimer = 0;
-    await storage.local.remove("tegaki-autosave");
   }
 
   /**
@@ -476,27 +432,7 @@ class DiscordTegaki {
     this.onUpdateToolSize();
   }
 
-  #initPhase : "none" | "initializing" | "initialized" = "none";
-  async open(x?: number, y?: number) {
-    if (this.#initPhase == "initializing") {
-      return;
-    }
-    else if (this.#initPhase == "none") {
-      const data = await storage.local.get("tegaki-autosave");
-      if (data != null) {
-        this.#initPhase = "initializing";
-        try {
-          check(data, TegakiCanvasDocument.structure);
-          const doc = await TegakiCanvasDocument.deserialize(data as JsonObject); 
-          this._canvas.document = doc;
-        }
-        catch (err: any) {
-          console.warn(err);
-        }
-      }
-    }
-    this.#initPhase = "initialized";
-
+  open(x?: number, y?: number) {
     const win = this._window;
     win.style.display = "block";
 
@@ -520,7 +456,6 @@ class DiscordTegaki {
   
   onClickSave(ev: Event) {
     this._canvas.download();
-    this.clearAutoSave();
   }
 
   onClickZoomIn(ev: Event) {
@@ -558,7 +493,6 @@ class DiscordTegaki {
 
   onClickClose(ev: Event) {
     this._window.style.display = "none";
-    this._panelLayer.close();
   }
 
   onClickPen(ev: Event) {
@@ -600,7 +534,6 @@ class DiscordTegaki {
   async onClickCopy(ev?: Event): Promise<void> {
     await this._canvas.copyToClipboard();
     this.showStatus("クリップボードにコピーしました");
-    this.clearAutoSave();
   }
 
   onClickUndo(ev: Event) {
