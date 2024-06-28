@@ -3,8 +3,6 @@ import Color from "./color";
 import Subject from "./subject";
 
 import svgFilterCode from "raw-loader!./svg-filter.svg";
-import fillMaskFilterCode from "raw-loader!./fill-mask-filter.svg";
-import fillImageFilterCode from "raw-loader!./fill-image-filter.svg";
 
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
@@ -20,9 +18,6 @@ import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./object-pool";
 import SvgFilter from "./svg-filter";
 import exp from "constants";
-
-export type PenMode = "pen" | "eraser";
-export type SubTool = "none" | "spoit" | "bucket";
 
 // カーソル描画用のフィルタの読み込み
 const svgFilter = parseSvg(svgFilterCode);

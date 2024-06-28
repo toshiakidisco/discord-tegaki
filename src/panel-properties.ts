@@ -1,4 +1,3 @@
-import { EventEmitter } from "stream";
 import { Outlets, adjustPosition, parseHtml } from "./dom";
 import { clamp } from "./funcs";
 import { ObservableValue } from "./observable-value";

@@ -1,4 +1,3 @@
-import { isRunnningOnExtension } from "./funcs";
 import { JsonValue } from "./json";
 
 export interface LocalStorage {

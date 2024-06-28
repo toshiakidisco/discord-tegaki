@@ -1,7 +1,7 @@
 import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
-import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
+import TegakiCanvas from "./tegaki-canvas";
 import CanvasTool from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./observable-value";
