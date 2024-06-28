@@ -6,7 +6,7 @@ export class PanelBucket extends PanelProperties{
     super(root);
 
     this.addItem(
-      new PanelPropertiesItemNumber("隙間閉じ", 0, 0, 10).bind(tool.obaservables.closeGap)
+      new PanelPropertiesItemNumber("隙間閉じ", 0, 0, 20).bind(tool.obaservables.closeGap)
     );
     this.addItem(
       new PanelPropertiesItemNumber("色の誤差", 0, 0, 20).bind(tool.obaservables.tolerance)

@@ -18,6 +18,8 @@ import { ObservableColor } from "./observable-value";
 import CanvasTool from "./canvas-tool";
 import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./object-pool";
+import SvgFilter from "./svg-filter";
+import exp from "constants";
 
 export type PenMode = "pen" | "eraser";
 export type SubTool = "none" | "spoit" | "bucket";
@@ -877,7 +879,7 @@ export class TegakiCanvas extends Subject {
     }
 
     const fillImage = offscreenPool.get().setSize(this.innerWidth, this.innerHeight);
-    const rect = this.createBucketFillImage(fillImage, x, y, fillColor, option);
+    const rect = this.createBucketFillImageInto(fillImage, x, y, fillColor, option);
     if (typeof rect === "undefined" || rect.isEmpty()) {
       offscreenPool.return(fillImage);
       return;
@@ -1023,12 +1025,14 @@ export class TegakiCanvas extends Subject {
   /**
    * 塗り結果の画像作成
    */
-  createBucketFillImage(dst: Offscreen, x: number, y: number, fillColor: Color.Immutable, option?: BucketOption) {
+  createBucketFillImageInto(dst: Offscreen, x: number, y: number, fillColor: Color.Immutable, option?: BucketOption) {
     x = x | 0;
     y = y | 0;
+    const fillConnected = true;
     const tolerance = option?.tolerance || 0;
-    const closeGap = option?.closeGap || 0;
-    const expand = option?.expand || 0;
+    const closeGap = fillConnected ? (option?.closeGap || 0) : 0;
+    const expand = (option?.expand || 0) + (closeGap / 2);
+    const boundingRect = new Rect(0, 0, 0, 0);
 
     const color = this.getColorAt(x, y);
     if (typeof color === "undefined") {
@@ -1038,50 +1042,99 @@ export class TegakiCanvas extends Subject {
     const fillMask = offscreenPool.get().setSize(this._offscreen.width, this._offscreen.height);
     // SVG フィルタを使って指定色が不透明の黒、それ以外が透明な画像を抽出
     {
-      const replaceDict: {[key: string]: string} = {
-        "[R]": color.r.toString(),
-        "[G]": color.g.toString(),
-        "[B]": color.b.toString(),
-        "[CLOSE_GAP]": (closeGap/2).toString(),
-        "[T]": (-3-3*255*255*tolerance/CanvasTool.Bucket.toleranceMax).toString(),
-      };
+      const filter = new SvgFilter();
+      // ベースを領域色で塗りつぶし
+      filter.add("feFlood", {"flood-color": color});
+      // 差の絶対値で合成
+      filter.add("feBlend", {
+        "mode": "difference",
+        "in2": "SourceGraphic",
+        "result": "diff"
+      });
+      // 各ピクセルを差の二乗に
+      filter.add("feBlend", {
+        "mode": "multiply",
+        "in": "diff", "in2": "diff",
+      });
+      // 領域色を透明、それ以外を不透明に
+      const l = 255*255;
+      const t = 3 + 3*l*tolerance/CanvasTool.Bucket.toleranceMax;
+      filter.add("feColorMatrix", {
+        "type": "matrix",
+        "values": [
+          0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0,
+          l, l, l, 0, -t,
+        ],
+      });
+      // 隙間閉じの分だけ非領域色を拡大
+      if (closeGap > 0) {
+       filter.add("feMorphology", {
+        "operator": "dilate",
+        "radius": closeGap/2,
+       });
+      }
+      // 透明/不透明 反転
+      filter.add("feColorMatrix", {
+        "type": "matrix",
+        "values": [
+          0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0,
+          0, 0, 0, -1, 1,
+        ],
+      });
       drawImageWithSVGFilter(
         fillMask.context,
         this._offscreen.canvas,
-        fillMaskFilterCode, replaceDict
+        filter.code
       );
     }
 
-    // 隣接領域検索
-    const imageData = getImageData(fillMask.canvas, 0, 0, fillMask.canvas.width, fillMask.canvas.height);
-    const src = imageData.data;
+    // 隣接領域に限定
+    if (fillConnected) {
+      const imageData = getImageData(fillMask.canvas, 0, 0, fillMask.canvas.width, fillMask.canvas.height);
+      const src = imageData.data;
 
-    const regionToFill = getConnectedPixels(
-      fillMask.width, fillMask.height,
-      src, x, y
-    );
-    const dstImageData = new ImageData(
-      regionToFill.region,
-      fillMask.width, fillMask.height
-    );
-    fillMask.context.putImageData(dstImageData, 0, 0);
+      const regionToFill = getConnectedPixels(
+        fillMask.width, fillMask.height,
+        src, x, y
+      );
+      const dstImageData = new ImageData(
+        regionToFill.region,
+        fillMask.width, fillMask.height
+      );
+      fillMask.context.putImageData(dstImageData, 0, 0);
+      boundingRect.set(regionToFill.rect).expand(expand);
+    }
+    else {
+      boundingRect.set4f(0, 0, fillMask.width, fillMask.height);
+    }
 
     // マスクから塗りつぶし画像の作成
     {
-      const replaceDict: {[key: string]: string} = {
-        "[R]": (fillColor.r).toString(),
-        "[G]": (fillColor.g).toString(),
-        "[B]": (fillColor.b).toString(),
-        "[EXPAND]": (expand).toString(),
-      };
+      const filter = new SvgFilter();
+      // ベースを領域色で塗りつぶし
+      filter.add("feFlood", {"flood-color": fillColor});
+      filter.add("feComposite", {
+        "in2": "SourceGraphic",
+        "operator": "in",
+      });
+      if (expand > 0) {
+        filter.add("feMorphology", {
+          "operator": "dilate",
+          "radius": expand,
+        });
+      }
       drawImageWithSVGFilter(
         dst.context,
         fillMask.canvas,
-        fillImageFilterCode, replaceDict
+        filter.code
       );
     }
     offscreenPool.return(fillMask);
-    return regionToFill.rect.expand(expand);
+    return boundingRect;
   }
 
   /**
@@ -1211,15 +1264,12 @@ export interface TegakiCanvas {
 function drawImageWithSVGFilter(
   context: CanvasRenderingContext2D,
   image: HTMLCanvasElement,
-  code: string, replacer: {[key: string]: string;}
+  code: string
 ) {
-  for (let key in replacer) {
-    code = code.replaceAll(key, replacer[key]);
-  }
-
   const filterElem = document.getElementById("tegaki-canvas-svg-filter") as HTMLElement;
   filterElem.innerHTML = code;
   context.save();
+  context.clearRect(0, 0, image.width, image.height);
   context.filter = "url(#tegaki-canvas-svg-filter)";
   context.drawImage(image, 0, 0);
   context.restore();

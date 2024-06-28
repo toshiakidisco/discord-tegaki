@@ -11,6 +11,14 @@ export class Rect implements Rect.Immutable {
     this.height = height;
   }
 
+  set(rect: Rect): this {
+    this.x = rect.x;
+    this.y = rect.y;
+    this.width = rect.width;
+    this.height = rect.height;
+    return this;
+  }
+
   set4f(x: number, y: number, width: number, height: number): this {
     this.x = x;
     this.y = y;
