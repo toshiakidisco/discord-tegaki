@@ -59,10 +59,11 @@ export class Color implements Color.Immutable {
     };
   }
   static deserialize(data: JsonObject): Color {
-    const r = data["r"] as number;
-    const g = data["g"] as number;
-    const b = data["b"] as number;
-    const a = (data["a"] || 1) as number;
+    const d = data as Color.Serialized;
+    const r = d.r;
+    const g = d.g;
+    const b = d.b;
+    const a = (data.a) as number;
     return new Color(r, g, b, a);
   }
 }
@@ -78,6 +79,13 @@ export namespace Color {
     copy(): Color;
     serialize(): JsonValue;
   }
+
+  export type Serialized = {
+    "r": number,
+    "g": number,
+    "b": number,
+    "a": number,
+  };
 
   export const structure: JsonStructure = {
     "r": "number",

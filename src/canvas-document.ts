@@ -71,12 +71,13 @@ export class TegakiCanvasDocument extends Subject {
   }
 
   static async deserialize(data: JsonObject): Promise<TegakiCanvasDocument> {
+    const d = data as TegakiCanvasDocument.Serialized;
     // this.#title = data["title"] as string;
-    const width = data["width"] as number;
-    const height = data["height"] as number;
-    const backgroundColor = Color.deserialize(data["backgroundColor"] as JsonObject);
+    const width = d.width;
+    const height = d.height;
+    const backgroundColor = Color.deserialize(d.backgroundColor);
     const layers: Layer[] = [];
-    for (const layerData of data["layers"] as JsonObject[]) {
+    for (const layerData of d.layers) {
       const layer = await Layer.deserialize(layerData);
       layers.push(layer);
     }
@@ -86,6 +87,15 @@ export class TegakiCanvasDocument extends Subject {
 }
 
 export namespace TegakiCanvasDocument {
+  export type Serialized = {
+    "version": number,
+    "title": string,
+    "width": number,
+    "height": number,
+    "backgroundColor": Color.Serialized,
+    "layers": Layer.Serialized[],
+  };
+
   export const structure: JsonStructure = {
     "version": "number",
     "title": "string",

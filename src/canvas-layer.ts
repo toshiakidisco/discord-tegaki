@@ -64,16 +64,17 @@ export class Layer extends Offscreen implements IFSubject {
     };
   }
   static deserialize(data: JsonObject): Promise<Layer> {
-    const x = data["x"] as number;
-    const y = data["y"] as number;
-    const width = data["width"] as number;
-    const height = data["height"] as number;
-    const opacity = data["opacity"] as number;
-    const isVisible = data["isVisible"] as boolean;
+    const d = data as Layer.Serialized;
+    const x = d.x;
+    const y = d.y;
+    const width = d.width;
+    const height = d.height;
+    const opacity = d.opacity;
+    const isVisible = d.isVisible;
     const layer = new Layer(width, height);
     layer.opacity = opacity;
     layer.isVisible = isVisible;
-    const imageData = data["data"] as string;
+    const imageData = d.data;
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
@@ -89,6 +90,16 @@ export class Layer extends Offscreen implements IFSubject {
 }
 
 export namespace Layer {
+  export type Serialized = {
+    "x": number,
+    "y": number,
+    "width": number,
+    "height": number,
+    "opacity": number,
+    "isVisible": boolean,
+    "data": string,
+  };
+
   export const structure: JsonStructure = {
     "x": "number",
     "y": "number",
