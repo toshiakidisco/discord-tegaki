@@ -7,7 +7,7 @@ export class Color implements Color.Immutable {
   b: number;
   a: number;
 
-  constructor(r: number, g: number, b: number, a:number = 1) {
+  constructor(r: number = 0, g: number = 0, b: number = 0, a:number = 1) {
     this.r = r | 0;
     this.g = g | 0;
     this.b = b | 0;
@@ -26,8 +26,8 @@ export class Color implements Color.Immutable {
   }
 
   setHsv(h: number, s: number, v: number) {
-    const max = v;
-    const min = max - s*max/255;
+    const max = v*255;
+    const min = v*(1 - s)*255;
     let r: number, g: number, b: number;
     if (h <= 60) {
       r = max;
@@ -62,12 +62,16 @@ export class Color implements Color.Immutable {
     this.r = r;
     this.g = g;
     this.b = b;
+
+    return this;
   }
 
   set3i(r: number, g: number, b: number) {
     this.r = r | 0;
     this.g = g | 0;
     this.b = b | 0;
+
+    return this;
   }
 
   set4f(r: number, g: number, b: number, a: number) {
@@ -75,6 +79,8 @@ export class Color implements Color.Immutable {
     this.g = g | 0;
     this.b = b | 0;
     this.a = a;
+
+    return this;
   }
 
   equals(color: Color.Immutable): boolean {
@@ -127,8 +133,8 @@ export class Color implements Color.Immutable {
       h += 360;
     }
 
-    const s = (max-min)/max;
-    const v = max;
+    const s = (max-min)/max/255;
+    const v = max/255;
 
     return {h, s, v};
   }
@@ -140,6 +146,12 @@ export class Color implements Color.Immutable {
       b: this.b,
       a: this.a,
     };
+  }
+
+  static fromHsv(h: number, s: number, v: number): Color {
+    const color = new Color();
+    color.setHsv(h, s, v);
+    return color;
   }
 
   static deserialize(data: JsonObject): Color {

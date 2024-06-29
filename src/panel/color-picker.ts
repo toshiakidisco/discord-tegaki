@@ -3,6 +3,7 @@ import Color from "../foudantion/color";
 import Panel from "./panel";
 import { clamp } from "../funcs";
 import Offscreen from "../canvas-offscreen";
+import ViewColorPicker from "../foudantion/color-picker";
 
 type ColorChar = "r" | "g" | "b";
 const RGBColorChars: ColorChar[] = ["r", "g", "b"] as const;
@@ -22,6 +23,7 @@ export class ColorPicker extends Panel {
   readonly contents: HTMLElement;
   private _outlets: Outlets;
   private _color: Color;
+  private _picker: ViewColorPicker;
 
   private _palette: PaletteItem[];
   private _dragging: boolean = false;
@@ -54,10 +56,15 @@ export class ColorPicker extends Panel {
               <input type="range" name="slider-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
               <input type="number" name="field-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
             </li>
+            <li name="picker">
+            </li>
           </ul>
         </div>
       </div>
     `, this, this._outlets);
+    this._picker = new ViewColorPicker();
+    this._outlets["picker"].appendChild(this._picker.element);
+
     this.setContents(this.contents);
 
     this.hasTitleBar = false;
