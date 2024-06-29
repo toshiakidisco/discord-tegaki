@@ -1,4 +1,4 @@
-import Color from "./color"
+import Color from "./foudantion/color"
 
 export const defaultPalette: Color[] = [
   new Color(128,   0,   0),

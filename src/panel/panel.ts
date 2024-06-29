@@ -1,5 +1,5 @@
-import { Outlets, adjustPosition, isChildOf, parseHtml } from "./dom";
-import Subject from "./subject";
+import { Outlets, adjustPosition, isChildOf, parseHtml } from "../dom";
+import Subject from "../foudantion/subject";
 
 export class Panel extends Subject {
   #title: string;

@@ -1,8 +1,8 @@
 import Layer from "./canvas-layer";
-import Color from "./color";
-import { JsonObject, JsonStructure, JsonValue } from "./json";
+import Color from "./foudantion/color";
+import { JsonObject, JsonStructure, JsonValue } from "./foudantion/json";
 import { ObservableColor, ObservableValue } from "./observable-value";
-import Subject from "./subject";
+import Subject from "./foudantion/subject";
 
 export class TegakiCanvasDocument extends Subject {
   readonly #layers: Layer[] = [];

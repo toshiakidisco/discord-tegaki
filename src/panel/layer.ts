@@ -1,10 +1,10 @@
-import Layer from "./canvas-layer";
-import Offscreen from "./canvas-offscreen";
-import { Outlets, parseHtml } from "./dom";
+import Layer from "../canvas-layer";
+import Offscreen from "../canvas-offscreen";
+import { Outlets, parseHtml } from "../dom";
 import Panel from "./panel"
-import PanelSlider from "./panel-slider";
-import Subject from "./subject";
-import TegakiCanvas from "./tegaki-canvas";
+import PanelSlider from "./slider";
+import Subject from "../foudantion/subject";
+import TegakiCanvas from "../tegaki-canvas";
 
 const thumbnailWidth = 48;
 const thumbnailHeight = 32;

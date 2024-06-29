@@ -1,5 +1,5 @@
-import Color from "./color";
-import Subject from "./subject";
+import Color from "./foudantion/color";
+import Subject from "./foudantion/subject";
 
 export class ObservableValue<T> extends Subject {
   private _value: T;

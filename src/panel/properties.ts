@@ -1,8 +1,8 @@
-import { Outlets, adjustPosition, parseHtml } from "./dom";
-import { clamp } from "./funcs";
-import { ObservableValue } from "./observable-value";
+import { Outlets, adjustPosition, parseHtml } from "../dom";
+import { clamp } from "../funcs";
+import { ObservableValue } from "../observable-value";
 import Panel from "./panel";
-import Subject from "./subject";
+import Subject from "../foudantion/subject";
 
 type BindMode = "readwrite" | "read";
 

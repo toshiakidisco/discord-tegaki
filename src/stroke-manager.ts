@@ -1,6 +1,6 @@
 import { BlushPath } from "./canvas-action";
-import FiniteStack from "./finite-stack";
-import Subject from "./subject";
+import FiniteStack from "./foudantion/finite-stack";
+import Subject from "./foudantion/subject";
 
 type Point = {x: number; y: number;};
 
@@ -88,6 +88,11 @@ export class StrokeManager extends Subject{
     window.clearInterval(this._updateTimer);
     this._updateTimer = 0;
   }
+}
+
+function optimizePath(path: BlushPath) {
+  const threshold = 5;
+
 }
 
 export default StrokeManager;

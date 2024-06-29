@@ -1,4 +1,4 @@
-import Color from "./color";
+import Color from "./foudantion/color";
 
 type Attributes = {[key: string]: number | string | Color.Immutable | number[]};
 

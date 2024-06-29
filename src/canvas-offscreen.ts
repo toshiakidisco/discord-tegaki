@@ -1,5 +1,5 @@
 import { off } from "process";
-import Color from "./color";
+import Color from "./foudantion/color";
 
 export class Offscreen {
   readonly canvas: HTMLCanvasElement;

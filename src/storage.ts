@@ -1,4 +1,4 @@
-import { JsonValue } from "./json";
+import { JsonValue } from "./foudantion/json";
 
 export interface LocalStorage {
   set(key: string, data: JsonValue): Promise<void>;

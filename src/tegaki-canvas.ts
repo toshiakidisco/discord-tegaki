@@ -1,6 +1,6 @@
-import Stack from "./stack";
-import Color from "./color";
-import Subject from "./subject";
+import Stack from "./foudantion/stack";
+import Color from "./foudantion/color";
+import Subject from "./foudantion/subject";
 
 import svgFilterCode from "raw-loader!./svg-filter.svg";
 
@@ -8,14 +8,14 @@ import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
 import CanvasAction, { drawPath, getPathBoundingRect } from "./canvas-action";
-import { Rect } from "./rect";
+import { Rect } from "./foudantion/rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import { ObservableColor, ObservableValue } from "./observable-value";
 import CanvasTool from "./canvas-tool";
 import { clamp, getConnectedPixels } from "./funcs";
-import ObjectPool from "./object-pool";
+import ObjectPool from "./foudantion/object-pool";
 import SvgFilter from "./svg-filter";
 import exp from "constants";
 
