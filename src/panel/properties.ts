@@ -1,6 +1,6 @@
 import { Outlets, adjustPosition, parseHtml } from "../dom";
 import { clamp } from "../funcs";
-import { ObservableValue } from "../observable-value";
+import { ObservableValue } from "../foudantion/observable-value";
 import Panel from "./panel";
 import Subject from "../foudantion/subject";
 

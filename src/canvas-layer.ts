@@ -1,7 +1,7 @@
 import TegakiCanvasDocument from "./canvas-document";
 import Offscreen from "./canvas-offscreen";
 import { clamp } from "./funcs";
-import { ObservableValue } from "./observable-value";
+import { ObservableValue } from "./foudantion/observable-value";
 import { JsonObject, JsonStructure, JsonValue } from "./foudantion/json";
 import Subject, { IFSubject } from "./foudantion/subject";
 

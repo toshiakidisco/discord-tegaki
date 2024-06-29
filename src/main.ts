@@ -4,7 +4,7 @@ import htmlButtonOpen from "raw-loader!./button-open.html";
 import TegakiCanvas from "./tegaki-canvas";
 import CanvasTool from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
-import { ObservableColor, ObservableValue } from "./observable-value";
+import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
 import Color from "./foudantion/color";
 import ColorPicker from "./panel/color-picker";
 import SizeSelector from "./panel/size-selector";

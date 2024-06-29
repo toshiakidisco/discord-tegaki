@@ -12,7 +12,7 @@ import { Rect } from "./foudantion/rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
-import { ObservableColor, ObservableValue } from "./observable-value";
+import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
 import CanvasTool from "./canvas-tool";
 import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./foudantion/object-pool";

@@ -1,7 +1,7 @@
 import Layer from "./canvas-layer";
 import Color from "./foudantion/color";
 import { JsonObject, JsonStructure, JsonValue } from "./foudantion/json";
-import { ObservableColor, ObservableValue } from "./observable-value";
+import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
 import Subject from "./foudantion/subject";
 
 export class TegakiCanvasDocument extends Subject {
