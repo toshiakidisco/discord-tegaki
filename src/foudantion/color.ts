@@ -133,7 +133,7 @@ export class Color implements Color.Immutable {
       h += 360;
     }
 
-    const s = (max-min)/max;
+    const s = max == 0 ? 0 : (max-min)/max;
     const v = max/255;
 
     return {h, s, v};
