@@ -1,4 +1,5 @@
 import { JsonValue } from "./foudantion/json";
+import { isRunnningOnExtension } from "./funcs";
 
 export interface LocalStorage {
   set(key: string, data: JsonValue): Promise<void>;
@@ -50,7 +51,7 @@ class BrowserLocalStorage implements LocalStorage {
 }
 
 export namespace storage {
-  export const local: LocalStorage = chrome?.storage?.local ? new ExtensionLocalStorage() : new BrowserLocalStorage();
+  export const local: LocalStorage = isRunnningOnExtension ? new ExtensionLocalStorage() : new BrowserLocalStorage();
 }
 
 export default storage;
