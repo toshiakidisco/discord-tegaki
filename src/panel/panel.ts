@@ -136,14 +136,19 @@ export class Panel extends Subject {
     contentsWrap.appendChild(contents);
   }
 
-  open(x: number, y: number) {
+  open(x: number, y: number, parent?: HTMLElement) {
     const win = this.element;
-    if (! this.visible) {
-      this.#visible = true;
-      window.addEventListener("focusin", this.#onFocusOther);
-      this.#parent.appendChild(this.element);
+    if (this.visible) {
+      this.close();
+    }
+    if (typeof parent !== "undefined") {
+      this.#parent = parent;
     }
     
+    this.#visible = true;
+    window.addEventListener("focusin", this.#onFocusOther);
+    this.#parent.appendChild(this.element);
+  
     win.style.left = `${x}px`;
     win.style.top = `${y}px`;
     win.style.display = "block";
@@ -167,12 +172,12 @@ export class Panel extends Subject {
     this.notify("close");
   }
 
-  toggle(x: number, y: number) {
+  toggle(x: number, y: number, parent?: HTMLElement) {
     if (this.visible) {
       this.close();
     }
     else {
-      this.open(x, y);
+      this.open(x, y, parent);
     }
   }
 

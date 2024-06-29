@@ -69,8 +69,7 @@ class DiscordTegaki {
   private _canvas: TegakiCanvas;
   private _state: State;
 
-  private _paletteForeColor: PanelColor;
-  private _paletteBackgroundColor: PanelColor;
+  private _panelColor: PanelColor;
   private _palettePenSize: SizeSelector;
   private _panelLayer: PanelLayer;
   private _panelBucket: PanelBucket;
@@ -123,10 +122,8 @@ class DiscordTegaki {
 
     document.body.appendChild(this._root);
 
-    this._paletteForeColor = new PanelColor(this._root);
-    this._paletteForeColor.setPalette(defaultPalette);
-    this._paletteBackgroundColor = new PanelColor(this._root);
-    this._paletteBackgroundColor.setPalette(defaultPalette);
+    this._panelColor = new PanelColor(this._root);
+    this._panelColor.setPalette(defaultPalette);
     this._palettePenSize = new SizeSelector(this._root, 1);
     this._panelLayer = new PanelLayer(this._root, this._canvas);
     this._panelBucket = new PanelBucket(this._root, this._toolBucket);
@@ -335,14 +332,12 @@ class DiscordTegaki {
     this._canvas.observable.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
     });
-    this._paletteForeColor.bind(this._canvas.observable.foreColor);
     this._canvas.observable.foreColor.sync();
 
     // Background Color
     this._state.backgroundColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["backgroundColor"].style.backgroundColor = value.css();
       this._canvas.changeBackgroundColor(value);
-      this._paletteBackgroundColor.set(value);
       this._canvas.requestRender();
     });
     this._canvas.addObserver(this, "change-background-color", (value) => {
@@ -351,9 +346,6 @@ class DiscordTegaki {
     this._state.backgroundColor.sync();
     
     // Connect palette to ObservableValue
-    this._paletteBackgroundColor.addObserver(this, "change", (c: Color.Immutable) => {
-      this._state.backgroundColor.value = c;
-    });
     this._palettePenSize.addObserver(this, "change", (n: number) => {
       console.log(n);
       this._state.tool.value.size = n;
@@ -579,13 +571,27 @@ class DiscordTegaki {
   onClickForeColor(ev: PointerEvent) {
     ev.stopPropagation();
     ev.preventDefault();
-    this._paletteForeColor.open(ev.clientX, ev.clientY);
+
+    this._panelColor.close();
+    this._panelColor.bind(this._canvas.observable.foreColor);
+    this._panelColor.addObserver(this, "close", () => {
+      this._panelColor.removeObserver(this);
+      this._panelColor.bind(null);
+    });
+    this._panelColor.open(ev.clientX, ev.clientY);
   }
 
   onClickBackgroundColor(ev: PointerEvent) {
     ev.stopPropagation();
     ev.preventDefault();
-    this._paletteBackgroundColor.open(ev.clientX, ev.clientY);
+
+    this._panelColor.close();
+    this._panelColor.bind(this._state.backgroundColor);
+    this._panelColor.addObserver(this, "close", () => {
+      this._panelColor.removeObserver(this);
+      this._panelColor.bind(null);
+    });
+    this._panelColor.open(ev.clientX, ev.clientY);
   }
 
   onClickSpoit(ev: Event) {

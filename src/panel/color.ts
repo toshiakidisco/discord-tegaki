@@ -121,6 +121,8 @@ export class PanelColor extends Panel {
         this._color.set(color);
         this.render();
       });
+      this._color.set(observable.value);
+      this.render();
     }
   }
 
