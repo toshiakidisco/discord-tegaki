@@ -187,7 +187,7 @@ export class PanelColor extends Panel {
 }
 
 function colorToText(color: Color.Immutable) {
-  return `rgb(${padding(color.r, " ", 3)},${padding(color.g, " ", 3)},${padding(color.g, " ", 3)})`;
+  return `rgb(${padding(color.r, " ", 3)},${padding(color.g, " ", 3)},${padding(color.b, " ", 3)})`;
 }
 
 function padding(num: number, char: string, len: number) {

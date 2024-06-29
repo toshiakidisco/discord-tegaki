@@ -103,11 +103,13 @@ export class ViewHuebar extends View {
     this.#needsRender = false;
     const ctx = this.#context;
 
-    for (let y = 0; y < this.#height; y++) {
-      const hue = 360*y/this.#height;
-      ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-      ctx.fillRect(0, y, this.#width, y+1);
+    const g = ctx.createLinearGradient(0, 0, 0, this.#height);
+    for (let h = 0; h <= 360; h += 60) {
+      g.addColorStop(h/360, `hsl(${h}, 100%, 50%)`);
     }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.#width, this.#height);
+
     const dy = (this.#hue/360 * this.height) | 0;
     ctx.lineWidth = 1;
     ctx.strokeStyle = "black";
