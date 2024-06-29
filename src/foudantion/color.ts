@@ -59,9 +59,9 @@ export class Color implements Color.Immutable {
       g = min;
       b = ((360 - h)/60)*(max-min) + min;
     }
-    this.r = r;
-    this.g = g;
-    this.b = b;
+    this.r = Math.round(r);
+    this.g = Math.round(g);
+    this.b = Math.round(b);
 
     return this;
   }
@@ -133,10 +133,14 @@ export class Color implements Color.Immutable {
       h += 360;
     }
 
-    const s = (max-min)/max/255;
+    const s = (max-min)/max;
     const v = max/255;
 
     return {h, s, v};
+  }
+
+  value(): number {
+    return Math.max(this.r, this.g, this.b) / 255;
   }
 
   serialize(): JsonValue {
@@ -171,6 +175,8 @@ export namespace Color {
     readonly b: number;
     readonly a: number;
     css(): string;
+    hsv(): {h: number, s: number, v: number};
+    value(): number;
     equals(color: Color.Immutable): boolean;
     copy(): Color;
     serialize(): JsonValue;

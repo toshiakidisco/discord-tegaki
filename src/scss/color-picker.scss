@@ -1,24 +1,25 @@
 
 .disco-tegaki {
 
-  .color-picker .contents > .wrap {
+  .panel-color .contents > .wrap {
     display: flex;
   }
 
-  .color-picker {
+  .panel-color {
     .area-palette {
-      margin-right: 8px;
+      margin-right: 4px;
     }
     .area-palette .colors {
       display: flex;
       flex-wrap: wrap;
-      width: calc(24px * 4);
+      width: calc(26px * 4);
 
       > * {
         box-sizing: border-box;
         width: 24px;
         height: 24px;
-        border: 1px solid rgba(255, 255, 238);
+        margin-right: 2px;
+        margin-bottom: 2px;
         background-color: attr(data-color);
       }
     }
@@ -27,29 +28,25 @@
       > ul > li {
         display: flex;
         align-items: center;
-      }
 
-      .color-char {
-        display: inline-block;
-        width: 16px;
-      }
-      input[type=range] {
-        width: 123px;
-      }
-      input[type=number] {
-        width: 30px;
-        text-align: right;
+        > * + * {
+          margin-left: 2px;
+        }
       }
     }
   }
 
-  .color-picker .preview {
+  .panel-color .preview {
     width: 100%;
     height: 24px;
-    margin-bottom: 4px;
-    border: 1px solid #FFF;
+    border: 1px solid #7e7676;
+    margin-bottom: 2px;
+    text-align: right;
+    font-size: 10px;
+    line-height: 24px;
+    font-family: monospace;
+    white-space: pre;
   }
-
 
 
   .size-selector .row-preview {
@@ -60,7 +57,7 @@
     display: inline-block;
     width: 100%;
     min-height: 1px;
-    background-color: #000;
+    background-color: #000000;
     vertical-align: middle;
   }
   .size-selector .contents li {

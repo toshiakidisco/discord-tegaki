@@ -143,7 +143,7 @@ export class Panel extends Subject {
       window.addEventListener("focusin", this.#onFocusOther);
       this.#parent.appendChild(this.element);
     }
-
+    
     win.style.left = `${x}px`;
     win.style.top = `${y}px`;
     win.style.display = "block";
