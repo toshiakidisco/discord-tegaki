@@ -1,5 +1,5 @@
-import { Outlets, adjustPosition, parseHtml } from "./dom";
-import { clamp } from "./funcs";
+import { Outlets, parseHtml } from "../dom";
+import { clamp } from "../funcs";
 import Panel from "./panel";
 
 const VALUE_MIN = 1;

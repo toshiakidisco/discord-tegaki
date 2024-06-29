@@ -1,8 +1,8 @@
 import { buffer } from "stream/consumers";
 import Offscreen from "./canvas-offscreen";
-import Color from "./color";
-import ObjectPool from "./object-pool";
-import { Rect } from "./rect";
+import Color from "./foudantion/color";
+import ObjectPool from "./foudantion/object-pool";
+import { Rect } from "./foudantion/rect";
 import TegakiCanvas, { BucketOption } from "./tegaki-canvas";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";

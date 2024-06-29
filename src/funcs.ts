@@ -1,4 +1,4 @@
-import Rect from "./rect";
+import Rect from "./foudantion/rect";
 
 export function clamp(value: number, min: number, max: number) {
   if (value < min) {

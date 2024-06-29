@@ -1,25 +1,25 @@
 import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
-import TegakiCanvas, { PenMode, SubTool } from "./tegaki-canvas";
+import TegakiCanvas from "./tegaki-canvas";
 import CanvasTool from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
-import { ObservableColor, ObservableValue } from "./observable-value";
-import Color from "./color";
-import ColorPicker from "./color-picker";
-import SizeSelector from "./size-selector";
+import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
+import Color from "./foudantion/color";
+import ColorPicker from "./panel/color-picker";
+import SizeSelector from "./panel/size-selector";
 import Selector from "./selector";
 import { clamp, isRunnningOnExtension } from "./funcs";
 import defaultPalette from "./default-palette";
 import { getAssetUrl } from "./asset";
-import PanelLayer from "./panel-layer";
+import PanelLayer from "./panel/layer";
 
 import manifest from "../manifest.json";
 import "./scss/main.scss";
-import PanelBucket from "./panel-bucket";
+import PanelBucket from "./panel/bucket";
 import storage from "./storage";
 import TegakiCanvasDocument from "./canvas-document";
-import { JsonObject, check } from "./json";
+import { JsonObject, check } from "./foudantion/json";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;

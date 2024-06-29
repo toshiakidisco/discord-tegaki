@@ -1,5 +1,5 @@
-import Color from "./color";
-import { ObservableColor, ObservableValue } from "./observable-value";
+import Color from "./foudantion/color";
+import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
 
 type PenMode = "pen" | "eraser";
 

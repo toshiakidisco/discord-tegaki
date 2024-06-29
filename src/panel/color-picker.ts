@@ -1,8 +1,8 @@
-import { Outlets, adjustPosition, parseHtml } from "./dom";
-import Color from "./color";
+import { Outlets, adjustPosition, parseHtml } from "../dom";
+import Color from "../foudantion/color";
 import Panel from "./panel";
-import { clamp } from "./funcs";
-import Offscreen from "./canvas-offscreen";
+import { clamp } from "../funcs";
+import Offscreen from "../canvas-offscreen";
 
 type ColorChar = "r" | "g" | "b";
 const RGBColorChars: ColorChar[] = ["r", "g", "b"] as const;
