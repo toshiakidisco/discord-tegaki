@@ -6,7 +6,7 @@ import CanvasTool from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
 import Color from "./foudantion/color";
-import ColorPicker from "./panel/color-picker";
+import PanelColor from "./panel/color";
 import SizeSelector from "./panel/size-selector";
 import Selector from "./selector";
 import { clamp, isRunnningOnExtension } from "./funcs";
@@ -69,8 +69,8 @@ class DiscordTegaki {
   private _canvas: TegakiCanvas;
   private _state: State;
 
-  private _paletteForeColor: ColorPicker;
-  private _paletteBackgroundColor: ColorPicker;
+  private _paletteForeColor: PanelColor;
+  private _paletteBackgroundColor: PanelColor;
   private _palettePenSize: SizeSelector;
   private _panelLayer: PanelLayer;
   private _panelBucket: PanelBucket;
@@ -123,9 +123,9 @@ class DiscordTegaki {
 
     document.body.appendChild(this._root);
 
-    this._paletteForeColor = new ColorPicker(this._root);
+    this._paletteForeColor = new PanelColor(this._root);
     this._paletteForeColor.setPalette(defaultPalette);
-    this._paletteBackgroundColor = new ColorPicker(this._root);
+    this._paletteBackgroundColor = new PanelColor(this._root);
     this._paletteBackgroundColor.setPalette(defaultPalette);
     this._palettePenSize = new SizeSelector(this._root, 1);
     this._panelLayer = new PanelLayer(this._root, this._canvas);
@@ -314,7 +314,7 @@ class DiscordTegaki {
     this._state.tool.addObserver(this, "change", (tool: CanvasTool) => {
       this._previousTool = this._nextPreviousTool;
       this._nextPreviousTool = tool;
-
+      
       // ツールアイコン切替
       for (const name of toolIcons) {
         const icon = this._outlets[`tool-${name}`] as HTMLImageElement;
@@ -334,8 +334,8 @@ class DiscordTegaki {
     // Fore Color
     this._canvas.observable.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
-      this._paletteForeColor.set(value);
     });
+    this._paletteForeColor.bind(this._canvas.observable.foreColor);
     this._canvas.observable.foreColor.sync();
 
     // Background Color
@@ -351,9 +351,6 @@ class DiscordTegaki {
     this._state.backgroundColor.sync();
     
     // Connect palette to ObservableValue
-    this._paletteForeColor.addObserver(this, "change", (c: Color.Immutable) => {
-      this._canvas.foreColor = c;
-    });
     this._paletteBackgroundColor.addObserver(this, "change", (c: Color.Immutable) => {
       this._state.backgroundColor.value = c;
     });
