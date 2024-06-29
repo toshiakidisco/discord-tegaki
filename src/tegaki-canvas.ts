@@ -17,7 +17,19 @@ import CanvasTool from "./canvas-tool";
 import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./foudantion/object-pool";
 import SvgFilter from "./svg-filter";
-import exp from "constants";
+
+function createOffscreenCanvas(width: number, height: number) {
+  if (typeof window["OffscreenCanvas"] === "undefined") {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;    
+  }
+  else {
+    return new OffscreenCanvas(width, height);
+  }
+}
+
 
 // カーソル描画用のフィルタの読み込み
 const svgFilter = parseSvg(svgFilterCode);
@@ -193,7 +205,7 @@ export class TegakiCanvas extends Subject {
     this._currentLayerOffscreen = new Offscreen(this.innerWidth, this.innerHeight);
 
     // Create 2D context for spoit
-    const spoitCanvas = new OffscreenCanvas(1, 1);
+    const spoitCanvas = createOffscreenCanvas(1, 1) as OffscreenCanvas;
     const spoitContext = spoitCanvas.getContext("2d", {willReadFrequently: true});
     if (spoitContext === null) {
       throw new Error("Failed to get CanvasRendering2DContext");
@@ -1305,7 +1317,7 @@ function getImageData(
   width: number = canvas.width, height: number = canvas.height
 ) {
   if (typeof _imageDataCanvas === "undefined") {
-    _imageDataCanvas = new OffscreenCanvas(width, height);
+    _imageDataCanvas = createOffscreenCanvas(width, height) as OffscreenCanvas;
   }
   else {
     _imageDataCanvas.width = width;

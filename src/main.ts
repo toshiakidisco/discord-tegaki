@@ -287,6 +287,9 @@ class DiscordTegaki {
 
     this._root.addEventListener("wheel", (ev: WheelEvent) => {
     }, {passive: false});
+    this._root.addEventListener("dragstart", (ev: DragEvent) => {
+      ev.preventDefault();
+    },);
     /**
      * デフォルトのタッチ操作制御
      */
