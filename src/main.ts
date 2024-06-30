@@ -20,6 +20,7 @@ import PanelBucket from "./panel/bucket";
 import storage from "./storage";
 import TegakiCanvasDocument from "./canvas-document";
 import { JsonObject, check } from "./foudantion/json";
+import shortcut from "./shortcut";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -77,7 +78,7 @@ class DiscordTegaki {
 
   private _root: HTMLElement;
   private _window: HTMLElement;
-  private _keyDownTime: Map<string, number> = new Map();
+  private _shortcutDownTime: Map<shortcut.Shortcut, number> = new Map();
 
   private _toolPen = new CanvasTool.Blush(
     "pen", canvasInitialState.penSize
@@ -616,7 +617,12 @@ class DiscordTegaki {
   }
 
   onClickSelect(ev: PointerEvent) {
-    this._state.tool.value = this._toolSelect;
+    if (this._state.tool.value == this._toolSelect) {
+      this._canvas.selectNew(null);
+    }
+    else {
+      this._state.tool.value = this._toolSelect;
+    }
   }
 
   onClickClear(ev: Event) {
@@ -651,69 +657,160 @@ class DiscordTegaki {
   }
 
   onBlur(ev: Event) {
-    for (const key of this._keyDownTime.keys()) {
-      this._onKeyUp(key);
+    for (const [key, time] of this._shortcutDownTime) {
+      this.endShortcut(key, time);
     }
-    this._keyDownTime.clear();
+    this._shortcutDownTime.clear();
   }
 
   onKeydown(ev: KeyboardEvent) {
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
-
-    // Undo & Redo
-    if (ev.ctrlKey) {
-      if (ev.key == "z") {
-        this._canvas.undo();
-      }
-      else if (ev.key == "y") {
-        this._canvas.redo();
-      }
-      else if (ev.key == "c" && !ev.repeat) {
-        this.onClickCopy();
-      }
+    const sc = shortcut.match(ev);
+    if (sc == null) {
       return;
     }
 
-    // Change tool
-    if (ev.key == "e" && (!ev.repeat) && this._state.tool.value != this._toolEraser) {
-      this._state.tool.value = this._toolEraser;
-      this._keyDownTime.set(ev.key, Date.now());
+    ev.preventDefault();
+    const t = Date.now();
+    const accepted = this.onShortcut(sc);
+    if (accepted === false) {
+      return;
     }
-    else if (ev.key == "n" && (!ev.repeat) && this._state.tool.value != this._toolPen) {
-      this._state.tool.value = this._toolPen;
-      this._keyDownTime.set(ev.key, Date.now());
-    }
-    else if (ev.key == "Alt" && (!ev.repeat)) {
-      ev.preventDefault();
-      this._state.tool.value = this._toolSpoit;
-      this._keyDownTime.set(ev.key, Date.now());
-    }
+    this._shortcutDownTime.set(sc, t);
+  }
 
-    this._canvas.currentTool.onKeyDown(ev);
+  onShortcut(sc: shortcut.Shortcut): boolean | undefined {
+    switch (sc.name) {
+      case "undo": {
+        this._canvas.undo();
+        break;
+      }
+      case "redo": {
+        this._canvas.redo();
+        break;
+      }
+      case "copy": {
+        this.onClickCopy();
+        break;
+      }
+      case "select-all": {
+        this._canvas.selectAll();
+        break;
+      }
+      case "deselect": {
+        this._canvas.selectNew(null);
+        break;
+      }
+      // Tools
+      case "pencil": {
+        if (this._state.tool.value == this._toolPen) {
+          return false;
+        }
+        this._state.tool.value = this._toolPen;
+        break;
+      }
+      case "eraser": {
+        if (this._state.tool.value == this._toolEraser) {
+          return false;
+        }
+        this._state.tool.value = this._toolEraser;
+        break;
+      }
+      case "spoit": {
+        if (this._state.tool.value == this._toolSpoit) {
+          return false;
+        }
+        this._state.tool.value = this._toolSpoit;
+        break;
+      }
+      case "bucket": {
+        if (this._state.tool.value == this._toolBucket) {
+          return false;
+        }
+        this._state.tool.value = this._toolBucket;
+        break;
+      }
+      case "select": {
+        if (this._state.tool.value == this._toolSelect) {
+          return false;
+        }
+        this._state.tool.value = this._toolSelect;
+        break;
+      }
+      // Move
+      case "move-up": {
+        this._canvas.selectMove(0, -1);
+        break;
+      }
+      case "move-down": {
+        this._canvas.selectMove(0, 1);
+        break;
+      }
+      case "move-left": {
+        this._canvas.selectMove(-1, 0);
+        break;
+      }
+      case "move-right": {
+        this._canvas.selectMove(1, 0);
+        break;
+      }
+      // Move Fast
+      case "move-fast-up": {
+        this._canvas.selectMove(0, -10);
+        break;
+      }
+      case "move-fast-down": {
+        this._canvas.selectMove(0, 10);
+        break;
+      }
+      case "move-fast-left": {
+        this._canvas.selectMove(-10, 0);
+        break;
+      }
+      case "move-fast-right": {
+        this._canvas.selectMove(10, 0);
+        break;
+      }
+      // Grab Move
+      case "grab-up": {
+        this._canvas.selectGrabMove(0, -1);
+        break;
+      }
+      case "grab-down": {
+        this._canvas.selectGrabMove(0, 1);
+        break;
+      }
+      case "grab-left": {
+        this._canvas.selectGrabMove(-1, 0);
+        break;
+      }
+      case "grab-right": {
+        this._canvas.selectGrabMove(1, 0);
+        break;
+      }
+    }
   }
 
   onKeyup(ev: KeyboardEvent) {
     this._onKeyUp(ev.key);
   }
   private _onKeyUp(key: string) {
-    if (key == "Alt" && this._state.tool.value == this._toolSpoit) {
-      this._state.tool.value = this._previousTool;
-    }
-    if (key == "e") {
-      const downTime = this._keyDownTime.get("e");
-      this._keyDownTime.delete("e");
-      if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
+    for (let [sc, time] of this._shortcutDownTime) {
+      if (sc.key != key) {
         return;
       }
-      this._state.tool.value = this._previousTool;
+      this.endShortcut(sc, time);
+      this._shortcutDownTime.delete(sc);
     }
-    else if (key == "n") {
-      const downTime = this._keyDownTime.get("n");
-      this._keyDownTime.delete("n");
-      if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
-        return;
-      }
+  }
+
+  endShortcut(sc: shortcut.Shortcut, startTime: number) {
+    const now = Date.now();
+    if (
+      sc.mode == "Temporary" ||
+      (sc.mode == "PressTemp" && now - startTime > 300)
+    ) {
       this._state.tool.value = this._previousTool;
     }
   }

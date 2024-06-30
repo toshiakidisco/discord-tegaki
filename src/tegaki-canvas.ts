@@ -115,6 +115,20 @@ class HistoryNode {
         new CanvasAction.ChangeBackgroundColor(a0.canvas, u0.color)
       );
     }
+    // 選択範囲移動
+    else if (
+      a0 instanceof CanvasAction.SelectMove &&
+      a1 instanceof CanvasAction.SelectMove &&
+      u0 instanceof CanvasAction.SelectMove &&
+      u1 instanceof CanvasAction.SelectMove
+    ) {
+      const dx = a0.x + a1.x;
+      const dy = a0.y + a1.y;
+      return new HistoryNode(
+        new CanvasAction.SelectMove(a0.canvas, dx, dy),
+        new CanvasAction.SelectMove(a0.canvas, -dx, -dy)
+      );
+    }
   }
 };
 
@@ -1072,6 +1086,15 @@ export class TegakiCanvas extends Subject {
   }
 
   /**
+   * 全体を選択
+   */
+  selectAll() {
+    const region = new CanvasRegion();
+    region.setRect(new Rect(0, 0, this.width, this.height));
+    this.selectNew(region);
+  }
+
+  /**
    * 選択範囲の移動。
    */
   selectMove(x: number, y: number) {
@@ -1350,8 +1373,14 @@ export class TegakiCanvas extends Subject {
    * 掴んだ選択領域の開始地点からの移動
    */
   selectGrabMove(x: number, y: number) {
-    if (this.selectedRegion == null || this._grabState == null) {
+    if (this.selectedRegion == null) {
       return;
+    }
+    if (this._grabState == null) {
+      this.selectGrab();
+      if (this._grabState == null) {
+        throw new Error("Failed to grab");
+      }
     }
 
     this._grabState.offsetX += x;

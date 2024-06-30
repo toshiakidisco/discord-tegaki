@@ -1,4 +1,3 @@
-import { buffer } from "stream/consumers";
 import Offscreen from "./canvas-offscreen";
 import Color from "./foudantion/color";
 import ObjectPool from "./foudantion/object-pool";
@@ -282,20 +281,27 @@ export namespace CanvasAction {
    * 操作: 選択範囲のみ移動
    */
   export class SelectMove extends CanvasAction {
-    #offsetX: number;
-    #offsetY: number;
-    constructor (canvas: TegakiCanvas, offsetX: number, offsetY: number){
+    #x: number;
+    #y: number;
+    constructor (canvas: TegakiCanvas, x: number, y: number){
       super(canvas);
-      this.#offsetX = offsetX;
-      this.#offsetY = offsetY;
+      this.#x = x;
+      this.#y = y;
     }
-    
+
+    get x() {
+      return this.#x;
+    }
+    get y() {
+      return this.#y;
+    }
+
     exec(): void {
       const region = this.canvas.selectedRegion;
       if (region == null) {
         return;
       }
-      region.offset(this.#offsetX, this.#offsetY);
+      region.offset(this.#x, this.#y);
     };
   }
 
