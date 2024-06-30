@@ -20,6 +20,17 @@ export const isRunnningOnExtension = (function () {
   return true;
 }());
 
+export function createCanvas2D(width: number, height: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (context == null) {
+    throw new Error("Failed to get RenderingContext2D");
+  }
+  return {canvas, context};
+}
+
 
 export function getConnectedPixels(width: number, height: number, src: Uint8ClampedArray, x: number, y: number): {
   region: Uint8ClampedArray;
