@@ -9,7 +9,7 @@ import Color from "./foudantion/color";
 import PanelColor from "./panel/color";
 import SizeSelector from "./panel/size-selector";
 import Selector from "./selector";
-import { clamp, isRunnningOnExtension } from "./funcs";
+import { clamp, createCanvas2D, isRunnningOnExtension } from "./funcs";
 import defaultPalette from "./default-palette";
 import { getAssetUrl } from "./asset";
 import PanelLayer from "./panel/layer";
@@ -21,6 +21,7 @@ import storage from "./storage";
 import TegakiCanvasDocument from "./canvas-document";
 import { JsonObject, check } from "./foudantion/json";
 import shortcut from "./shortcut";
+import View from "./foudantion/view";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -66,6 +67,51 @@ const toolIcons = [
   "select",
 ];
 
+class LineSizeDisplay extends View {
+  #element: HTMLCanvasElement;
+  #context: CanvasRenderingContext2D;
+  #value: number = 1;
+  constructor() {
+    super();
+    const c = createCanvas2D(24, 24);
+    this.#element = c.canvas;
+    this.#context = c.context;
+  }
+
+  get element() {
+    return this.#element;
+  }
+
+  set value(value: number) {
+    if (this.#value == value) {
+      return;
+    }
+    this.#value = value;
+    this.render();
+  }
+
+  render() {
+    const ctx = this.#context;
+    ctx.clearRect(0, 0, 24, 24);
+    if (this.#value <= 0) {
+      return;
+    }
+    ctx.fillStyle = "#300";
+    const offset = this.#value%2 == 0 ? 0 : 0.5;
+    ctx.fillRect(0, 12 - this.#value/2 + offset, 24, this.#value);
+    ctx.font = "14px caption";
+    const s = this.#value.toString();
+    const m = ctx.measureText(s);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#300";
+    ctx.fillStyle = "white";
+    ctx.textBaseline = "middle";
+    ctx.strokeText(s, 12 - m.width/2, 12);
+    ctx.fillText(s, 12 - m.width/2, 12);
+  }
+
+}
+
 class DiscordTegaki {
   private _outlets: Outlets;
   private _canvas: TegakiCanvas;
@@ -75,6 +121,7 @@ class DiscordTegaki {
   private _palettePenSize: SizeSelector;
   private _panelLayer: PanelLayer;
   private _panelBucket: PanelBucket;
+  private _lineSizeDisplay: LineSizeDisplay = new LineSizeDisplay();
 
   private _root: HTMLElement;
   private _window: HTMLElement;
@@ -124,12 +171,14 @@ class DiscordTegaki {
     }
 
     document.body.appendChild(this._root);
+    this._outlets["tool-size"].appendChild(this._lineSizeDisplay.element);
 
     this._panelColor = new PanelColor(this._root);
     this._panelColor.setPalette(defaultPalette);
     this._palettePenSize = new SizeSelector(this._root, 1);
     this._panelLayer = new PanelLayer(this._root, this._canvas);
     this._panelBucket = new PanelBucket(this._root, this._toolBucket);
+
 
     this.resetStatus();
     
@@ -436,7 +485,14 @@ class DiscordTegaki {
    */
   private onUpdateToolSize() {
     let size: number = this._state.tool.value.size;
-    this._outlets["tool-size-value"].innerText = size.toString();
+    if (this._state.tool.value.resizeable) {
+      this._lineSizeDisplay.value = size;
+      this._outlets["tool-size"].removeAttribute("disabled");
+    }
+    else {
+      this._lineSizeDisplay.value = 0;
+      this._outlets["tool-size"].setAttribute("disabled", "");
+    }
     this._palettePenSize.value = size;
   }
 
@@ -570,9 +626,16 @@ class DiscordTegaki {
   }
 
   onClickPenSize(ev: PointerEvent) {
-    this._palettePenSize.open(ev.clientX, ev.clientY);
+    if (! this._state.tool.value.resizeable) {
+      return;
+    }
+
     ev.stopPropagation();
     ev.preventDefault();
+
+    const e = ev.target as HTMLElement;
+    const r = e.getBoundingClientRect();
+    this._palettePenSize.open(r.right, r.y);
   }
 
   onClickForeColor(ev: PointerEvent) {
@@ -585,7 +648,10 @@ class DiscordTegaki {
       this._panelColor.removeObserver(this);
       this._panelColor.bind(null);
     });
-    this._panelColor.open(ev.clientX, ev.clientY);
+
+    const e = ev.target as HTMLElement;
+    const r = e.getBoundingClientRect();
+    this._panelColor.open(r.right, r.y);
   }
 
   onClickBackgroundColor(ev: PointerEvent) {
@@ -598,7 +664,10 @@ class DiscordTegaki {
       this._panelColor.removeObserver(this);
       this._panelColor.bind(null);
     });
-    this._panelColor.open(ev.clientX, ev.clientY);
+
+    const e = ev.target as HTMLElement;
+    const r = e.getBoundingClientRect();
+    this._panelColor.open(r.right, r.y);
   }
 
   onClickSpoit(ev: Event) {
@@ -606,10 +675,12 @@ class DiscordTegaki {
   }
 
   onClickBucket(ev: PointerEvent) {
-    ev.stopPropagation();
-    ev.preventDefault();
     if (this._state.tool.value == this._toolBucket) {
-      this._panelBucket.open(ev.clientX, ev.clientY);
+      const e = ev.target as HTMLElement;
+      const r = e.getBoundingClientRect();
+      this._panelBucket.open(r.right, r.y);
+      ev.stopPropagation();
+      ev.preventDefault();
     }
     else {
       this._state.tool.value = this._toolBucket;
