@@ -3,6 +3,9 @@ import Color from "../foudantion/color";
 import Panel from "./panel";
 import { clamp } from "../funcs";
 import Offscreen from "../canvas-offscreen";
+import ViewColorPicker from "../foudantion/color-picker";
+import { ObservableColor } from "../foudantion/observable-value";
+import ViewHuebar from "../foudantion/huebar";
 
 type ColorChar = "r" | "g" | "b";
 const RGBColorChars: ColorChar[] = ["r", "g", "b"] as const;
@@ -18,16 +21,20 @@ type PaletteItem = {
   readonly color: Color;
 }
 
-export class ColorPicker extends Panel {
+export class PanelColor extends Panel {
   readonly contents: HTMLElement;
   private _outlets: Outlets;
   private _color: Color;
+  private _picker: ViewColorPicker;
+  private _huebar: ViewHuebar;
+
+  private _bindedColor: ObservableColor | null = null;
 
   private _palette: PaletteItem[];
   private _dragging: boolean = false;
 
   constructor(root: HTMLElement, r: number = 255, g: number = 255, b: number = 255) {
-    super(root, "color-picker");
+    super(root, "panel-color");
     this._color = new Color(255, 255, 255);
     this._outlets = {};
     this.contents = parseHtml(`
@@ -39,25 +46,29 @@ export class ColorPicker extends Panel {
         <div class="area-picker">
           <ul>
             <li><div class="preview" name="preview" draggable="true" data-on-drag="onDragPreview" data-on-dragstart="onDragPreviewStart" data-on-dragend="onDragPreviewEnd"></div></li>
-            <li>
-              <span class="color-char">R:</span>
-              <input type="range" name="slider-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
-              <input type="number" name="field-r" min="${VALUE_MIN}" max="${VALUE_MAX}">
-            </li>
-            <li>
-              <span class="color-char">G:</span>
-              <input type="range" name="slider-g" min="${VALUE_MIN}" max="${VALUE_MAX}">
-              <input type="number" name="field-g" min="${VALUE_MIN}" max="${VALUE_MAX}">
-            </li>
-            <li>
-              <span class="color-char">B:</span>
-              <input type="range" name="slider-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
-              <input type="number" name="field-b" min="${VALUE_MIN}" max="${VALUE_MAX}">
+            <li name="picker">
             </li>
           </ul>
         </div>
       </div>
     `, this, this._outlets);
+
+    this._picker = new ViewColorPicker();
+    this._picker.setSize(122, 76);
+    this._picker.addObserver(this, "change", (color: Color.Immutable) => {
+      this.change(color);
+    });
+    this._outlets["picker"].appendChild(this._picker.element);
+
+    this._huebar = new ViewHuebar();
+    this._huebar.setSize(24, 76);
+    this._huebar.bind(this._picker.observable.hue);
+    this._huebar.addObserver(this, "change", (hue: number) => {
+      this._picker.onChange();
+    });
+    this._outlets["picker"].appendChild(this._huebar.element);
+    
+
     this.setContents(this.contents);
 
     this.hasTitleBar = false;
@@ -78,8 +89,7 @@ export class ColorPicker extends Panel {
         };
         this._palette.push(item);
         elem.onclick = () => {
-          this.set(color);
-          this.notify("change", this._color as Color.Immutable);
+          this.change(color);
         };
         elem.addEventListener("dragover", (ev: DragEvent) => {
           ev.preventDefault();
@@ -98,42 +108,46 @@ export class ColorPicker extends Panel {
     this.render();
   }
 
-  render() {
-    for (const c of RGBColorChars) {
-      const slider = this._outlets["slider-" + c] as HTMLInputElement;
-      const field = this._outlets["field-" + c] as HTMLInputElement;
-      const value = this._color[c].toString();
-      slider.value = value;
-      field.value = value;
+  bind(observable: ObservableColor | null) {
+    if (this._bindedColor != null) {
+      this.removeObserver(this);
     }
-    this._outlets["preview"].style.backgroundColor = this._color.css();
+    
+    this._bindedColor = observable;
+    this._picker.bind(observable);
+
+    if (observable != null) {
+      observable.addObserver(this, "change", (color) => {
+        this._color.set(color);
+        this.render();
+      });
+      this._color.set(observable.value);
+      this.render();
+    }
+  }
+
+  render() {
+    const preview = this._outlets["preview"];
+    preview.style.backgroundColor = this._color.css();
+
+    const s = this._picker.saturation;
+    const v = this._picker.value;
+    preview.style.color = v > 0.5 && s < 0.5 ? "black" : "white";
+    preview.innerText = colorToText(this._color);
   }
 
   init() {
-    for (const c of RGBColorChars) {
-      for (const type of ["slider", "field"]) {
-        const elem = this._outlets[type + "-" + c] as HTMLInputElement;
-        
-        elem.addEventListener("input", (ev) => {
-          this._color[c] = parseInt(elem.value);
-          this._color[c] = clamp(this._color[c], VALUE_MIN, VALUE_MAX);
-          this.render();
-        });
-        elem.addEventListener("wheel", (ev: WheelEvent) => {
-          ev.preventDefault();
-          this._color[c] += ev.deltaY > 0 ? -1 : 1;
-          this._color[c] = clamp(this._color[c], VALUE_MIN, VALUE_MAX);
-          this.render();
-          this.notify("change", this._color as Color.Immutable);
-        }, { passive: false });
-        elem.addEventListener("change", (ev) => {
-          this._color[c] = parseInt(elem.value);
-          this._color[c] = clamp(this._color[c], VALUE_MIN, VALUE_MAX);
-          this.render();
-          this.notify("change", this._color as Color.Immutable);
-        })
-      }
+  }
+
+  change(color: Color.Immutable) {
+    if (this._color.equals(color)) {
+      return;
     }
+    this.set(color);
+    if (this._bindedColor != null) {
+      this._bindedColor.value = color;
+    }
+    this.notify("change", color);
   }
 
   set(color: Color.Immutable) {
@@ -172,4 +186,16 @@ export class ColorPicker extends Panel {
   }
 }
 
-export default ColorPicker;
+function colorToText(color: Color.Immutable) {
+  return `rgb(${padding(color.r, " ", 3)},${padding(color.g, " ", 3)},${padding(color.b, " ", 3)})`;
+}
+
+function padding(num: number, char: string, len: number) {
+  let text = (num | 0).toString();
+  while (text.length < len) {
+    text = char + text;
+  }
+  return text;
+}
+
+export default PanelColor;
