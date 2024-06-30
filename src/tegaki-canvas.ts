@@ -1302,11 +1302,10 @@ export class TegakiCanvas extends Subject {
    * キャンバス操作の実行
    */
   pushAction(node: HistoryNode) {
+    // 掴み状態だったら確定させる
     if (this._grabState) {
       this.selectGrabFinish();
     }
-
-    console.log(node);
 
     node.action.exec();
 
