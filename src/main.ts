@@ -702,6 +702,12 @@ class DiscordTegaki {
         this._canvas.selectNew(null);
         break;
       }
+      case "clear": {
+        if (this._canvas.selectedRegion !== null) {
+          this._canvas.clear();
+        }
+        break;
+      }
       // Tools
       case "pencil": {
         if (this._state.tool.value == this._toolPen) {

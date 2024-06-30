@@ -40,7 +40,7 @@ export namespace shortcut {
 
     {name: "select-all", ctrl: true, key: "a", press: false},
     {name: "deselect", ctrl: true, key: "d", press: false},
-    {name: "delete", key: "Backspace", press: false},
+    {name: "clear", key: "Backspace", press: false},
     
     {name: "size-change", ctrl: true, key: "Alt"},
 
