@@ -1,4 +1,3 @@
-import { buffer } from "stream/consumers";
 import Offscreen from "./canvas-offscreen";
 import Color from "./foudantion/color";
 import ObjectPool from "./foudantion/object-pool";
@@ -6,6 +5,7 @@ import { Rect } from "./foudantion/rect";
 import TegakiCanvas, { BucketOption } from "./tegaki-canvas";
 import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
+import CanvasRegion from "./canvas-region";
 
 export type BlushPath = {x: number; y: number;}[];
 
@@ -36,6 +36,29 @@ export namespace CanvasAction {
    */
   export class None extends CanvasAction {
     exec(): void {};
+  }
+
+  /**
+   * 操作: ドキュメント変更
+   */
+  export class Merge extends CanvasAction {
+    #actions: CanvasAction[];
+    constructor (act0: CanvasAction, ...actions: CanvasAction[]){
+      super(act0.canvas);
+      this.#actions = [act0].concat(actions);
+    }
+    
+    exec(): void {
+      for (const action of this.#actions) {
+        action.exec();
+      }
+    };
+
+    dispose(): void {
+      for (const action of this.#actions) {
+        action.dispose();
+      }
+    }
   }
 
   /**
@@ -158,6 +181,162 @@ export namespace CanvasAction {
     }
   }
 
+  /**
+   * 操作: 新規選択範囲
+   */
+  export class SelectNew extends CanvasAction {
+    #region: CanvasRegion | null;
+    constructor (canvas: TegakiCanvas, region: CanvasRegion | null){
+      super(canvas);
+      this.#region = region;
+    }
+    
+    exec(): void {
+      this.canvas.selectedRegion = this.#region;
+    };
+  }
+
+  export class GrabState {
+    // 掴み対象レイヤー
+    readonly layer: Layer;
+    // 掴み開始時のレイヤー画像
+    readonly backupImage: Offscreen;
+    // 掴み範囲の画像
+    readonly image: Offscreen;
+    // 掴み開始時の選択範囲座標
+    startX: number;
+    startY: number;
+    // 掴みによる移動距離
+    offsetX: number = 0;
+    offsetY: number = 0;
+
+    constructor(canvas: TegakiCanvas, layer: Layer) {
+      if (canvas.selectedRegion == null) {
+        throw new Error("Canvas has not selection");
+      }
+      this.layer = layer;
+      this.backupImage = pool.get().set(layer);
+      this.image = pool.get();
+      canvas.putSelectedImageInto(this.image, layer);
+      const rect = canvas.selectedRegion.boudingRect();
+      this.startX = rect.x;
+      this.startY = rect.y;
+    }
+
+    dispose() {
+      pool.return(this.backupImage);
+      pool.return(this.image);
+    }
+  }
+
+  /**
+   * 操作: 選択範囲掴み開始
+   */
+  export class SelectGrabStart extends CanvasAction {
+    #grabState: GrabState;
+
+    constructor (canvas: TegakiCanvas, grabState: GrabState){
+      super(canvas);
+      this.#grabState = grabState;
+    }
+    
+    exec(): void {
+      this.canvas.grabState = this.#grabState;
+    }
+
+    dispose(): void {
+      this.#grabState.dispose();
+    }
+  }
+
+  /**
+   * 操作: 選択範囲掴みキャンセル
+   */
+  export class SelectGrabCancel extends CanvasAction {
+    #grabState: GrabState;
+
+    constructor (canvas: TegakiCanvas, grabState: GrabState){
+      super(canvas);
+      this.#grabState = grabState;
+    }
+    
+    exec(): void {
+      console.log("SelectGrabCancel exec");
+      // 掴み状態を無効に
+      this.canvas.grabState = null;
+      // 対処レイヤーを元の状態に戻し
+      const layer = this.#grabState.layer;
+      layer.set(this.#grabState.backupImage);
+      // 選択範囲も掴み開始位置に戻す
+      const region = this.canvas.selectedRegion;
+      if (region != null) {
+        region.offsetX = 0;
+        region.offsetY = 0;
+      }
+      layer.notify("update", layer);
+    }
+  }
+
+  /**
+   * 操作: 選択範囲のみ移動
+   */
+  export class SelectMove extends CanvasAction {
+    #x: number;
+    #y: number;
+    constructor (canvas: TegakiCanvas, x: number, y: number){
+      super(canvas);
+      this.#x = x;
+      this.#y = y;
+    }
+
+    get x() {
+      return this.#x;
+    }
+    get y() {
+      return this.#y;
+    }
+
+    exec(): void {
+      const region = this.canvas.selectedRegion;
+      if (region == null) {
+        return;
+      }
+      region.offset(this.#x, this.#y);
+    };
+  }
+
+  /**
+   * 操作: 選択範囲を画像ごと移動
+   */
+  export class SelectMoveImage extends CanvasAction {
+    #offsetX: number;
+    #offsetY: number;
+    #layer: Layer;
+    constructor (canvas: TegakiCanvas, layer: Layer, offsetX: number, offsetY: number){
+      super(canvas);
+      this.#layer = layer;
+      this.#offsetX = offsetX;
+      this.#offsetY = offsetY;
+    }
+    
+    exec(): void {
+      const region = this.canvas.selectedRegion;
+      if (region == null) {
+        return;
+      }
+      const img = pool.get();
+      const rect = this.canvas.putSelectedImageInto(img, this.#layer);
+      if (typeof rect === "undefined") {
+        return;
+      }
+      const layer = this.#layer;
+      layer.context.clearRect(rect.x, rect.y, rect.width, rect.height);
+      layer.context.drawImage(img.canvas, rect.x + this.#offsetX, rect.y + this.#offsetY);
+      pool.return(img);
+      region.offset(this.#offsetX, this.#offsetY);
+      layer.notify("update", layer);
+    };
+  }
 
   /**
    * 操作: 画像描画
@@ -192,7 +371,7 @@ export namespace CanvasAction {
         ctx.clearRect(this._dx, this._dy, this._image.width, this._image.height);
       }
       ctx.drawImage(this._image.canvas, this._dx, this._dy);
-      this._layer.notify("update");
+      this._layer.notify("update", this._layer);
     }
 
     dispose(): void {
@@ -223,7 +402,7 @@ export namespace CanvasAction {
         layer.height = this._height*this.canvas.innerScale;
         layer.clear();
         layer.context.drawImage(image.canvas, 0, 0);
-        layer.notify("update");
+        layer.notify("update", layer);
       }
       pool.return(image);
 
@@ -249,8 +428,10 @@ export namespace CanvasAction {
 
     exec() {
       const ctx = this._layer.context;
+      this.canvas.clipBegin(ctx);
       drawPath(ctx, this._blush, this._path, this.canvas.innerScale);
-      this._layer.notify("update");
+      this.canvas.clipEnd(ctx);
+      this._layer.notify("update", this._layer);
     }
   }
 
@@ -276,7 +457,7 @@ export namespace CanvasAction {
       for (let i = 0; i < this.canvas.layers.length; i++) {
         const layer = this.canvas.layers[i];
         layer.set(this._layerImages[i]);
-        layer.notify("update");
+        layer.notify("update", layer);
       }
       this.canvas.setSize(this._width, this._height);
       this.canvas.updateCanvasSize();
@@ -302,7 +483,7 @@ export namespace CanvasAction {
         layer.context.scale(-1, 1);
         layer.context.drawImage(image.canvas, - layer.width, 0);
         layer.context.restore();
-        layer.notify("update");
+        layer.notify("update", layer);
       }
       pool.return(image);
     }
@@ -323,9 +504,12 @@ export namespace CanvasAction {
 
     exec() {
       const layer = this._layer;
-      layer.context.fillStyle = this._color.css();
-      layer.context.fillRect(0, 0, layer.width, layer.height);
-      layer.notify("update");
+      const ctx = layer.context;
+      this.canvas.clipBegin(ctx);
+      ctx.fillStyle = this._color.css();
+      ctx.fillRect(0, 0, layer.width, layer.height);
+      this.canvas.clipBegin(ctx);
+      layer.notify("update", layer);
     }
   }
 
@@ -341,8 +525,10 @@ export namespace CanvasAction {
     }
 
     exec() {
+      this.canvas.clipBegin(this._layer.context);
       this._layer.clear();
-      this._layer.notify("update");
+      this.canvas.clipEnd(this._layer.context);
+      this._layer.notify("update", this._layer);
     }
   }
 }

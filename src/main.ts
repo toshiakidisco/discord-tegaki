@@ -20,6 +20,7 @@ import PanelBucket from "./panel/bucket";
 import storage from "./storage";
 import TegakiCanvasDocument from "./canvas-document";
 import { JsonObject, check } from "./foudantion/json";
+import shortcut from "./shortcut";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -62,6 +63,7 @@ const toolIcons = [
   "eraser",
   "spoit",
   "bucket",
+  "select",
 ];
 
 class DiscordTegaki {
@@ -76,7 +78,7 @@ class DiscordTegaki {
 
   private _root: HTMLElement;
   private _window: HTMLElement;
-  private _keyDownTime: Map<string, number> = new Map();
+  private _shortcutDownTime: Map<shortcut.Shortcut, number> = new Map();
 
   private _toolPen = new CanvasTool.Blush(
     "pen", canvasInitialState.penSize
@@ -86,6 +88,7 @@ class DiscordTegaki {
   );
   private _toolSpoit = new CanvasTool.Spoit();
   private _toolBucket = new CanvasTool.Bucket();
+  private _toolSelect = new CanvasTool.Select();
   private _previousTool: CanvasTool = CanvasTool.none;
   private _nextPreviousTool: CanvasTool = CanvasTool.none;
 
@@ -352,6 +355,10 @@ class DiscordTegaki {
       this.onUpdateToolSize();
     });
     
+    // キャンバスサイズツール変更後
+    this._canvas.addObserver(this, "change-tool", (tool) => {
+      this._state.tool.value = tool;
+    })
     // キャンバスサイズ更新後
     this._canvas.addObserver(this, "change-size", () => {
       this.resetStatus();
@@ -609,6 +616,15 @@ class DiscordTegaki {
     }
   }
 
+  onClickSelect(ev: PointerEvent) {
+    if (this._state.tool.value == this._toolSelect) {
+      this._canvas.selectNew(null);
+    }
+    else {
+      this._state.tool.value = this._toolSelect;
+    }
+  }
+
   onClickClear(ev: Event) {
     this._canvas.clear();
   }
@@ -641,47 +657,138 @@ class DiscordTegaki {
   }
 
   onBlur(ev: Event) {
-    for (const key of this._keyDownTime.keys()) {
-      this._onKeyUp(key);
+    for (const [key, time] of this._shortcutDownTime) {
+      this.endShortcut(key, time);
     }
-    this._keyDownTime.clear();
+    this._shortcutDownTime.clear();
   }
 
   onKeydown(ev: KeyboardEvent) {
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
+    const sc = shortcut.match(ev);
+    if (sc == null) {
+      return;
+    }
 
-    // Undo & Redo
-    if (ev.ctrlKey) {
-      if (ev.key == "z") {
+    ev.preventDefault();
+    const t = Date.now();
+    const accepted = this.onShortcut(sc);
+    if (accepted === false) {
+      return;
+    }
+    this._shortcutDownTime.set(sc, t);
+  }
+
+  onShortcut(sc: shortcut.Shortcut): boolean | undefined {
+    switch (sc.name) {
+      case "undo": {
         this._canvas.undo();
+        break;
       }
-      else if (ev.key == "y") {
+      case "redo": {
         this._canvas.redo();
+        break;
       }
-      else if (ev.key == "c" && !ev.repeat) {
+      case "copy": {
         this.onClickCopy();
+        break;
       }
-      return;
-    }
-    
-    if (ev.repeat) {
-      return;
-    }
-
-    // Change tool
-    if (ev.key == "e" && this._state.tool.value != this._toolEraser) {
-      this._state.tool.value = this._toolEraser;
-      this._keyDownTime.set(ev.key, Date.now());
-    }
-    else if (ev.key == "n" && this._state.tool.value != this._toolPen) {
-      this._state.tool.value = this._toolPen;
-      this._keyDownTime.set(ev.key, Date.now());
-    }
-    else if (ev.key == "Alt") {
-      ev.preventDefault();
-      this._state.tool.value = this._toolSpoit;
-      this._keyDownTime.set(ev.key, Date.now());
+      case "select-all": {
+        this._canvas.selectAll();
+        break;
+      }
+      case "deselect": {
+        this._canvas.selectNew(null);
+        break;
+      }
+      // Tools
+      case "pencil": {
+        if (this._state.tool.value == this._toolPen) {
+          return false;
+        }
+        this._state.tool.value = this._toolPen;
+        break;
+      }
+      case "eraser": {
+        if (this._state.tool.value == this._toolEraser) {
+          return false;
+        }
+        this._state.tool.value = this._toolEraser;
+        break;
+      }
+      case "spoit": {
+        if (this._state.tool.value == this._toolSpoit) {
+          return false;
+        }
+        this._state.tool.value = this._toolSpoit;
+        break;
+      }
+      case "bucket": {
+        if (this._state.tool.value == this._toolBucket) {
+          return false;
+        }
+        this._state.tool.value = this._toolBucket;
+        break;
+      }
+      case "select": {
+        if (this._state.tool.value == this._toolSelect) {
+          return false;
+        }
+        this._state.tool.value = this._toolSelect;
+        break;
+      }
+      // Move
+      case "move-up": {
+        this._canvas.selectMove(0, -1);
+        break;
+      }
+      case "move-down": {
+        this._canvas.selectMove(0, 1);
+        break;
+      }
+      case "move-left": {
+        this._canvas.selectMove(-1, 0);
+        break;
+      }
+      case "move-right": {
+        this._canvas.selectMove(1, 0);
+        break;
+      }
+      // Move Fast
+      case "move-fast-up": {
+        this._canvas.selectMove(0, -10);
+        break;
+      }
+      case "move-fast-down": {
+        this._canvas.selectMove(0, 10);
+        break;
+      }
+      case "move-fast-left": {
+        this._canvas.selectMove(-10, 0);
+        break;
+      }
+      case "move-fast-right": {
+        this._canvas.selectMove(10, 0);
+        break;
+      }
+      // Grab Move
+      case "grab-up": {
+        this._canvas.selectGrabMove(0, -1);
+        break;
+      }
+      case "grab-down": {
+        this._canvas.selectGrabMove(0, 1);
+        break;
+      }
+      case "grab-left": {
+        this._canvas.selectGrabMove(-1, 0);
+        break;
+      }
+      case "grab-right": {
+        this._canvas.selectGrabMove(1, 0);
+        break;
+      }
     }
   }
 
@@ -689,23 +796,21 @@ class DiscordTegaki {
     this._onKeyUp(ev.key);
   }
   private _onKeyUp(key: string) {
-    if (key == "Alt" && this._state.tool.value == this._toolSpoit) {
-      this._state.tool.value = this._previousTool;
-    }
-    if (key == "e") {
-      const downTime = this._keyDownTime.get("e");
-      this._keyDownTime.delete("e");
-      if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
+    for (let [sc, time] of this._shortcutDownTime) {
+      if (sc.key != key) {
         return;
       }
-      this._state.tool.value = this._previousTool;
+      this.endShortcut(sc, time);
+      this._shortcutDownTime.delete(sc);
     }
-    else if (key == "n") {
-      const downTime = this._keyDownTime.get("n");
-      this._keyDownTime.delete("n");
-      if (typeof downTime == "undefined" || Date.now() - downTime < 500) {
-        return;
-      }
+  }
+
+  endShortcut(sc: shortcut.Shortcut, startTime: number) {
+    const now = Date.now();
+    if (
+      sc.mode == "Temporary" ||
+      (sc.mode == "PressTemp" && now - startTime > 300)
+    ) {
       this._state.tool.value = this._previousTool;
     }
   }
