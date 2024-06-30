@@ -80,20 +80,24 @@ export class Rect implements Rect.Immutable {
   }
 
   intersection(r: Rect.Immutable): this  {
+    return this.intersection4f(r.x, r.y, r.width, r.height);
+  }
+
+  intersection4f(x: number, y: number, width: number, height: number): this  {
     if (
-      this.x + this.width  <= r.x ||
-      this.y + this.height <= r.y ||
-      r.x + r.width  <= this.x ||
-      r.y + r.height <= this.y
+      this.x + this.width  <= x ||
+      this.y + this.height <= y ||
+      x + width  <= this.x ||
+      y + height <= this.y
     ) {
       this.set4f(0, 0, 0, 0,);
       return this;
     }
   
-    const left   = Math.max(this.x, r.x);
-    const top    = Math.max(this.y, r.y);
-    const right  = Math.min(this.x + this.width,  r.x + r.width);
-    const bottom = Math.min(this.y + this.height, r.y + r.height);
+    const left   = Math.max(this.x, x);
+    const top    = Math.max(this.y, y);
+    const right  = Math.min(this.x + this.width,  x + width);
+    const bottom = Math.min(this.y + this.height, y + height);
     this.set4f(left, top, right - left, bottom - top);
     return this;
   }

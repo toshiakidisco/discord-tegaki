@@ -1385,17 +1385,19 @@ export class TegakiCanvas extends Subject {
       console.warn("Latest action is not SelectGrabStart");
       return;
     }
+    const grabState = this._grabState;
     const region = this._selectedRegion;
     const rect = region.boudingRect();
-    const grabState = this._grabState;
+    const dstRect = rect.copy().intersection4f(0, 0, grabState.layer.width, grabState.layer.height);
+    
     const action = new CanvasAction.SelectMoveImage(
       this, grabState.layer, grabState.offsetX, grabState.offsetY);
     const undo = new CanvasAction.Merge(
       // 移動先範囲の復元
       new CanvasAction.DrawImage(
         this, grabState.layer,
-        grabState.backupImage, rect.x, rect.y, rect.width, rect.height,
-        rect.x, rect.y
+        grabState.backupImage, dstRect.x, dstRect.y, dstRect.width, dstRect.height,
+        dstRect.x, dstRect.y
       ),
       // 移動元範囲の復元
       new CanvasAction.DrawImage(
