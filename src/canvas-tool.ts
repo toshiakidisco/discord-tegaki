@@ -1,5 +1,11 @@
+import { drawPath, getPathBoundingRect } from "./canvas-action";
+import Layer from "./canvas-layer";
+import Offscreen from "./canvas-offscreen";
+import CanvasRegion from "./canvas-region";
 import Color from "./foudantion/color";
 import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
+import Rect from "./foudantion/rect";
+import TegakiCanvas from "./tegaki-canvas";
 
 type PenMode = "pen" | "eraser";
 
@@ -16,9 +22,42 @@ export abstract class CanvasTool {
   abstract get name(): string;
   abstract get size(): number;
   abstract set size(value: number);
-  get resizeable() {
+
+  cursor(canvas: TegakiCanvas, x: number, y: number): string {
+    return "none";
+  }
+
+  get resizeable(): boolean {
     return false;
   }
+  get cancelable(): boolean {
+    return true;
+  }
+
+  get hasStroke(): boolean {
+    return false;
+  }
+
+  get hasPreview(): boolean {
+    return false;
+  }
+  renderPreview(canvas: TegakiCanvas, layer: Layer, offscreen: Offscreen): void {}
+  
+  get hasOverlay(): boolean {
+    return false;
+  }
+  renderOverlay(canvas: TegakiCanvas, context: CanvasRenderingContext2D): void {}
+
+  get isEnabledForHiddenLayer(): boolean {
+    return false;
+  }
+
+  onDown(canvas: TegakiCanvas, x: number, y: number): void {}
+  onDrag(canvas: TegakiCanvas, x: number, y: number): void {}
+  onUp(canvas: TegakiCanvas, x: number, y: number): void {}
+  onCancel(canvas: TegakiCanvas): void {};
+
+  onKeyDown(ev: KeyboardEvent) {}
 }
 
 class CanvasToolNone extends CanvasTool {
@@ -40,6 +79,7 @@ export namespace CanvasTool {
    */
   export class Blush extends CanvasTool{
     penMode: PenMode;
+
     readonly obaservables: {
       size: ObservableValue<number>;
       opacity: ObservableValue<number>;
@@ -59,6 +99,9 @@ export namespace CanvasTool {
     override get name() {
       return this.penMode;
     }
+    cursor(canvas: TegakiCanvas, x: number, y: number): string {
+      return "blush";
+    }
 
     override get size(): number {
       return this.obaservables.size.value;
@@ -68,6 +111,9 @@ export namespace CanvasTool {
     }
     override get resizeable() {
       return true;
+    }
+    override get cancelable() {
+      return false;
     }
 
     get opacity(): number {
@@ -92,6 +138,37 @@ export namespace CanvasTool {
         return "destination-out";
       }
     }
+    get hasStroke(): boolean {
+      return true;
+    }
+    
+    override onUp(canvas: TegakiCanvas, x: number, y: number): void {
+      this.finishDraw(canvas);
+    }
+    override onCancel(canvas: TegakiCanvas): void {
+      this.finishDraw(canvas);
+    }
+
+    finishDraw(canvas: TegakiCanvas) {
+      canvas.drawPath(canvas.strokePath, {
+        size: this.size,
+        color: canvas.foreColor.copy(),
+        composite: this.composite
+      });
+    }
+
+    override get hasPreview(): boolean {
+      return true;
+    }
+    override renderPreview(canvas: TegakiCanvas, layer: Layer, offscreen: Offscreen): void {
+      canvas.clipBegin(offscreen.context);
+      drawPath(offscreen.context, {
+        color: canvas.foreColor.copy(),
+        size: this.size,
+        composite: this.composite
+      }, canvas.strokePath);
+      canvas.clipEnd(offscreen.context);
+    }
   }
 
   /**
@@ -101,10 +178,151 @@ export namespace CanvasTool {
     override get name() {
       return "spoit";
     }
+    cursor(canvas: TegakiCanvas, x: number, y: number): string {
+      return "spoit";
+    }
     override get size(): number {
       return 1;
     }
     override set size(value: number) {}
+    override get isEnabledForHiddenLayer(): boolean {
+      return true;
+    }
+
+    onDown(canvas: TegakiCanvas, x: number, y: number): void {
+      canvas.execSpoit(x, y);
+    }
+
+    onDrag(canvas: TegakiCanvas, x: number, y: number): void {
+      canvas.execSpoit(x, y);
+    }
+  }
+
+  /**
+   * 選択ツール
+   */
+  export class Select extends CanvasTool{
+    #startX: number = 0;
+    #startY: number = 0;
+    #finishX: number = 0;
+    #finishY: number = 0;
+
+    #oldRegion: CanvasRegion | null = null;
+    #grabbedImage: Offscreen | null = null;
+
+    #mode: "none" | "select" | "grab" = "select";
+
+    override get name() {
+      return "select";
+    }
+    cursor(canvas: TegakiCanvas, x: number, y: number): string {
+      if (this.#mode == "select") {
+        return "select";
+      }
+      else if (this.#mode == "grab") {
+        return "grab";
+      }
+
+      const region = canvas.selectedRegion;
+      if (region == null) {
+        return "select";
+      }
+      if (region.isPointIn(x, y)) {
+        return "grab";
+      }
+      return "select";
+    }
+    override get size(): number {
+      return 1;
+    }
+    override set size(value: number) {}
+    override get cancelable() {
+      return false;
+    }
+    get isEnabledForHiddenLayer(): boolean {
+      return true;
+    }
+
+    override get hasPreview(): boolean {
+      return true;
+    }
+    override renderPreview(canvas: TegakiCanvas, layer: Layer, offscreen: Offscreen): void {
+      if (this.#mode == "grab") {
+      }
+    }
+
+    override get hasOverlay(): boolean {
+      return true;
+    }
+    override renderOverlay(canvas: TegakiCanvas, context: CanvasRenderingContext2D): void {
+      if (this.#mode == "select") {
+        const rect = new Rect(this.#startX, this.#startY, this.#finishX - this.#startX, this.#finishY - this.#startY).normalize().scale(canvas.scale).floor().expand(0.5);
+        
+        context.save();
+        context.lineWidth = 1;
+        context.strokeStyle = "black";
+        context.setLineDash([5]);
+        context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+        context.strokeStyle = "white";
+        context.lineDashOffset = 5;
+        context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+        context.restore();
+      }
+    }
+
+    override onDown(canvas: TegakiCanvas, x: number, y: number): void {
+      const region = canvas.selectedRegion;
+      this.#startX = this.#finishX = x | 0;
+      this.#startY = this.#finishY = y | 0;
+      // Start select
+      if (region == null || (! region.isPointIn(x, y))) {
+        this.#mode = "select";
+        this.#grabbedImage = null;
+      }
+      // Start gbab
+      else {
+        this.#mode = "grab";
+        canvas.selectGrab();
+      }
+    }
+    override onDrag(canvas: TegakiCanvas, x: number, y: number): void {
+      x = x | 0;
+      y = y | 0;
+      const dx = x - this.#finishX;
+      const dy = y - this.#finishY;
+      this.#finishX = x;
+      this.#finishY = y;
+
+      if (this.#mode == "grab") {
+        canvas.selectGrabMove(dx, dy);
+      }
+    }
+    override onUp(canvas: TegakiCanvas, x: number, y: number): void {
+      this.#finishX = x | 0;
+      this.#finishY = y | 0;
+      if (this.#mode == "select") {
+
+        const rect = new Rect(this.#startX, this.#startY, this.#finishX - this.#startX, this.#finishY - this.#startY)
+                        .normalize()
+                        .intersection(new Rect(0, 0, canvas.width, canvas.height));
+        if (rect.isEmpty()) {
+          canvas.selectNew(null);
+        }
+        else {
+          const region = new CanvasRegion().setRect(rect);
+          canvas.selectNew(region);
+        };
+      }
+      else if (this.#mode == "grab") {
+      }
+      this.#mode = "none";
+    }
+    override onCancel(canvas: TegakiCanvas): void {
+      if (this.#mode == "grab") {
+        canvas.selectGrabFinish();
+      }
+      this.#mode = "none";
+    }
   }
 
   /**
@@ -131,10 +349,16 @@ export namespace CanvasTool {
     override get name() {
       return "bucket";
     }
+    cursor(canvas: TegakiCanvas, x: number, y: number): string {
+      return "bucket";
+    }
     override get size(): number {
       return 1;
     }
     override set size(value: number) {}
+    override get cancelable() {
+      return true;
+    }
     
     /** 色許容誤差 */
     get tolerance(): number {
@@ -163,6 +387,18 @@ export namespace CanvasTool {
     }
     set opacity(value: number) {
       this.obaservables.opacity.value = value;
+    }
+
+    onDown(canvas: TegakiCanvas, x: number, y: number): void { 
+      canvas.bucketFill(
+        canvas.currentLayer, x, y,
+        canvas.foreColor, {
+          closeGap: this.closeGap,
+          expand: this.expand,
+          tolerance: this.tolerance,
+          opacity: this.opacity,
+        }
+      );
     }
   }
   export namespace Bucket {

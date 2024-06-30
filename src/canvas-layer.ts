@@ -112,10 +112,12 @@ export namespace Layer {
 }
 
 export interface Layer {
-  addObserver(observer: Object, name: "change-opacity", callback: (opacity: number) => {}): void;
-  addObserver(observer: Object, name: "change-visibility", callback: (isVisible: boolean) => {}): void;
-  addObserver(observer: Object, name: "show", callback: () => {}): void;
-  addObserver(observer: Object, name: "hide", callback: () => {}): void;
+  notify(name: "update", layer: Layer): void;
+  addObserver(observer: Object, name: "update", callback: (layer: Layer) => void): void;
+  addObserver(observer: Object, name: "change-opacity", callback: (opacity: number) => void): void;
+  addObserver(observer: Object, name: "change-visibility", callback: (isVisible: boolean) => void): void;
+  addObserver(observer: Object, name: "show", callback: () => void): void;
+  addObserver(observer: Object, name: "hide", callback: () => void): void;
 }
 
 export default Layer;

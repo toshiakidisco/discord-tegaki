@@ -62,6 +62,7 @@ const toolIcons = [
   "eraser",
   "spoit",
   "bucket",
+  "select",
 ];
 
 class DiscordTegaki {
@@ -86,6 +87,7 @@ class DiscordTegaki {
   );
   private _toolSpoit = new CanvasTool.Spoit();
   private _toolBucket = new CanvasTool.Bucket();
+  private _toolSelect = new CanvasTool.Select();
   private _previousTool: CanvasTool = CanvasTool.none;
   private _nextPreviousTool: CanvasTool = CanvasTool.none;
 
@@ -352,6 +354,10 @@ class DiscordTegaki {
       this.onUpdateToolSize();
     });
     
+    // キャンバスサイズツール変更後
+    this._canvas.addObserver(this, "change-tool", (tool) => {
+      this._state.tool.value = tool;
+    })
     // キャンバスサイズ更新後
     this._canvas.addObserver(this, "change-size", () => {
       this.resetStatus();
@@ -609,6 +615,10 @@ class DiscordTegaki {
     }
   }
 
+  onClickSelect(ev: PointerEvent) {
+    this._state.tool.value = this._toolSelect;
+  }
+
   onClickClear(ev: Event) {
     this._canvas.clear();
   }
@@ -664,25 +674,23 @@ class DiscordTegaki {
       }
       return;
     }
-    
-    if (ev.repeat) {
-      return;
-    }
 
     // Change tool
-    if (ev.key == "e" && this._state.tool.value != this._toolEraser) {
+    if (ev.key == "e" && (!ev.repeat) && this._state.tool.value != this._toolEraser) {
       this._state.tool.value = this._toolEraser;
       this._keyDownTime.set(ev.key, Date.now());
     }
-    else if (ev.key == "n" && this._state.tool.value != this._toolPen) {
+    else if (ev.key == "n" && (!ev.repeat) && this._state.tool.value != this._toolPen) {
       this._state.tool.value = this._toolPen;
       this._keyDownTime.set(ev.key, Date.now());
     }
-    else if (ev.key == "Alt") {
+    else if (ev.key == "Alt" && (!ev.repeat)) {
       ev.preventDefault();
       this._state.tool.value = this._toolSpoit;
       this._keyDownTime.set(ev.key, Date.now());
     }
+
+    this._canvas.currentTool.onKeyDown(ev);
   }
 
   onKeyup(ev: KeyboardEvent) {

@@ -7,7 +7,7 @@ import svgFilterCode from "raw-loader!./svg-filter.svg";
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
-import CanvasAction, { drawPath, getPathBoundingRect } from "./canvas-action";
+import CanvasAction, { BlushPath, BlushState, drawPath, getPathBoundingRect } from "./canvas-action";
 import { Rect } from "./foudantion/rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
@@ -17,6 +17,7 @@ import CanvasTool from "./canvas-tool";
 import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./foudantion/object-pool";
 import SvgFilter from "./svg-filter";
+import CanvasRegion from "./canvas-region";
 
 function createOffscreenCanvas(width: number, height: number) {
   if (typeof window["OffscreenCanvas"] === "undefined") {
@@ -29,7 +30,6 @@ function createOffscreenCanvas(width: number, height: number) {
     return new OffscreenCanvas(width, height);
   }
 }
-
 
 // カーソル描画用のフィルタの読み込み
 const svgFilter = parseSvg(svgFilterCode);
@@ -61,10 +61,12 @@ export type BucketOption = {
 
 const offscreenPool = ObjectPool.sharedPoolFor(Offscreen);
 
-const toolCursors: {[tool: string]: {x: number; y: number;}} = {
-  "spoit": {x: 1, y: 14},
-  "bucket": {x: 2, y: 12},
-  "prohibit": {x: 7, y: 7},
+const toolCursors: {[tool: string]: {cursor: string}} = {
+  "grab": {cursor: "grab"},
+  "spoit": {cursor: `url(${getAssetUrl("asset/cursor-spoit.png")}) 1 14, auto`},
+  "bucket": {cursor: `url(${getAssetUrl("asset/cursor-bucket.png")}) 2 12, auto`},
+  "prohibit": {cursor: `url(${getAssetUrl("asset/cursor-prohibit.png")}) 7 7, auto`},
+  "select": {cursor: `url(${getAssetUrl("asset/cursor-select.png")}) 7 7, auto`},
 }
 
 const HISTORY_MAX = 20;
@@ -125,8 +127,8 @@ export class TegakiCanvas extends Subject {
 
   // 選択中のツール
   private _currentTool: CanvasTool = CanvasTool.none;
-  // 描画中のツール
-  private _drawingTool: CanvasTool.Blush = new CanvasTool.Blush("pen", 1);
+  // ストローク終了後のツール
+  private _nextTool: CanvasTool | null = null;
 
   private _innerScale: number;
 
@@ -138,7 +140,6 @@ export class TegakiCanvas extends Subject {
   private _mouseY: number = 0;
   private _isMouseEnter: boolean = false;
 
-  private _isDrawing: boolean = false;
   private _activePointerId: number | null = null;
 
   private _renderCallback: FrameRequestCallback;
@@ -151,6 +152,7 @@ export class TegakiCanvas extends Subject {
   private _spoitContext: OffscreenCanvasRenderingContext2D;
 
   private _currentLayerPosition: number = 0;
+  private _selectedRegion: CanvasRegion | null = null;
 
   readonly observable: {
     foreColor: ObservableColor;
@@ -241,6 +243,21 @@ export class TegakiCanvas extends Subject {
     return this._currentLayerPosition;
   }
 
+  get selectedRegion(): CanvasRegion | null{
+    return this._selectedRegion;
+  }
+  set selectedRegion(region: CanvasRegion | null) {
+    this._selectedRegion = region;
+  }
+
+  get strokeManager() {
+    return this._strokeManager;
+  }
+
+  get strokePath(): BlushPath {
+    return this._strokeManager.path;
+  }
+
   get layers(): Layer[] {
     return this.document.layers;
   }
@@ -249,12 +266,16 @@ export class TegakiCanvas extends Subject {
     return this._currentTool;
   }
   set currentTool(tool: CanvasTool) {
+    if (this.isDrawing) {
+      this._nextTool = tool;
+      return;
+    }
+    if (this._currentTool == tool) {
+      return;
+    }
     this._currentTool = tool;
     this.requestRenderCursor();
-  }
-
-  get drawingTool() {
-    return this._drawingTool;
+    this.notify("change-tool", this._currentTool);
   }
 
   get width() {
@@ -341,7 +362,7 @@ export class TegakiCanvas extends Subject {
    * 選択中ツールのサイズ
    */
   get toolSize() {
-    return this._drawingTool.size;
+    return this._currentTool.size;
   }
 
   /**
@@ -351,15 +372,11 @@ export class TegakiCanvas extends Subject {
     return this.foreColor;
   }
 
-  get toolComposite(): GlobalCompositeOperation {
-    return this._drawingTool.composite;
-  }
-
   /**
    * 描画中の状態か
    */
   get isDrawing() {
-    return this._isDrawing;
+    return this._activePointerId != null;
   }
 
   /**
@@ -438,18 +455,23 @@ export class TegakiCanvas extends Subject {
     
     let cursorName: string;
     const isBlushTool = this.currentTool instanceof CanvasTool.Blush;
+    const position = this.positionInCanvas(this._mouseX, this._mouseY);
+
     // Render cursor
-    if ((!this.currentLayer.isVisible) && isBlushTool) {
+    if ((!this.currentLayer.isVisible) && (!this._currentTool.isEnabledForHiddenLayer)) {
       cursorName = "prohibit";
     }
-    else if (this._isDrawing || isBlushTool) {
+    else {
+      cursorName = this._currentTool.cursor(this, position.x, position.y);
+    }
+    
+    if (cursorName == "blush") {
       cursorName = "none";
-      const tool = this._isDrawing ? this._drawingTool : this.currentTool;
+      const tool = this.currentTool;
 
       const toolSize = tool.size;
       const offset = toolSize%2 == 0 ? 0 : 0.5;
       const displayPenSize = toolSize * this.scale;
-      const position = this.positionInCanvas(this._mouseX, this._mouseY);
       
       position.x = (position.x + offset)*this.scale;
       position.y = (position.y + offset)*this.scale;
@@ -503,9 +525,6 @@ export class TegakiCanvas extends Subject {
       
       this._cursorRect.set4f(cl, ct, cw, ch).expand(1);
     }
-    else {
-      cursorName = this._currentTool.name;
-    }
 
     // Set cursor css;
     if (this._cursorName != cursorName) {
@@ -515,7 +534,7 @@ export class TegakiCanvas extends Subject {
         this.cursorOverlay.style.cursor = "none";
       }
       else {
-        this.cursorOverlay.style.cursor = `url(${getAssetUrl("asset/cursor-"+cursorName+".png")}) ${cursorInfo.x} ${cursorInfo.y}, auto`;
+        this.cursorOverlay.style.cursor = `${cursorInfo.cursor}`;
       }
     }
   }
@@ -561,14 +580,10 @@ export class TegakiCanvas extends Subject {
       const opacity = layer.opacity;
       offCtx.globalAlpha = opacity;
 
-      if (i == this._currentLayerPosition && this._isDrawing) {
-        // ストローク中なら曲線を描画してからレイヤーイメージを描画
+      if (i == this._currentLayerPosition && this.isDrawing && this._currentTool.hasPreview) {
+        // ストローク中のプレビュー表示
         this._currentLayerOffscreen.set(layer);
-        drawPath(this._currentLayerOffscreen.context, {
-          color: this.toolColor.copy(),
-          size: this.toolSize,
-          composite: this.toolComposite
-        }, this._strokeManager.path);
+        this._currentTool.renderPreview(this, layer, this._currentLayerOffscreen);
         offCtx.drawImage(this._currentLayerOffscreen.canvas, 0, 0);
       }
       else {
@@ -586,6 +601,15 @@ export class TegakiCanvas extends Subject {
     ctx.drawImage(this._offscreen.canvas, 0, 0);
     ctx.restore();
 
+    if (this.isDrawing && this._currentTool.hasOverlay) {
+      this._currentTool.renderOverlay(this, ctx);
+    }
+    // Render Selected Region
+    if (this._selectedRegion != null && (! this._selectedRegion.isEmpty)) {
+      this._selectedRegion.drawTo(this, this.context);
+    }
+
+
     this._needsRender = false;
   }
 
@@ -598,36 +622,28 @@ export class TegakiCanvas extends Subject {
       if (ev.pointerType == "mouse" && ev.button != 0) {
         return;
       }
+      this._mouseX = ev.clientX;
+      this._mouseY = ev.clientY;
+      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+
       if (this._activePointerId != null) {
-        this.finishDraw();
+        this._currentTool.onUp(this, position.x, position.y);
         this.cursorOverlay.releasePointerCapture(this._activePointerId);
       }
 
       this._activePointerId = ev.pointerId;
       this.cursorOverlay.setPointerCapture(this._activePointerId);
-      this._mouseX = ev.clientX;
-      this._mouseY = ev.clientY;
 
-      if (this._currentTool.name == "spoit") {
-        this.execSpoit();
+      if (this._currentTool.hasStroke) {
+        this._strokeManager.start(position.x, position.y);
       }
-      else if (this._currentTool instanceof CanvasTool.Bucket) {
-        const position = this.positionInCanvas(this._mouseX, this._mouseY);
-        this.bucketFill(this.currentLayer, position.x, position.y, this.foreColor, {
-          closeGap: this._currentTool.closeGap,
-          expand: this._currentTool.expand,
-          tolerance: this._currentTool.tolerance,
-          opacity: this._currentTool.opacity,
-        });
-      }
-      // Pen, Eraser
-      else if (
-        this._currentTool instanceof CanvasTool.Blush &&
-        this.currentLayer.isVisible
-      ) {
-        this.startDraw(this._currentTool);
+      this._currentTool.onDown(this, position.x, position.y);
+      
+      if (this._currentTool.hasPreview) {
+        this.requestRender();
       }
     });
+    
     this.cursorOverlay.addEventListener("pointermove", (ev: PointerEvent) => {
       if (this._activePointerId == null) {
         this._mouseX = ev.clientX;
@@ -641,19 +657,21 @@ export class TegakiCanvas extends Subject {
         return;
       }
       
+      this._isMouseEnter = true;
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
-      this._isMouseEnter = true;
-      
-      // Blush
-      if (this._isDrawing) {
-        this.continueDraw();
+      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      if (this._currentTool.hasStroke) {
+        this._strokeManager.move(position.x, position.y);
       }
-      else if (this._currentTool.name == "spoit") {
-        this.execSpoit();
+      
+      this._currentTool.onDrag(this, position.x, position.y);
+      if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
+        this.requestRender();
       }
       this.requestRenderCursor();
     });
+
     this.cursorOverlay.addEventListener("pointerleave", (ev: PointerEvent) => {
       if (this._activePointerId == null) {
         this._isMouseEnter = false;
@@ -666,20 +684,41 @@ export class TegakiCanvas extends Subject {
         return;
       }
 
-      if (this._isDrawing) {
-        this.finishDraw();
+      this._mouseX = ev.clientX;
+      this._mouseY = ev.clientY;
+      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      if (this._currentTool.hasStroke) {
+        this._strokeManager.finish();
       }
+
+      this._currentTool.onUp(this, position.x, position.y);
       this._activePointerId = null;
+      if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
+        this.requestRender();
+      }
+      if (this._nextTool != null) {
+        this.currentTool = this._nextTool;
+        this._nextTool = null;
+      }
     });
+
     this.cursorOverlay.addEventListener("pointercancel", (ev: Event) => {
       if (this._activePointerId == null) {
         return;
       }
 
-      if (this._isDrawing) {
-        this.finishDraw();
+      if (this._currentTool.hasStroke) {
+        this._strokeManager.finish();
       }
+      this._currentTool.onCancel(this);
       this._activePointerId = null;
+      if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
+        this.requestRender();
+      }
+      if (this._nextTool != null) {
+        this.currentTool = this._nextTool;
+        this._nextTool = null;
+      }
     });
     
     this._strokeManager.addObserver(this, "update", () => {
@@ -748,6 +787,14 @@ export class TegakiCanvas extends Subject {
       position: position,
       layer: this.currentLayer
     });
+  }
+
+
+  clipBegin(context: CanvasRenderingContext2D) {
+    this._selectedRegion?.clipBegin(context);
+  }
+  clipEnd(context: CanvasRenderingContext2D) {
+    this._selectedRegion?.clipEnd(context);
   }
 
   // ============================================================
@@ -877,7 +924,7 @@ export class TegakiCanvas extends Subject {
     const action = new CanvasAction.ChangeLayerOpacity(this, layer, opacity);
     this.pushAction(new HistoryNode(action, undo));
   }
-  
+
   // --------------------------------------------------
   // Draw
   // --------------------------------------------------
@@ -950,54 +997,13 @@ export class TegakiCanvas extends Subject {
     this.pushAction(new HistoryNode(action, undo));
   }
 
-  private startDraw(blushTool: CanvasTool.Blush) {
-    if (this._isDrawing) {
-      this.finishDraw();
-    }
-    this._isDrawing = true;
-    this._drawingTool = blushTool;
-
-    const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x;
-    position.y = position.y;
-    if (this.toolSize%2 == 1) {
-      position.x += 0.5, position.y += 0.5;
-    }
-    this._strokeManager.start(position.x, position.y);
-    this.requestRender();
-  }
-
-  private continueDraw() {
-    if (! this._isDrawing) {
-      return;
-    }
-
-    const position = this.positionInCanvas(this._mouseX, this._mouseY);
-    position.x = position.x;
-    position.y = position.y;
-    if (this.toolSize%2 == 1) {
-      position.x += 0.5, position.y += 0.5;
-    }
-    this._strokeManager.move(position.x, position.y);
-    this.requestRender();
-  }
-
-  private finishDraw() {
-    if (! this._isDrawing) {
-      return;
-    }
-
-    if (! this._strokeManager.isActive) {
-      return;
-    }
-    
-    this._strokeManager.finish();
+  drawPath(path: BlushPath, blush: BlushState) {
+    const layer = this.currentLayer;
     const pathRect = Rect.intersection(
-      getPathBoundingRect(this._strokeManager.path, this.toolSize, 1),
+      getPathBoundingRect(path, blush.size, 1),
       new Rect(0, 0, this.innerWidth, this.innerHeight)
     );
 
-    const layer = this.currentLayer;
     let undo: CanvasAction;
     if (pathRect.isEmpty()) {
       undo = new CanvasAction.None(this);
@@ -1010,15 +1016,10 @@ export class TegakiCanvas extends Subject {
       );
     }
     const action = new CanvasAction.DrawPath(
-      this, layer, {
-        size: this.toolSize,
-        color: this.foreColor.copy(),
-        composite: this.toolComposite,
-      }, this._strokeManager.path
+      this, layer, blush, this._strokeManager.path
     );
     
     this.pushAction(new HistoryNode(action, undo));
-    this._isDrawing = false;
   }
 
   /**
@@ -1056,7 +1057,59 @@ export class TegakiCanvas extends Subject {
     this.pushAction(new HistoryNode(action, undo));
   }
 
+  /**
+   * 新規範囲。nullを渡すと選択範囲解除
+   * @param region 
+   * @returns 
+   */
+  selectNew(region: CanvasRegion | null) {
+    if (this.selectedRegion == region) {
+      return;
+    }
+    const undo = new CanvasAction.SelectNew(this, this.selectedRegion);
+    const action = new CanvasAction.SelectNew(this, region);
+    this.pushAction(new HistoryNode(action, undo));
+  }
+
+  /**
+   * 選択範囲の移動。
+   */
+  selectMove(x: number, y: number) {
+    if (this.selectedRegion == null) {
+      return;
+    }
+
+    if(this._grabState !== null) {
+      this.selectGrabMove(x, y);
+      return;
+    }
+
+    const undo   = new CanvasAction.SelectMove(this, -x, -y);
+    const action = new CanvasAction.SelectMove(this,  x,  y);
+    this.pushAction(new HistoryNode(action, undo));
+  }
+
   // --------------------------------------------------
+
+  /**
+   * 選択範囲中の画像を抜き出す
+   */
+  putSelectedImageInto(dst: Offscreen, layer: Layer): Rect.Immutable | undefined {
+    const region = this.selectedRegion;
+    if (region == null || region.isEmpty) {
+      return;
+    }
+
+    const rect = region.boudingRect();
+    dst.setSize(rect.width, rect.height);
+    dst.context.drawImage(
+      layer.canvas,
+      rect.x, rect.y, rect.width, rect.height,
+      0, 0, rect.width, rect.height
+    );
+    
+    return rect;
+  }
 
   /**
    * 塗り結果の画像作成
@@ -1074,6 +1127,11 @@ export class TegakiCanvas extends Subject {
     if (typeof color === "undefined") {
       return;
     }
+    const baseImage = offscreenPool.get().setSize(this._offscreen.width, this._offscreen.height);
+    this.clipBegin(baseImage.context);
+    baseImage.context.drawImage(this._offscreen.canvas, 0, 0);
+    this.clipEnd(baseImage.context);
+    
 
     const fillMask = offscreenPool.get().setSize(this._offscreen.width, this._offscreen.height);
     // SVG フィルタを使って指定色が不透明の黒、それ以外が透明な画像を抽出
@@ -1123,7 +1181,7 @@ export class TegakiCanvas extends Subject {
       });
       drawImageWithSVGFilter(
         fillMask.context,
-        this._offscreen.canvas,
+        baseImage.canvas,
         filter.code
       );
     }
@@ -1170,6 +1228,7 @@ export class TegakiCanvas extends Subject {
       );
     }
     offscreenPool.return(fillMask);
+    offscreenPool.return(baseImage);
     return boundingRect;
   }
 
@@ -1177,6 +1236,9 @@ export class TegakiCanvas extends Subject {
    * 取り消し
    */
   undo() {
+    if (this._grabState !== null) {
+      this.selectGrabFinish();
+    }
     if (this._undoStack.length == 0) {
       return;
     }
@@ -1217,6 +1279,12 @@ export class TegakiCanvas extends Subject {
    * キャンバス操作の実行
    */
   pushAction(node: HistoryNode) {
+    if (this._grabState) {
+      this.selectGrabFinish();
+    }
+
+    console.log(node);
+
     node.action.exec();
 
     // 短期間の操作の場合、直近の履歴とマージ
@@ -1248,6 +1316,101 @@ export class TegakiCanvas extends Subject {
     this.notify("update-history", this);
     this.requestRender();
   }
+  
+
+  private _grabState: CanvasAction.GrabState | null = null;
+  get grabState() {
+    return this._grabState;
+  }
+  set grabState(grabState: CanvasAction.GrabState | null) {
+    this._grabState = grabState;
+  }
+  /**
+   * 選択領域の掴み開始
+   */
+  selectGrab() {
+    if (this.selectedRegion == null) {
+      return;
+    }
+    const layer = this.currentLayer;
+    if (this._grabState !== null) {
+      if (this._grabState.layer == layer) {
+        return;
+      }
+      this.selectGrabFinish();
+    }
+    this.selectedRegion.normalize();
+
+    const grabState = new CanvasAction.GrabState(this, layer);
+    const action = new CanvasAction.SelectGrabStart(this, grabState);
+    const undo = new CanvasAction.SelectGrabCancel(this, grabState);
+    this.pushAction(new HistoryNode(action, undo));
+  }
+  /**
+   * 掴んだ選択領域の開始地点からの移動
+   */
+  selectGrabMove(x: number, y: number) {
+    if (this.selectedRegion == null || this._grabState == null) {
+      return;
+    }
+
+    this._grabState.offsetX += x;
+    this._grabState.offsetY += y;
+    this.selectedRegion.offsetX = this._grabState.offsetX;
+    this.selectedRegion.offsetY = this._grabState.offsetY;
+
+    const layer = this._grabState.layer;
+    const ctx = layer.context;
+    const rect = this.selectedRegion.boudingRect();
+    layer.clear();
+    ctx.drawImage(this._grabState.backupImage.canvas, 0, 0);
+    ctx.clearRect(this._grabState.startX, this._grabState.startY, rect.width, rect.height);
+    ctx.drawImage(this._grabState.image.canvas, rect.x, rect.y, rect.width, rect.height);
+    layer.notify("update", layer);
+    this.requestRender();
+  }
+  /**
+   * 一時操作の完了
+   */
+  selectGrabFinish() {
+    if (this._selectedRegion == null || this._grabState == null) {
+      return;
+    }
+    // 最後の変更履歴を取得し、選択範囲移動アクションに変換
+    const node = this._undoStack.peek();
+    if (!(typeof node !== "undefined" &&
+        node.action instanceof CanvasAction.SelectGrabStart &&
+        node.undo   instanceof CanvasAction.SelectGrabCancel)
+    ) {
+      console.warn("Latest action is not SelectGrabStart");
+      return;
+    }
+    const region = this._selectedRegion;
+    const rect = region.boudingRect();
+    const grabState = this._grabState;
+    const action = new CanvasAction.SelectMoveImage(
+      this, grabState.layer, grabState.offsetX, grabState.offsetY);
+    const undo = new CanvasAction.Merge(
+      // 移動先範囲の復元
+      new CanvasAction.DrawImage(
+        this, grabState.layer,
+        grabState.backupImage, rect.x, rect.y, rect.width, rect.height,
+        rect.x, rect.y
+      ),
+      // 移動元範囲の復元
+      new CanvasAction.DrawImage(
+        this, grabState.layer,
+        grabState.image, 0, 0, rect.width, rect.height,
+        grabState.startX, grabState.startY
+      ),
+      // 選択範囲の移動
+      new CanvasAction.SelectMove(this, -grabState.offsetX, -grabState.offsetY),
+    );
+    node.action = action;
+    node.undo = undo;
+
+    this._grabState = null;
+  }
 
   /**
    * クライアント座標をCanvas内のローカル座標に変換する。
@@ -1276,6 +1439,9 @@ export interface TegakiCanvas {
   ): void;
   addObserver(observer: Object, name: "change-background-color",
     callback: (color: Color.Immutable) => void
+  ): void;
+  addObserver(observer: Object, name: "change-tool",
+    callback: (tool: CanvasTool) => void
   ): void;
   addObserver(observer: Object, name: "update-history",
     callback: () => void

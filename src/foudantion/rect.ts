@@ -4,14 +4,14 @@ export class Rect implements Rect.Immutable {
   width: number;
   height: number;
 
-  constructor(x: number, y: number, width: number, height: number) {
+  constructor(x: number = 0, y: number = 0, width: number = 0, height: number = 0) {
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
   }
 
-  set(rect: Rect): this {
+  set(rect: Rect.Immutable): this {
     this.x = rect.x;
     this.y = rect.y;
     this.width = rect.width;
@@ -24,6 +24,12 @@ export class Rect implements Rect.Immutable {
     this.y = y;
     this.width = width;
     this.height = height;
+    return this;
+  }
+
+  offset(x: number, y: number): this {
+    this.x += x;
+    this.y += y;
     return this;
   }
 
@@ -43,21 +49,67 @@ export class Rect implements Rect.Immutable {
     return this;
   }
 
-  static intersection(r1: Rect, r2: Rect) {
+  scale(scale: number): this {
+    this.x *= scale;
+    this.y *= scale;
+    this.width *= scale;
+    this.height *= scale;
+    return this;
+  }
+
+  floor(): this {
+    const right = (this.x + this.width) | 0;
+    const bottom = (this.y + this.height) | 0;
+    this.x = this.x | 0;
+    this.y = this.y | 0;
+    this.width = right - this.x;
+    this.height = bottom - this.y;
+    return this;
+  }
+
+  normalize(): this {
+    if (this.width < 0) {
+      this.x += this.width;
+      this.width = -this.width;
+    }
+    if (this.height < 0) {
+      this.y += this.height;
+      this.height = -this.height;
+    }
+    return this;
+  }
+
+  intersection(r: Rect.Immutable): this  {
     if (
-      r1.x + r1.width  <= r2.x ||
-      r1.y + r1.height <= r2.y ||
-      r2.x + r2.width  <= r1.x ||
-      r2.y + r2.height <= r1.y
+      this.x + this.width  <= r.x ||
+      this.y + this.height <= r.y ||
+      r.x + r.width  <= this.x ||
+      r.y + r.height <= this.y
     ) {
-      return new Rect(0, 0, 0, 0);
+      this.set4f(0, 0, 0, 0,);
+      return this;
     }
   
-    const left   = Math.max(r1.x, r2.x);
-    const top    = Math.max(r1.y, r2.y);
-    const right  = Math.min(r1.x + r1.width,  r2.x + r2.width);
-    const bottom = Math.max(r1.y + r1.height, r2.y + r2.height);
-    return new Rect(left, top, right - left, bottom - top);
+    const left   = Math.max(this.x, r.x);
+    const top    = Math.max(this.y, r.y);
+    const right  = Math.min(this.x + this.width,  r.x + r.width);
+    const bottom = Math.min(this.y + this.height, r.y + r.height);
+    this.set4f(left, top, right - left, bottom - top);
+    return this;
+  }
+
+  isPointIn2f(x: number, y: number): boolean {
+    return this.x <= x && this.y <= y && x < this.x + this.width && y < this.y + this.height;
+  }
+
+
+  toString(): string {
+    return `{x: ${this.x}, y: ${this.y}, width: ${this.width}, height: ${this.height}}`
+  }
+
+  static intersection(r1: Rect.Immutable, r2: Rect.Immutable) {
+    const rect = new Rect(r1.x, r1.y, r1.width, r1.height);
+    return rect.intersection(r2);
   }
 }
 
@@ -69,6 +121,7 @@ export namespace Rect {
     readonly height: number;
     isEmpty(): boolean;
     copy(): Rect;
+    isPointIn2f(x: number, y: number): boolean;
   }
 }
 
