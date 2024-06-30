@@ -1312,7 +1312,7 @@ export class TegakiCanvas extends Subject {
     // 短期間の操作の場合、直近の履歴とマージ
     if (this._redoStack.length == 0) {
       const lastNode = this._undoStack.peek();
-      if (typeof lastNode !== "undefined" && node.time - lastNode.time < 1000) {
+      if (typeof lastNode !== "undefined" && node.time - lastNode.time < 3000) {
         const mergedNode = node.mergeWith(lastNode);
         if (typeof mergedNode !== "undefined") {
           this._undoStack.pop();
@@ -1398,7 +1398,7 @@ export class TegakiCanvas extends Subject {
     this.requestRender();
   }
   /**
-   * 一時操作の完了
+   * 掴み操作の完了
    */
   selectGrabFinish() {
     if (this._selectedRegion == null || this._grabState == null) {
@@ -1436,6 +1436,8 @@ export class TegakiCanvas extends Subject {
       // 選択範囲の移動
       new CanvasAction.SelectMove(this, -grabState.offsetX, -grabState.offsetY),
     );
+    node.action.dispose();
+    node.undo.dispose();
     node.action = action;
     node.undo = undo;
 
