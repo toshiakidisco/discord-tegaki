@@ -18,6 +18,7 @@ import { clamp, getConnectedPixels } from "./funcs";
 import ObjectPool from "./foudantion/object-pool";
 import SvgFilter from "./svg-filter";
 import CanvasRegion from "./canvas-region";
+import WebGLFilter from "./webgl-filter";
 
 function createOffscreenCanvas(width: number, height: number) {
   if (typeof window["OffscreenCanvas"] === "undefined") {
@@ -981,6 +982,7 @@ export class TegakiCanvas extends Subject {
       offscreenPool.return(fillImage);
       return;
     }
+    rect.intersection4f(0, 0, layer.width, layer.height);
     
     const undo = new CanvasAction.DrawImage(
       this, layer, layer,
@@ -1137,7 +1139,14 @@ export class TegakiCanvas extends Subject {
   /**
    * 塗り結果の画像作成
    */
-  createBucketFillImageInto(dst: Offscreen, x: number, y: number, fillColor: Color.Immutable, option?: BucketOption) {
+  createBucketFillImageInto(
+    dst: Offscreen, x: number, y: number,
+    fillColor: Color.Immutable, option?: BucketOption
+  ): Rect | undefined {
+    if (typeof dst.context.filter === "undefined") {
+      return this.createBucketFillImageInto_WebGL(dst, x, y, fillColor, option);
+    }
+
     x = x | 0;
     y = y | 0;
     const fillConnected = true;
@@ -1155,7 +1164,6 @@ export class TegakiCanvas extends Subject {
     baseImage.context.drawImage(this._offscreen.canvas, 0, 0);
     this.clipEnd(baseImage.context);
     
-
     const fillMask = offscreenPool.get().setSize(this._offscreen.width, this._offscreen.height);
     // SVG フィルタを使って指定色が不透明の黒、それ以外が透明な画像を抽出
     {
@@ -1253,6 +1261,97 @@ export class TegakiCanvas extends Subject {
     offscreenPool.return(fillMask);
     offscreenPool.return(baseImage);
     return boundingRect;
+  }
+
+
+  private createBucketFillImageInto_WebGL(
+    dst: Offscreen, x: number, y: number,
+    fillColor: Color.Immutable, option?: BucketOption
+  ): Rect | undefined {
+    x = x | 0;
+    y = y | 0;
+    const fillConnected = true;
+    const tolerance = option?.tolerance || 0;
+    const closeGap = fillConnected ? (option?.closeGap || 0) : 0;
+    const expand = (option?.expand || 0) + (closeGap / 2);
+    const boundingRect = new Rect(0, 0, 0, 0);
+
+    const color = this.getColorAt(x, y);
+    if (typeof color === "undefined") {
+      return;
+    }
+
+    // 選択範囲領域の画像抽出
+    const baseImage = offscreenPool.get().setSize(this._offscreen.width, this._offscreen.height);
+    this.clipBegin(baseImage.context);
+    baseImage.context.drawImage(this._offscreen.canvas, 0, 0);
+    this.clipEnd(baseImage.context);
+    
+    // 領域色のマスクを取得
+    const fillMask = offscreenPool.get().setSize(this._offscreen.width, this._offscreen.height);
+    WebGLFilter.drawImageWithFilters(
+      fillMask.context, baseImage.canvas, [
+        {filter: "color-mask", uniforms: {
+          "maskColor": [color.r, color.g, color.b],
+          "tolerance": tolerance,
+          "toleranceMax": CanvasTool.Bucket.toleranceMax,
+        }},
+        ...this.genExpandFilters(closeGap/2),
+        {filter: "invert"},
+      ]
+    );
+
+    // 隣接領域に限定
+    if (fillConnected) {
+      const imageData = getImageData(fillMask.canvas, 0, 0, fillMask.canvas.width, fillMask.canvas.height);
+      const src = imageData.data;
+
+      const regionToFill = getConnectedPixels(
+        fillMask.width, fillMask.height,
+        src, x, y
+      );
+      const dstImageData = new ImageData(
+        regionToFill.region,
+        fillMask.width, fillMask.height
+      );
+      fillMask.context.putImageData(dstImageData, 0, 0);
+      boundingRect.set(regionToFill.rect).expand(Math.ceil(expand));
+    }
+    else {
+      boundingRect.set4f(0, 0, fillMask.width, fillMask.height);
+    }
+
+    // ベースを領域色で塗りつぶし
+    {
+      WebGLFilter.drawImageWithFilters(
+        dst.context,
+        fillMask.canvas,
+        [
+          ...this.genExpandFilters(expand),
+          {filter: "paint", uniforms:{
+            "paintColor": [fillColor.r, fillColor.g, fillColor.b],
+          }},
+        ]
+      );
+    }
+    offscreenPool.return(fillMask);
+    offscreenPool.return(baseImage);
+
+    return boundingRect;
+  }
+
+  private genExpandFilters(expand: number) {
+    const result: {
+      filter: "expand"; uniforms: {"size": number};
+    }[] = [];
+    while (expand > 0) {
+      const v = Math.min(expand, 5);
+      result.push({filter: "expand", uniforms:{
+        "size": v,
+      }},)
+      expand -= v;
+    }
+    return result;
   }
 
   /**
