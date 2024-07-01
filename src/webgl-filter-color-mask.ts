@@ -15,7 +15,8 @@ void main(void){
   vec2 tFrag = vec2(1.0 / texWidth, 1.0 / texHeight);
   vec2 st = gl_FragCoord.st * tFrag;
   vec4 texColor = texture2D(texture, st);
-  vec3 d2 = pow((maskColor/255.0) - texColor.rgb, vec3(2.0));
+  vec3 d = (maskColor/255.0 - texColor.rgb);
+  vec3 d2 = d * d;
   const float L = 255.0*255.0;
   float a = L*(d2.r + d2.g + d2.b - 3.0*tolerance/toleranceMax) - 3.0;
 
