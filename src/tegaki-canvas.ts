@@ -1150,6 +1150,10 @@ export class TegakiCanvas extends Subject {
     if (typeof color === "undefined") {
       return;
     }
+    if (typeof dst.context.filter === "undefined") {
+      return;
+    }
+
     const baseImage = offscreenPool.get().setSize(this._offscreen.width, this._offscreen.height);
     this.clipBegin(baseImage.context);
     baseImage.context.drawImage(this._offscreen.canvas, 0, 0);
@@ -1500,12 +1504,34 @@ function drawImageWithSVGFilter(
   image: HTMLCanvasElement,
   code: string
 ) {
+  /*
   const filterElem = document.getElementById("tegaki-canvas-svg-filter") as HTMLElement;
   filterElem.innerHTML = code;
   context.save();
   context.filter = "url(#tegaki-canvas-svg-filter)";
   context.drawImage(image, 0, 0);
   context.restore();
+  */
+
+  const dataUrl = image.toDataURL();
+  const filterName = `filter-${((100000*Math.random()) | 0)}`;
+  const svg = `
+    <svg version="1.1"
+          xmlns="http://www.w3.org/2000/svg"
+          xmlns:xlink="http://www.w3.org/1999/xlink"
+          width="${image.width}"
+          height="${image.height}">
+      <filter id="${filterName}">
+        ${code}
+      </filter>
+      <image
+        x="0"
+        y="0"
+        width="${image.width}"
+        height="${image.height}"
+        href="${dataUrl}" filter="url(#${filterName})"/>
+    </svg>
+  `
 }
 
 let _imageDataCanvas: OffscreenCanvas | undefined;
@@ -1530,6 +1556,13 @@ function getImageData(
 
   ctx.drawImage(canvas, x, y, width, height, 0, 0, width, height);
   return ctx.getImageData(0, 0, width, height);
+}
+
+function block(original: any, _context: any) {
+  return function (this: any, ...args: any[]) {
+    const result = original.call(this, ...args);
+    return result;
+  };
 }
 
 export default TegakiCanvas;
