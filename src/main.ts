@@ -22,6 +22,7 @@ import TegakiCanvasDocument from "./canvas-document";
 import { JsonObject, check } from "./foudantion/json";
 import shortcut from "./shortcut";
 import View from "./foudantion/view";
+import WebGLFilter from "./webgl-filter";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -171,7 +172,12 @@ class DiscordTegaki {
     }
     // Webkit向け調整
     if (typeof this._canvas.context.filter === "undefined") {
-      this._outlets["tool-bucket"].style.visibility = "hidden";
+      try {
+        WebGLFilter.init();
+      }
+      catch {
+        this._outlets["tool-bucket"].style.visibility = "hidden";
+      }
     }
 
     document.body.appendChild(this._root);
