@@ -169,6 +169,10 @@ class DiscordTegaki {
       this._root.style.height = "100%";
       this._outlets["button-close"].style.display = "none"
     }
+    // Webkit向け調整
+    if (typeof this._canvas.context.filter === "undefined") {
+      this._outlets["tool-bucket"].style.visibility = "hidden";
+    }
 
     document.body.appendChild(this._root);
     this._outlets["tool-size"].appendChild(this._lineSizeDisplay.element);
