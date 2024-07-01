@@ -1,5 +1,6 @@
 /*
  * 指定色を非表示にするマスク作成フィルタ
+ * maskColor: vec3 マスクする色
  */
 import WebGLFilterBase from "./webgl-filter-base";
 
