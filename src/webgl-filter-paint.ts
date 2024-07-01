@@ -1,3 +1,6 @@
+/*
+ * マスク上の塗りつぶしフィルタ
+ */
 import WebGLFilterBase from "./webgl-filter-base";
 
 const FRAGMENT_SHADER_SOURCE = `

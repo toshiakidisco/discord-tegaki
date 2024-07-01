@@ -1,3 +1,7 @@
+/*
+ * 恒等写像フィルタ 
+ * デバッグ用
+ */
 import WebGLFilterBase from "./webgl-filter-base";
 
 const FRAGMENT_SHADER_SOURCE = `

@@ -1,3 +1,6 @@
+/*
+ * マスク反転フィルタ 
+ */
 import WebGLFilterBase from "./webgl-filter-base";
 
 const FRAGMENT_SHADER_SOURCE = `

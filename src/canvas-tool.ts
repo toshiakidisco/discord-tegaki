@@ -402,7 +402,7 @@ export namespace CanvasTool {
     }
   }
   export namespace Bucket {
-    export const toleranceMax = 80;
+    export const toleranceMax = 200;
   }
 }
 

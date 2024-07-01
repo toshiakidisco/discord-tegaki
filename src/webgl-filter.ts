@@ -24,6 +24,12 @@ export namespace WebGLFilter {
     Manager.singleton;
   }
 
+  /**
+   * WebGLフィルタを適応して画像をCanvas2D上に描画する
+   * @param context 
+   * @param image 
+   * @param filters 
+   */
   export function drawImageWithFilters(
     context: CanvasRenderingContext2D, image: ImageSource,
     filters:{filter: FilterName, uniforms?: {[name: string]: any}}[]
@@ -67,6 +73,7 @@ export namespace WebGLFilter {
 
     gl.finish();
 
+    // 結果は上下反転されてるので、元に戻して描画
     context.save();
     context.scale(1, -1);
     context.drawImage(m.canvas, 0, -height);

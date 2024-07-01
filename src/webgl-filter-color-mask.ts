@@ -1,3 +1,6 @@
+/*
+ * 指定色を非表示にするマスク作成フィルタ
+ */
 import WebGLFilterBase from "./webgl-filter-base";
 
 const FRAGMENT_SHADER_SOURCE = `
@@ -9,7 +12,6 @@ uniform float texHeight;
 
 uniform vec3 maskColor;
 uniform float tolerance;
-uniform float toleranceMax;
 
 void main(void){
   vec2 tFrag = vec2(1.0 / texWidth, 1.0 / texHeight);
@@ -18,7 +20,7 @@ void main(void){
   vec3 d = (maskColor/255.0 - texColor.rgb);
   vec3 d2 = d * d;
   const float L = 255.0*255.0;
-  float a = L*(d2.r + d2.g + d2.b - 3.0*tolerance/toleranceMax) - 3.0;
+  float a = L*(d2.r + d2.g + d2.b - 3.0*tolerance) - 3.0;
 
   gl_FragColor = vec4(0.0, 0.0, 0.0, a);
 }
@@ -30,7 +32,6 @@ export class FilterColorMask extends WebGLFilterBase {
     super(FRAGMENT_SHADER_SOURCE, [
       {name: "maskColor", type: "vec3"},
       {name: "tolerance", type: "float"},
-      {name: "toleranceMax", type: "float"},
     ]);
   }
 

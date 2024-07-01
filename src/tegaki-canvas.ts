@@ -1293,8 +1293,7 @@ export class TegakiCanvas extends Subject {
       fillMask.context, baseImage.canvas, [
         {filter: "color-mask", uniforms: {
           "maskColor": [color.r, color.g, color.b],
-          "tolerance": tolerance,
-          "toleranceMax": CanvasTool.Bucket.toleranceMax,
+          "tolerance": tolerance/CanvasTool.Bucket.toleranceMax,
         }},
         ...this.genExpandFilters(closeGap/2),
         {filter: "invert"},
