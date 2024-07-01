@@ -7,26 +7,31 @@ uniform sampler2D texture;
 uniform float texWidth;
 uniform float texHeight;
 
+uniform vec3 paintColor;
+
 void main(void){
   vec2 tFrag = vec2(1.0 / texWidth, 1.0 / texHeight);
   vec2 st = gl_FragCoord.st * tFrag;
-  vec4 texColor = texture2D(texture, st);
-  gl_FragColor  = texColor;
+  float a = texture2D(texture, st).a;
+
+  gl_FragColor = vec4(paintColor/255.0, a);
 }
 `;
 
-let _singleton: FilterIdentity | undefined;
-export class FilterIdentity extends WebGLFilterBase {
+let _singleton: FilterPaint | undefined;
+export class FilterPaint extends WebGLFilterBase {
   constructor() {
-    super(FRAGMENT_SHADER_SOURCE, []);
+    super(FRAGMENT_SHADER_SOURCE, [
+      {name: "paintColor", type: "vec3"},
+    ]);
   }
 
-  static get singleton(): FilterIdentity {
+  static get singleton(): FilterPaint {
     if (typeof _singleton === "undefined") {
-      _singleton = new FilterIdentity();
+      _singleton = new FilterPaint();
     }
     return _singleton;
   }
 }
 
-export default FilterIdentity;
+export default FilterPaint;
