@@ -70,7 +70,6 @@ const toolCursors: {[tool: string]: {cursor: string}} = {
   "select": {cursor: `url(${getAssetUrl("asset/cursor-select.png")}) 7 7, auto`},
 }
 
-const HISTORY_MAX = 20;
 class HistoryNode {
   action: CanvasAction;
   undo: CanvasAction;
@@ -86,13 +85,13 @@ class HistoryNode {
     this.undo.dispose();
   }
 
-  mergeWith(node: HistoryNode): HistoryNode | undefined {
+  mergeWith(node: HistoryNode, strokeMergeTime: number): HistoryNode | undefined {
     const a0 = node.action;
     const a1 = this.action;
     const u0 = node.undo;
     const u1 = this.undo;
-    const mergeableTime = 3000;
-    if (node.time - this.time < mergeableTime) {
+    const mergeTime = 3000;
+    if (node.time - this.time < mergeTime) {
       // レイヤー透明度
       if (
         a0 instanceof CanvasAction.ChangeLayerOpacity &&
@@ -137,7 +136,7 @@ class HistoryNode {
     if (
       a0 instanceof CanvasAction.DrawPath &&
       a1 instanceof CanvasAction.DrawPath &&
-      a1.startTime - a0.finishTime <= 200 &&
+      a1.startTime - a0.finishTime <= strokeMergeTime &&
       a0.layer == a1.layer
     ) {
       const action = new CanvasAction.Merge(a0, a1);
@@ -149,7 +148,7 @@ class HistoryNode {
       a1 instanceof CanvasAction.DrawPath &&
       u0 instanceof CanvasAction.Merge &&
       a0.last instanceof CanvasAction.DrawPath &&
-      a1.startTime - a0.last.finishTime <= 200 &&
+      a1.startTime - a0.last.finishTime <= strokeMergeTime &&
       a0.last.layer == a1.layer
     ) {
       a0.add(a1);
@@ -188,6 +187,8 @@ export class TegakiCanvas extends Subject {
 
   private _undoStack: Stack<HistoryNode> = new Stack();
   private _redoStack: Stack<HistoryNode> = new Stack();
+  private _undoMax: number = 20;
+  private _strokeMergeTime: number = 150;
 
   private _strokeManager: StrokeManager = new StrokeManager();
   private _spoitContext: OffscreenCanvasRenderingContext2D;
@@ -397,6 +398,26 @@ export class TegakiCanvas extends Subject {
    */
   get redoLength() {
     return this._redoStack.length;
+  }
+
+  get undoMax() {
+    return this._undoMax;
+  }
+  set undoMax(value: number) {
+    if (value < 0) {
+      return;
+    }
+    this._undoMax = value;
+  }
+
+  get strokeMergeTime() {
+    return this._strokeMergeTime;
+  }
+  set strokeMergeTime(value: number) {
+    if (value < 0) {
+      return;
+    }
+    this._strokeMergeTime = value;
   }
 
   /**
@@ -1437,7 +1458,7 @@ export class TegakiCanvas extends Subject {
     if (this._redoStack.length == 0) {
       const lastNode = this._undoStack.peek();
       if (typeof lastNode !== "undefined") {
-        const mergedNode = node.mergeWith(lastNode);
+        const mergedNode = node.mergeWith(lastNode, this.strokeMergeTime);
         if (typeof mergedNode !== "undefined") {
           this._undoStack.pop();
           node = mergedNode;
@@ -1448,7 +1469,7 @@ export class TegakiCanvas extends Subject {
     this._undoStack.push(node);
 
     // delete the oldest history
-    if (this._undoStack.length > HISTORY_MAX) {
+    if (this._undoStack.length > this.undoMax) {
       let oldestNode = this._undoStack.shift();
       oldestNode.dispose();
     }
