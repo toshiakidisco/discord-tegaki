@@ -79,6 +79,26 @@ export class Rect implements Rect.Immutable {
     return this;
   }
 
+  union(rect: Rect.Immutable): this {
+    return this.union4f(rect.x, rect.y, rect.width, rect.height);
+  }
+
+  union4f(x: number, y: number, width: number, height: number): this {
+    if (width == 0 || height == 0) {
+      return this;
+    }
+    else if (this.isEmpty()) {
+      return this.set4f(x, y, width, height);
+    }
+    const right =  Math.max(this.x + this.width, x + width);
+    const bottom =  Math.max(this.y + this.height, y + height);
+    this.x = Math.min(this.x, x);
+    this.y = Math.min(this.y, y);
+    this.width = right - this.x;
+    this.height = bottom - this.y;
+    return this;
+  }
+
   intersection(r: Rect.Immutable): this  {
     return this.intersection4f(r.x, r.y, r.width, r.height);
   }
