@@ -38,6 +38,13 @@ export class ApplicationSettings extends Subject {
     return this.observables.strokeMergeTime.value;
   }
 
+  sync() {
+    for (const key in this.observables) {
+      const obaservable = (this.observables as Observalbles)[key];
+      obaservable.sync();
+    }
+  }
+
   serialize(): ApplicationSettingsInit {
     return {
       undoMax: this.undoMax,
