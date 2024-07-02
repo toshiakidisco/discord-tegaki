@@ -1,6 +1,6 @@
 {
   "name": "DiscoTegaki",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "manifest_version": 3,
   "description": "Add a small canvas to Discord.",
   "content_scripts": [
