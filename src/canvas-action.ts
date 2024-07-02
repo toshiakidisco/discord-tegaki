@@ -7,12 +7,22 @@ import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import CanvasRegion from "./canvas-region";
 
-export type BlushPath = {x: number; y: number;}[];
+export type BlushPath = {x: number; y: number; time: number}[];
 
-export type BlushState = {
+export class BlushState {
   size: number;
   readonly color: Color;
   composite: GlobalCompositeOperation;
+
+  constructor(size: number, color: Color.Immutable, composite: GlobalCompositeOperation) {
+    this.size = size;
+    this.color = color.copy();
+    this.composite = composite;
+  }
+
+  eqauls(blush: BlushState): boolean {
+    return this.size == blush.size && this.color.equals(blush.color) && this.composite == blush.composite;
+  }
 }
 
 const pool = ObjectPool.sharedPoolFor(Offscreen);
@@ -53,6 +63,22 @@ export namespace CanvasAction {
         action.exec();
       }
     };
+
+    add(action: CanvasAction) {
+      this.#actions.push(action);
+    }
+
+    unshift(action: CanvasAction) {
+      this.#actions.unshift(action);
+    }
+
+    get first(): CanvasAction {
+      return this.#actions[0];
+    }
+
+    get last(): CanvasAction {
+      return this.#actions[this.#actions.length - 1];
+    }
 
     dispose(): void {
       for (const action of this.#actions) {
@@ -344,8 +370,7 @@ export namespace CanvasAction {
   export class DrawImage extends CanvasAction {
     private _layer: Layer;
     private _image: Offscreen;
-    private _dx: number;
-    private _dy: number;
+    private _rect: Rect;
     private _copy: boolean;
 
     constructor(
@@ -360,17 +385,20 @@ export namespace CanvasAction {
       this._image.width = sw;
       this._image.height = sh;
       this._image.context.drawImage(image.canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-      this._dx = dx;
-      this._dy = dy;
+      this._rect = new Rect(dx, dy, sw, sh);
       this._copy = copy;
+    }
+
+    get rect(): Rect.Immutable {
+      return this._rect;
     }
 
     exec(): void {
       const ctx = this._layer.context;
       if (this._copy) {
-        ctx.clearRect(this._dx, this._dy, this._image.width, this._image.height);
+        ctx.clearRect(this._rect.x, this._rect.y, this._rect.width, this._rect.height);
       }
-      ctx.drawImage(this._image.canvas, this._dx, this._dy);
+      ctx.drawImage(this._image.canvas, this._rect.x, this._rect.y);
       this._layer.notify("update", this._layer);
     }
 
@@ -417,19 +445,50 @@ export namespace CanvasAction {
   export class DrawPath extends CanvasAction {
     private _layer: Layer;
     private _blush: BlushState;
-    private _path: BlushPath;
+    private _pathList: BlushPath[];
 
     constructor(canvas: TegakiCanvas, layer: Layer, blush: BlushState, path: BlushPath) {
       super(canvas);
       this._layer = layer;
       this._blush = blush;
-      this._path = Array.from(path);    
+      this._pathList = [Array.from(path)];    
+    }
+
+    get pathList() {
+      return this._pathList;
+    }
+
+    addPath(path: BlushPath) {
+      this._pathList.push(Array.from(path));
+    }
+
+    addPathList(pathList: BlushPath[]) {
+      this._pathList.push(...pathList);
+    }
+
+    get startTime() {
+      return this._pathList[0][0].time;
+    }
+
+    get finishTime() {
+      const lastPath = this._pathList[this._pathList.length - 1];
+      return lastPath[lastPath.length - 1].time;
+    }
+
+    get layer(): Layer {
+      return this._layer;
+    }
+
+    get blush(): BlushState {
+      return this._blush;
     }
 
     exec() {
       const ctx = this._layer.context;
       this.canvas.clipBegin(ctx);
-      drawPath(ctx, this._blush, this._path, this.canvas.innerScale);
+      for (const path of this._pathList) {
+        drawPath(ctx, this._blush, path, this.canvas.innerScale);
+      }
       this.canvas.clipEnd(ctx);
       this._layer.notify("update", this._layer);
     }

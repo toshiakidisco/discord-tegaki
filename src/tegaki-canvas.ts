@@ -91,44 +91,70 @@ class HistoryNode {
     const a1 = this.action;
     const u0 = node.undo;
     const u1 = this.undo;
-    // レイヤー透明度
+    const mergeableTime = 3000;
+    if (node.time - this.time < mergeableTime) {
+      // レイヤー透明度
+      if (
+        a0 instanceof CanvasAction.ChangeLayerOpacity &&
+        a1 instanceof CanvasAction.ChangeLayerOpacity &&
+        u0 instanceof CanvasAction.ChangeLayerOpacity &&
+        u1 instanceof CanvasAction.ChangeLayerOpacity &&
+        a0.layer == a1.layer
+      ) {
+        return new HistoryNode(
+          new CanvasAction.ChangeLayerOpacity(a0.canvas, a0.layer, a1.opacity),
+          new CanvasAction.ChangeLayerOpacity(a0.canvas, a0.layer, u0.opacity)
+        );
+      }
+      // 背景色
+      else if (
+        a0 instanceof CanvasAction.ChangeBackgroundColor &&
+        a1 instanceof CanvasAction.ChangeBackgroundColor &&
+        u0 instanceof CanvasAction.ChangeBackgroundColor &&
+        u1 instanceof CanvasAction.ChangeBackgroundColor
+      ) {
+        return new HistoryNode(
+          new CanvasAction.ChangeBackgroundColor(a0.canvas, a1.color),
+          new CanvasAction.ChangeBackgroundColor(a0.canvas, u0.color)
+        );
+      }
+      // 選択範囲移動
+      else if (
+        a0 instanceof CanvasAction.SelectMove &&
+        a1 instanceof CanvasAction.SelectMove &&
+        u0 instanceof CanvasAction.SelectMove &&
+        u1 instanceof CanvasAction.SelectMove
+      ) {
+        const dx = a0.x + a1.x;
+        const dy = a0.y + a1.y;
+        return new HistoryNode(
+          new CanvasAction.SelectMove(a0.canvas, dx, dy),
+          new CanvasAction.SelectMove(a0.canvas, -dx, -dy)
+        );
+      }
+    }
+    // ストローク
     if (
-      a0 instanceof CanvasAction.ChangeLayerOpacity &&
-      a1 instanceof CanvasAction.ChangeLayerOpacity &&
-      u0 instanceof CanvasAction.ChangeLayerOpacity &&
-      u1 instanceof CanvasAction.ChangeLayerOpacity &&
+      a0 instanceof CanvasAction.DrawPath &&
+      a1 instanceof CanvasAction.DrawPath &&
+      a1.startTime - a0.finishTime <= 200 &&
       a0.layer == a1.layer
     ) {
-      return new HistoryNode(
-        new CanvasAction.ChangeLayerOpacity(a0.canvas, a0.layer, a1.opacity),
-        new CanvasAction.ChangeLayerOpacity(a0.canvas, a0.layer, u0.opacity)
-      );
+      const action = new CanvasAction.Merge(a0, a1);
+      const undo = new CanvasAction.Merge(u1, u0);
+      return new HistoryNode(action, undo);
     }
-    // 背景色
     else if (
-      a0 instanceof CanvasAction.ChangeBackgroundColor &&
-      a1 instanceof CanvasAction.ChangeBackgroundColor &&
-      u0 instanceof CanvasAction.ChangeBackgroundColor &&
-      u1 instanceof CanvasAction.ChangeBackgroundColor
+      a0 instanceof CanvasAction.Merge &&
+      a1 instanceof CanvasAction.DrawPath &&
+      u0 instanceof CanvasAction.Merge &&
+      a0.last instanceof CanvasAction.DrawPath &&
+      a1.startTime - a0.last.finishTime <= 200 &&
+      a0.last.layer == a1.layer
     ) {
-      return new HistoryNode(
-        new CanvasAction.ChangeBackgroundColor(a0.canvas, a1.color),
-        new CanvasAction.ChangeBackgroundColor(a0.canvas, u0.color)
-      );
-    }
-    // 選択範囲移動
-    else if (
-      a0 instanceof CanvasAction.SelectMove &&
-      a1 instanceof CanvasAction.SelectMove &&
-      u0 instanceof CanvasAction.SelectMove &&
-      u1 instanceof CanvasAction.SelectMove
-    ) {
-      const dx = a0.x + a1.x;
-      const dy = a0.y + a1.y;
-      return new HistoryNode(
-        new CanvasAction.SelectMove(a0.canvas, dx, dy),
-        new CanvasAction.SelectMove(a0.canvas, -dx, -dy)
-      );
+      a0.add(a1);
+      u0.unshift(u1);
+      return new HistoryNode(a0, u0);
     }
   }
 };
@@ -1410,7 +1436,7 @@ export class TegakiCanvas extends Subject {
     // 短期間の操作の場合、直近の履歴とマージ
     if (this._redoStack.length == 0) {
       const lastNode = this._undoStack.peek();
-      if (typeof lastNode !== "undefined" && node.time - lastNode.time < 3000) {
+      if (typeof lastNode !== "undefined") {
         const mergedNode = node.mergeWith(lastNode);
         if (typeof mergedNode !== "undefined") {
           this._undoStack.pop();

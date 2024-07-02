@@ -134,7 +134,7 @@ export class Rect implements Rect.Immutable {
    * 指定した矩形がこの矩形に含まれているかを返す
    * @param rect 
    */
-  isRectIn(rect: Rect.Immutable): boolean {
+  contains(rect: Rect.Immutable): boolean {
     return this.x <= rect.x && this.y <= rect.y && rect.x + rect.width <= this.x + this.width && rect.y + rect.height <= this.y + this.height;
   }
 
@@ -162,7 +162,7 @@ export namespace Rect {
     isEmpty(): boolean;
     copy(): Rect;
     isPointIn2f(x: number, y: number): boolean;
-    isRectIn(rect: Rect.Immutable): boolean;
+    contains(rect: Rect.Immutable): boolean;
   }
 }
 
