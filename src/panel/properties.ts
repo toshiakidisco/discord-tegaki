@@ -144,6 +144,7 @@ export class PanelProperties extends Panel {
 
   addItem(item: PanelPropertiesItem<any>) {
     this.contents.appendChild(item.element);
+    return item;
   }
 }
 

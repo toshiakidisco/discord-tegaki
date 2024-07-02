@@ -1,3 +1,9 @@
+/*
+ * マスク領域の拡張フィルタ
+ * 表示領域の方が拡大される
+ * 最大5pxなので、それ以上拡張する場合は繰り返し適応する
+ * size: float 拡大量(px)
+ */
 import WebGLFilterBase from "./webgl-filter-base";
 
 const FRAGMENT_SHADER_SOURCE = `

@@ -46,7 +46,7 @@ export class StrokeManager extends Subject{
     this._sx = x;
     this._sy = y;
     this._samples.fill({x: x, y: y});
-    this._path = [{x: x, y: y}];
+    this._path = [{x: x, y: y, time: Date.now()}];
     this._updateTimer = window.setInterval(this._updateCallback, 1000/60);
   }
 
@@ -72,7 +72,7 @@ export class StrokeManager extends Subject{
     this._sx += dx;
     this._sy += dy;
 
-    this._path.push({x: this._sx, y: this._sy});
+    this._path.push({x: this._sx, y: this._sy, time: Date.now()});
     this.notify("update", this);
   }
 
@@ -83,7 +83,10 @@ export class StrokeManager extends Subject{
 
   finish() {
     if (this._sx != this._px || this._sy != this._py) {
-      this._path.push({x: this._px, y: this._py});
+      this._path.push({x: this._px, y: this._py, time: Date.now()});
+    }
+    else {
+      this._path[this._path.length - 1].time = Date.now();
     }
     window.clearInterval(this._updateTimer);
     this._updateTimer = 0;

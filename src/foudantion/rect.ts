@@ -57,6 +57,10 @@ export class Rect implements Rect.Immutable {
     return this;
   }
 
+  /**
+   * 矩形の4点の座標が整数となるように、小数点以下の切り捨て
+   * @returns 
+   */
   floor(): this {
     const right = (this.x + this.width) | 0;
     const bottom = (this.y + this.height) | 0;
@@ -76,6 +80,26 @@ export class Rect implements Rect.Immutable {
       this.y += this.height;
       this.height = -this.height;
     }
+    return this;
+  }
+
+  union(rect: Rect.Immutable): this {
+    return this.union4f(rect.x, rect.y, rect.width, rect.height);
+  }
+
+  union4f(x: number, y: number, width: number, height: number): this {
+    if (width == 0 || height == 0) {
+      return this;
+    }
+    else if (this.isEmpty()) {
+      return this.set4f(x, y, width, height);
+    }
+    const right =  Math.max(this.x + this.width, x + width);
+    const bottom =  Math.max(this.y + this.height, y + height);
+    this.x = Math.min(this.x, x);
+    this.y = Math.min(this.y, y);
+    this.width = right - this.x;
+    this.height = bottom - this.y;
     return this;
   }
 
@@ -106,12 +130,24 @@ export class Rect implements Rect.Immutable {
     return this.x <= x && this.y <= y && x < this.x + this.width && y < this.y + this.height;
   }
 
+  /**
+   * 指定した矩形がこの矩形に含まれているかを返す
+   * @param rect 
+   */
+  contains(rect: Rect.Immutable): boolean {
+    return this.x <= rect.x && this.y <= rect.y && rect.x + rect.width <= this.x + this.width && rect.y + rect.height <= this.y + this.height;
+  }
 
   toString(): string {
     return `{x: ${this.x}, y: ${this.y}, width: ${this.width}, height: ${this.height}}`
   }
 
-  static intersection(r1: Rect.Immutable, r2: Rect.Immutable) {
+  static union(r1: Rect.Immutable, r2: Rect.Immutable): Rect {
+    const rect = new Rect(r1.x, r1.y, r1.width, r1.height);
+    return rect.union(r2);
+  }
+
+  static intersection(r1: Rect.Immutable, r2: Rect.Immutable): Rect {
     const rect = new Rect(r1.x, r1.y, r1.width, r1.height);
     return rect.intersection(r2);
   }
@@ -126,6 +162,7 @@ export namespace Rect {
     isEmpty(): boolean;
     copy(): Rect;
     isPointIn2f(x: number, y: number): boolean;
+    contains(rect: Rect.Immutable): boolean;
   }
 }
 

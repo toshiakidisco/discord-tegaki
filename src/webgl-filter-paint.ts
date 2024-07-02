@@ -1,3 +1,7 @@
+/*
+ * マスク上の塗りつぶしフィルタ
+ * paintColor: vec3 塗りつぶし色
+ */
 import WebGLFilterBase from "./webgl-filter-base";
 
 const FRAGMENT_SHADER_SOURCE = `

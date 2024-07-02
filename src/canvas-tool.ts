@@ -1,4 +1,4 @@
-import { drawPath, getPathBoundingRect } from "./canvas-action";
+import { BlushState, drawPath, getPathBoundingRect } from "./canvas-action";
 import Layer from "./canvas-layer";
 import Offscreen from "./canvas-offscreen";
 import CanvasRegion from "./canvas-region";
@@ -150,11 +150,10 @@ export namespace CanvasTool {
     }
 
     finishDraw(canvas: TegakiCanvas) {
-      canvas.drawPath(canvas.strokePath, {
-        size: this.size,
-        color: canvas.foreColor.copy(),
-        composite: this.composite
-      });
+      canvas.drawPath(
+        canvas.strokePath,
+        new BlushState(this.size, canvas.foreColor, this.composite)
+      );
     }
 
     override get hasPreview(): boolean {
@@ -162,11 +161,11 @@ export namespace CanvasTool {
     }
     override renderPreview(canvas: TegakiCanvas, layer: Layer, offscreen: Offscreen): void {
       canvas.clipBegin(offscreen.context);
-      drawPath(offscreen.context, {
-        color: canvas.foreColor.copy(),
-        size: this.size,
-        composite: this.composite
-      }, canvas.strokePath);
+      drawPath(
+        offscreen.context, 
+        new BlushState(this.size, canvas.foreColor, this.composite),
+        canvas.strokePath
+      );
       canvas.clipEnd(offscreen.context);
     }
   }
@@ -402,7 +401,7 @@ export namespace CanvasTool {
     }
   }
   export namespace Bucket {
-    export const toleranceMax = 80;
+    export const toleranceMax = 200;
   }
 }
 
