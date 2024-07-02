@@ -423,6 +423,7 @@ class DiscordTegaki {
       const data = this._settings.serialize();
       storage.local.set("tegaki-settings", data);
     });
+    this._settings.sync();
     
     // Connect palette to ObservableValue
     this._palettePenSize.addObserver(this, "change", (n: number) => {
