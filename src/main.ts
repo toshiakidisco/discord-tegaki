@@ -19,10 +19,12 @@ import "./scss/main.scss";
 import PanelBucket from "./panel/bucket";
 import storage from "./storage";
 import TegakiCanvasDocument from "./canvas-document";
-import { JsonObject, check } from "./foudantion/json";
+import { JsonObject, parse } from "./foudantion/json";
 import shortcut from "./shortcut";
 import View from "./foudantion/view";
 import WebGLFilter from "./webgl-filter";
+import ApplicationSettings, { ApplicationSettingsInit } from "./settings";
+import PanelSettings from "./panel/settings";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -117,11 +119,13 @@ class DiscordTegaki {
   private _outlets: Outlets;
   private _canvas: TegakiCanvas;
   private _state: State;
+  private _settings: ApplicationSettings;
 
   private _panelColor: PanelColor;
   private _palettePenSize: SizeSelector;
   private _panelLayer: PanelLayer;
   private _panelBucket: PanelBucket;
+  private _panelSettings: PanelSettings;
   private _lineSizeDisplay: LineSizeDisplay = new LineSizeDisplay();
 
   private _root: HTMLElement;
@@ -143,7 +147,8 @@ class DiscordTegaki {
   private _autoSaveInterval: number = 5; // Minutes
   private _autoSaveTimer: number = 0;
 
-  constructor() {
+  constructor(settings: ApplicationSettingsInit | null) {
+    this._settings = new ApplicationSettings(settings || ApplicationSettings.initialSettings);
     this._state = new State();
     this._state.tool.value = this._toolPen;
     this._outlets = {};
@@ -188,7 +193,7 @@ class DiscordTegaki {
     this._palettePenSize = new SizeSelector(this._root, 1);
     this._panelLayer = new PanelLayer(this._root, this._canvas);
     this._panelBucket = new PanelBucket(this._root, this._toolBucket);
-
+    this._panelSettings = new PanelSettings(this._root, this._settings);
 
     this.resetStatus();
     
@@ -406,6 +411,18 @@ class DiscordTegaki {
       this._state.backgroundColor.value = value;
     });
     this._state.backgroundColor.sync();
+
+    // Settings to Canvas
+    this._settings.observables.undoMax.addObserver(this, "change", (value) => {
+      this._canvas.undoMax = value;
+    });
+    this._settings.observables.strokeMergeTime.addObserver(this, "change", (value) => {
+      this._canvas.strokeMergeTime = value;
+    });
+    this._settings.addObserver(this, "change", () => {
+      const data = this._settings.serialize();
+      storage.local.set("tegaki-settings", data);
+    });
     
     // Connect palette to ObservableValue
     this._palettePenSize.addObserver(this, "change", (n: number) => {
@@ -431,7 +448,7 @@ class DiscordTegaki {
     this.updateUndoRedoIcon();
     // ページクローズ時自動保存
     document.addEventListener("visibilitychange", () => {
-      this.forceAutoSave();
+      this.onQuit();
     });
     // スポイト後の色更新
     this._canvas.addObserver(this, "spoit", (ev: {color: Color.Immutable}) => {
@@ -455,7 +472,6 @@ class DiscordTegaki {
     if (this._autoSaveTimer == 0) {
       return;
     }
-    console.log("forceAutoSave");
     await this.autoSave();
     this._autoSaveTimer = 0;
   }
@@ -543,6 +559,13 @@ class DiscordTegaki {
   }
 
   #initPhase : "none" | "initializing" | "initialized" = "none";
+  /**
+   * アプリケーションウィンドウを開く。
+   * 初回は初期化処理が走る。
+   * @param x
+   * @param y
+   * @returns 
+   */
   async open(x?: number, y?: number) {
     if (this.#initPhase == "initializing") {
       return;
@@ -552,7 +575,7 @@ class DiscordTegaki {
       if (data != null) {
         this.#initPhase = "initializing";
         try {
-          check(data, TegakiCanvasDocument.structure);
+          parse(data, TegakiCanvasDocument.structure);
           const doc = await TegakiCanvasDocument.deserialize(data as JsonObject); 
           this._canvas.document = doc;
         }
@@ -580,6 +603,10 @@ class DiscordTegaki {
   // イベントハンドラ定義
   // --------------------------------------------------
 
+  onQuit() {
+    this.forceAutoSave();
+  }
+
   onClickNew(ev: Event) {
     this.resetCanvas();
   }
@@ -587,6 +614,14 @@ class DiscordTegaki {
   onClickSave(ev: Event) {
     this._canvas.download();
     this.clearAutoSave();
+  }
+
+  onClickSettings(ev: Event) {
+    const e = ev.target as HTMLElement;
+    const r = e.getBoundingClientRect();
+    this._panelSettings.open(r.right, r.y);
+    ev.stopPropagation();
+    ev.preventDefault();
   }
 
   onClickZoomIn(ev: Event) {
@@ -938,15 +973,20 @@ class DiscordTegaki {
   }
 }
 
+async function launch() {
+  const settings = await ApplicationSettings.load("tegaki-settings");
+  const app = new DiscordTegaki(settings);
+  if (! isRunnningOnExtension) {
+    app.open(0, 0);
+  }
+}
+
 if (
   (! isRunnningOnExtension) || 
   location.href.startsWith("https://discord.com/app") ||
   location.href.startsWith("https://discord.com/channels")
 ) {
-  const app = new DiscordTegaki();
-  if (! isRunnningOnExtension) {
-    app.open(0, 0);
-  }
+  launch();
 
-  console.log("[Discord Tegaki]launched");
+  console.log("[Discord Tegaki]Launched");
 }
