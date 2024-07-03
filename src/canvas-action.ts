@@ -353,6 +353,7 @@ export namespace CanvasAction {
       const img = pool.get();
       const rect = this.canvas.putSelectedImageInto(img, this.#layer);
       if (typeof rect === "undefined") {
+        pool.return(img);
         return;
       }
       const layer = this.#layer;
