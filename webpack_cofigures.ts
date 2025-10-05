@@ -50,7 +50,7 @@ configures["extension"] = {
   target: 'web',
   entry: {
     "dist/main": [
-      './src/main.ts',
+      './src/extension.ts',
     ]
   },
   plugins: [
@@ -81,8 +81,8 @@ configures["extension"] = {
     
     target: 'web',
     entry: {
-      "main": [
-        './src/main.ts',
+      "app": [
+        './src/module.ts',
       ]
     },
     output: {
@@ -100,6 +100,39 @@ configures["extension"] = {
           {
             from: path.resolve(__dirname, "src/index.html"),
             to: path.resolve(__dirname, dstDir, "index.html"),
+          },
+        ],
+      }),
+      new MiniCssExtractPlugin({
+        filename: `style.css`,
+      }),
+    ],
+  }
+}
+
+// Module
+{
+  const dstDir = "module";
+  configures["module"] = {
+    ...common,
+    
+    target: 'web',
+    entry: {
+      "app": [
+        './src/module.ts',
+      ]
+    },
+    output: {
+      path: path.resolve(__dirname, dstDir),
+      publicPath: './',
+    },
+    plugins: [
+      new CopyPlugin({
+        patterns: [
+          {
+            context: path.resolve(__dirname, "src/asset"),
+            from: path.resolve(__dirname, "src/asset"),
+            to: path.resolve(__dirname, dstDir, "asset"),
           },
         ],
       }),

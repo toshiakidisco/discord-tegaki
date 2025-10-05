@@ -1,11 +1,14 @@
 {
   "name": "DiscoTegaki",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "manifest_version": 3,
-  "description": "Add a small canvas to Discord.",
+  "description": "Add a small canvas to Discord and other social media sites.",
   "content_scripts": [
     {
-      "matches": ["https://discord.com/*"],
+      "matches": [
+        "https://discord.com/*",
+        "https://mebuki.moe/*"
+      ],
       "css": ["style.css"],
       "js": ["main.js"]
     }
@@ -15,8 +18,11 @@
   ],
   "web_accessible_resources": [
     {
-      "matches": ["https://discord.com/*"],
-        "resources": ["asset/*"]
+      "matches": [
+        "https://discord.com/*",
+        "https://mebuki.moe/*"
+      ],
+      "resources": ["asset/*"]
     }
   ],
   "icons": {

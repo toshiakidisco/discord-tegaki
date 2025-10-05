@@ -17,8 +17,12 @@ switch (process.env.NODE_ENV) {
     configs.push(configures["pages"]);
     break;
   }
+  case "module": {
+    configs.push(configures["module"]);
+    break;
+  }
   default: {
-    configs.push(configures["extension"]);
+    configs.push(configures["extension"], configures["module"]);
   }
 }
 
