@@ -71,7 +71,7 @@ $ npm run build
 <script>
 let discoTegaki;
 document.addEventListener("DOMContentLoaded", async () => {
-  const discoTegaki = await DiscoTegaki.launch("/disco-tegaki");
+  discoTegaki = await DiscoTegaki.launch("/disco-tegaki");
 });
 </script>
 ```
