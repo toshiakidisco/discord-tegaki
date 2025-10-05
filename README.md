@@ -19,7 +19,7 @@ Google Chrome, Edgeで動作確認済み。
 
 自由にお絵かきしたあとは「コピー」ボタンでクリップボードにコピーができるので、そのまま投稿欄にペーストすることが可能です。
 
-![手書きボタン](img/manual-01-copy-button.jpg)
+![コピーボタン](img/manual-01-copy-button.jpg)
 
 ### ショートカット
 - Ctrl + Z: 取り消し
@@ -52,14 +52,49 @@ Google Chrome, Edgeで動作確認済み。
 ![レイヤーパネル](img/manual-02-layer.jpg)
 
 
-## ビルド
+## 開発者向け
+### ビルド
 要 Node.js + npm
 ```
 $ npm install
 $ npm run build
 ```
 
+### Webサイトへの組み込み方法
+ビルド後、module フォルダの中身をWebサイトへアップロードしてください。
+
+モジュールの読み込みコード
+```html
+<!-- /disco-tegaki にアップロードした場合 -->
+<link href="/disco-tegaki/style.css" rel="stylesheet">
+<script src="/disco-tegaki/app.js" defer></script>
+<script>
+let discoTegaki;
+document.addEventListener("DOMContentLoaded", async () => {
+  const discoTegaki = await DiscoTegaki.launch("/disco-tegaki");
+});
+</script>
+```
+
+読み込み後、アプリのウィンドウを開くコード
+```JavaScript
+button.addEventListener("click", () => {
+  if (! discoTegaki) {
+    console.warn("DiscoTegaki is not loaded.");
+    return;
+  }
+  // 表示する XY座標を渡す
+  // 省略時は 前回表示位置 or 画面中央
+  discoTegaki.open(0, 0); 
+});
+```
+
+
+
 ## リリースノート
+v1.4.4
+- めぶき☆ちゃんねる への対応
+
 v1.4.3
 - 細かい頻度のブラシ操作の取り消しを1回にまとめられるように
 - 環境設定機能の追加

@@ -1,12 +1,13 @@
 {
   "name": "@toshiakidisco/discord-tegaki",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "",
   "main": "dist/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "main": "node dist/main.js",
     "build": "rimraf dist && cross-env NODE_ENV=\"production\" webpack",
+    "build-module": "rimraf disco-tegaki && cross-env NODE_ENV=\"module\" DT_URL=$npm_config_url webpack",
     "build-pages": "rimraf docs && cross-env NODE_ENV=\"pages\" webpack",
     "dev": "rimraf dist && cross-env NODE_ENV=\"development\" webpack --progress"
   },
