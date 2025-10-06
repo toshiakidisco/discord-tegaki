@@ -36,7 +36,13 @@ export abstract class CanvasAction {
     this.canvas = canvas;
   }
 
+  /**
+   * アクション実行時の処理
+   */
   abstract exec(): void;
+  /**
+   * リソース解放処理。履歴からアクションが消去される再に呼ばれる.
+   */
   dispose(): void {};
 }
 
@@ -49,7 +55,7 @@ export namespace CanvasAction {
   }
 
   /**
-   * 操作: ドキュメント変更
+   * 操作: 複数の操作を結合して一括して行う
    */
   export class Merge extends CanvasAction {
     #actions: CanvasAction[];
@@ -222,17 +228,20 @@ export namespace CanvasAction {
     };
   }
 
+  /**
+   * キャンバス選択範囲の掴み状態
+   */
   export class GrabState {
-    // 掴み対象レイヤー
+    /** 掴み対象レイヤー */
     readonly layer: Layer;
-    // 掴み開始時のレイヤー画像
+    /** 掴み開始時のレイヤー画像 */
     readonly backupImage: Offscreen;
-    // 掴み範囲の画像
+    /** 掴み範囲の画像 */
     readonly image: Offscreen;
-    // 掴み開始時の選択範囲座標
+    /** 掴み開始時の選択範囲座標 */
     startX: number;
     startY: number;
-    // 掴みによる移動距離
+    /** 掴みによる移動距離 */
     offsetX: number = 0;
     offsetY: number = 0;
 
@@ -290,7 +299,7 @@ export namespace CanvasAction {
       console.log("SelectGrabCancel exec");
       // 掴み状態を無効に
       this.canvas.grabState = null;
-      // 対処レイヤーを元の状態に戻し
+      // 対象レイヤーを元の状態に戻し
       const layer = this.#grabState.layer;
       layer.set(this.#grabState.backupImage);
       // 選択範囲も掴み開始位置に戻す

@@ -4,21 +4,25 @@ import Subject from "./foudantion/subject";
 
 type Point = {x: number; y: number;};
 
+/**
+ * ストロークへの手振れ補正管理
+ */
 export class StrokeManager extends Subject{
   private _updateTimer: number = 0;
   private _updateCallback = this.update.bind(this);
 
-  // Pointer Position
+  // 実際のペンの座標
   private _px: number = 0;
   private _py: number = 0;
-  // Stabilizer Position
+  // 補正されたペン(スタビライザ)の座標
   private _sx: number = 0;
   private _sy: number = 0;
 
   private _samplesNum = 3;
-  private _weights;
-  private _samples:FiniteStack<Point>;
+  private _weights: number[];
+  private _samples: FiniteStack<Point>;
 
+  /** 補正されたストロークパス */
   private _path: BlushPath = [];
 
   constructor() {

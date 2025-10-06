@@ -18,6 +18,9 @@ const toolCursors: {[tool: string]: CursorInfo} = {
   "spoit": {x: 1, y: 14},
 }
 
+/**
+ * ツールの抽象化クラス
+ */
 export abstract class CanvasTool {
   abstract get name(): string;
   abstract get size(): number;
@@ -27,6 +30,7 @@ export abstract class CanvasTool {
     return "none";
   }
 
+  /** サイズ変更に対応しているか */
   get resizeable(): boolean {
     return false;
   }
@@ -34,24 +38,31 @@ export abstract class CanvasTool {
     return true;
   }
 
+  /** 操作中にストロークを記録するか */
   get hasStroke(): boolean {
     return false;
   }
 
+  /** 操作中に描画結果をプレビューするか */
   get hasPreview(): boolean {
     return false;
   }
+  /** 操作中のプレビュー描画処理 */
   renderPreview(canvas: TegakiCanvas, layer: Layer, offscreen: Offscreen): void {}
   
+  /** 操作中にキャンバスのオーバーレイ部に描画を行うか(e.g. 選択ツールの選択領域) */
   get hasOverlay(): boolean {
     return false;
   }
+  /** 操作中のオーバーレイ描画処理 */
   renderOverlay(canvas: TegakiCanvas, context: CanvasRenderingContext2D): void {}
 
+  /** 非表示レイヤーが選択中でも利用可能か */
   get isEnabledForHiddenLayer(): boolean {
     return false;
   }
 
+  // 操作時のイベントハンドラ群
   onDown(canvas: TegakiCanvas, x: number, y: number): void {}
   onDrag(canvas: TegakiCanvas, x: number, y: number): void {}
   onUp(canvas: TegakiCanvas, x: number, y: number): void {}
@@ -209,6 +220,9 @@ export namespace CanvasTool {
     #oldRegion: CanvasRegion | null = null;
     #grabbedImage: Offscreen | null = null;
 
+    /**
+     * ツールの状態. none: 未操作, select: 選択中, grab: 画像掴み中
+     */
     #mode: "none" | "select" | "grab" = "select";
 
     override get name() {

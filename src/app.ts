@@ -279,8 +279,8 @@ export class DiscordTegaki {
         if (ev.pointerId != _activePointer) {
           return;
         }
-        let right = clamp(ev.clientX - _pointerOffset.x, 0, window.innerWidth);
-        let bottom = clamp(ev.clientY - _pointerOffset.y, 0, window.innerHeight);
+        let right = clamp(ev.clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
+        let bottom = clamp(ev.clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
         // 右下座標の増分
         let dw = right - _initialRect.right;
         let dh = bottom - _initialRect.bottom;
@@ -309,8 +309,8 @@ export class DiscordTegaki {
           resize.setPointerCapture(_activePointer);
           _activePointer = null;
         }
-        let right = clamp(ev.clientX - _pointerOffset.x, 0, window.innerWidth);
-        let bottom = clamp(ev.clientY - _pointerOffset.y, 0, window.innerHeight);
+        let right = clamp(ev.clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
+        let bottom = clamp(ev.clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
         // 右下座標の増分
         let dw = right - _initialRect.right;
         let dh = bottom - _initialRect.bottom;
@@ -597,8 +597,8 @@ export class DiscordTegaki {
       (typeof x === "undefined" || typeof y === "undefined") &&
       win.style.left == ""
     ) {
-      x = window.innerWidth/2 - win.clientWidth/2;
-      y = window.innerHeight/2 - win.clientHeight/2
+      x = document.documentElement.clientWidth/2 - win.clientWidth/2;
+      y = document.documentElement.clientHeight/2 - win.clientHeight/2
       win.style.left = `${x}px`;
       win.style.top = `${y}px`;
     }
@@ -608,6 +608,10 @@ export class DiscordTegaki {
     }
     win.focus();
     this.adjustWindow();
+  }
+
+  close() {
+    this._window.style.display = "none";
   }
 
   // --------------------------------------------------
@@ -969,14 +973,14 @@ export class DiscordTegaki {
     if (rect.x < 0) {
       win.style.left = "0";
     }
-    else if (rect.right > window.innerWidth) {
-      win.style.left = `${window.innerWidth - rect.width}px`;
+    else if (rect.right > document.documentElement.clientWidth) {
+      win.style.left = `${document.documentElement.clientWidth - rect.width}px`;
     }
     if (rect.y < 0) {
       win.style.top = "0";
     }
-    else if (rect.bottom > window.innerHeight) {
-      win.style.top = `${window.innerHeight - rect.height}px`;
+    else if (rect.bottom > document.documentElement.clientHeight) {
+      win.style.top = `${document.documentElement.clientHeight - rect.height}px`;
     }
   }
 
@@ -985,8 +989,8 @@ export class DiscordTegaki {
    */
   maxCanvasScale() {
     return Math.min(
-      (window.innerWidth - WINDOW_CANVAS_PADDING_H)/this._canvas.width,
-      (window.innerHeight - WINDOW_CANVAS_PADDING_V)/this._canvas.height
+      (document.documentElement.clientWidth - WINDOW_CANVAS_PADDING_H)/this._canvas.width,
+      (document.documentElement.clientHeight - WINDOW_CANVAS_PADDING_V)/this._canvas.height
     );
   }
 

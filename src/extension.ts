@@ -1,10 +1,14 @@
+/*
+ * 拡張機能出力 エントリファイル
+ */
+
 import { DiscordTegaki } from "./app";
 
 // 特定 URL 下でのみ実行
 const targetSites = [
   "https://discord.com/app",
   "https://discord.com/channels",
-  "https://mebuki.moe/app/",
+  "https://mebuki.moe/",
 ];
 
 let shouldLaunch = false;

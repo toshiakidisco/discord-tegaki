@@ -88,14 +88,14 @@ export function adjustPosition(elem: HTMLElement) {
   if (rect.x < 0) {
     elem.style.left = "0";
   }
-  else if (rect.right > window.innerWidth) {
-    elem.style.left = `${window.innerWidth - elem.clientWidth}px`;
+  else if (rect.right > document.documentElement.clientWidth) {
+    elem.style.left = `${document.documentElement.clientWidth - elem.clientWidth}px`;
   }
   if (rect.y < 0) {
     elem.style.top = "0";
   }
-  else if (rect.bottom > window.innerHeight) {
-    elem.style.top = `${window.innerHeight - elem.clientHeight}px`;
+  else if (rect.bottom > document.documentElement.clientHeight) {
+    elem.style.top = `${document.documentElement.clientHeight - elem.clientHeight}px`;
   }
 }
 
