@@ -547,7 +547,7 @@ export class TegakiCanvas extends Subject {
       return;
     }
     
-    let cursorName: string;
+    let cursorName:  string;
     const isBlushTool = this.currentTool instanceof CanvasTool.Blush;
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
 
@@ -711,6 +711,9 @@ export class TegakiCanvas extends Subject {
    * イベントリスナ登録を中心とした初期化処理
    */
   init() {
+    // 操作不能不具合修正
+    // pointerId が無効になる場合があるので、例外キャッチを追加.
+    // pointerup, pointercalcel 時にもキャプチャをリリースするように.
 
     this.cursorOverlay.addEventListener("pointerdown", (ev: PointerEvent) => {
       if (ev.pointerType == "mouse" && ev.button != 0) {
@@ -978,7 +981,7 @@ export class TegakiCanvas extends Subject {
     }
     this.deleteLayerAt(position);
   }
-  
+
   /**
    * Delete layer at $position
    * @param position 
