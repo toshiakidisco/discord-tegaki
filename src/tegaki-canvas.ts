@@ -716,16 +716,17 @@ export class TegakiCanvas extends Subject {
       if (ev.pointerType == "mouse" && ev.button != 0) {
         return;
       }
-      this._mouseX = ev.clientX;
-      this._mouseY = ev.clientY;
-      const position = this.positionInCanvas(this._mouseX, this._mouseY);
 
       if (this._activePointerId != null) {
-        this._currentTool.onUp(this, position.x, position.y);
         try {
           this.cursorOverlay.releasePointerCapture(this._activePointerId);
         } catch{}
+        onPointerUp();
       }
+
+      this._mouseX = ev.clientX;
+      this._mouseY = ev.clientY;
+      const position = this.positionInCanvas(this._mouseX, this._mouseY);
 
       this._activePointerId = ev.pointerId;
       this.cursorOverlay.setPointerCapture(this._activePointerId);
@@ -775,18 +776,7 @@ export class TegakiCanvas extends Subject {
       }
     });
     
-    this.cursorOverlay.addEventListener("pointerup", (ev: PointerEvent) => {
-      if (this._activePointerId != ev.pointerId) {
-        return;
-      }
-
-      try {
-        this.cursorOverlay.releasePointerCapture(this._activePointerId);
-      } catch{}
-      this._activePointerId = null;
-
-      this._mouseX = ev.clientX;
-      this._mouseY = ev.clientY;
+    const onPointerUp = () => {
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
       if (this._currentTool.hasStroke) {
         this._strokeManager.finish();
@@ -800,6 +790,22 @@ export class TegakiCanvas extends Subject {
         this.currentTool = this._nextTool;
         this._nextTool = null;
       }
+    };
+
+    this.cursorOverlay.addEventListener("pointerup", (ev: PointerEvent) => {
+      if (this._activePointerId != ev.pointerId) {
+        return;
+      }
+
+      try {
+        this.cursorOverlay.releasePointerCapture(this._activePointerId);
+      } catch{}
+      this._activePointerId = null;
+
+      this._mouseX = ev.clientX;
+      this._mouseY = ev.clientY;
+
+      onPointerUp();
     });
 
     this.cursorOverlay.addEventListener("pointercancel", (ev: Event) => {
@@ -971,7 +977,8 @@ export class TegakiCanvas extends Subject {
       throw new Error("Specified layer is not found");
     }
     this.deleteLayerAt(position);
-  } 
+  }
+  
   /**
    * Delete layer at $position
    * @param position 
