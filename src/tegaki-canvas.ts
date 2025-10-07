@@ -690,7 +690,9 @@ export class TegakiCanvas extends Subject {
 
       if (this._activePointerId != null) {
         this._currentTool.onUp(this, position.x, position.y);
-        this.cursorOverlay.releasePointerCapture(this._activePointerId);
+        try {
+          this.cursorOverlay.releasePointerCapture(this._activePointerId);
+        } catch{}
       }
 
       this._activePointerId = ev.pointerId;
@@ -746,6 +748,11 @@ export class TegakiCanvas extends Subject {
         return;
       }
 
+      try {
+        this.cursorOverlay.releasePointerCapture(this._activePointerId);
+      } catch{}
+      this._activePointerId = null;
+
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
       const position = this.positionInCanvas(this._mouseX, this._mouseY);
@@ -754,7 +761,6 @@ export class TegakiCanvas extends Subject {
       }
 
       this._currentTool.onUp(this, position.x, position.y);
-      this._activePointerId = null;
       if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
         this.requestRender();
       }
@@ -768,12 +774,16 @@ export class TegakiCanvas extends Subject {
       if (this._activePointerId == null) {
         return;
       }
+      
+      try {
+        this.cursorOverlay.releasePointerCapture(this._activePointerId);
+      } catch{}
+      this._activePointerId = null;
 
       if (this._currentTool.hasStroke) {
         this._strokeManager.finish();
       }
       this._currentTool.onCancel(this);
-      this._activePointerId = null;
       if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
         this.requestRender();
       }
