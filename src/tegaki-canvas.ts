@@ -70,9 +70,15 @@ const toolCursors: {[tool: string]: {cursor: string}} = {
   "select": {cursor: `url(${getAssetUrl("asset/cursor-select.png")}) 7 7, auto`},
 }
 
+/**
+ * 操作履歴
+ */
 class HistoryNode {
+  /** 実行するアクション */
   action: CanvasAction;
+  /** 取り消し時のアクション */
   undo: CanvasAction;
+  /** 操作時刻 */
   time: number = Date.now();
 
   constructor(action: CanvasAction, undo: CanvasAction) {
@@ -80,11 +86,15 @@ class HistoryNode {
     this.undo = undo;
   }
 
+  /** 履歴から破棄される時の処理 */
   dispose() {
     this.action.dispose();
     this.undo.dispose();
   }
 
+  /**
+   * 操作履歴を結合して1つにまとめたものを作成して返す. 結合が不可能だった場合は undefined が返る.
+   */
   mergeWith(node: HistoryNode, strokeMergeTime: number): HistoryNode | undefined {
     const a0 = node.action;
     const a1 = this.action;
@@ -160,22 +170,42 @@ class HistoryNode {
 
 export class TegakiCanvas extends Subject {
   readonly element: HTMLDivElement;
+  /** カーソル描画用 かつ Pointイベントを受け付ける Canvas */
   readonly cursorOverlay: HTMLCanvasElement;
   readonly cursorContext: CanvasRenderingContext2D;
+  /** 画像表示先の Canvas */
   readonly canvas: HTMLCanvasElement;
   readonly context: CanvasRenderingContext2D;
 
-  // 選択中のツール
+  /** 選択中のツール */
   private _currentTool: CanvasTool = CanvasTool.none;
-  // ストローク終了後のツール
+  /**
+   * ストローク終了後のツール. ストローク中にツールの変更要求があった場合に
+   * すぐに変更せず、ストロークが終了するまで待つために使う.
+   */
   private _nextTool: CanvasTool | null = null;
 
+  /**
+   * 内部スケール. 見た目の表示よりも解像度を大きくすることで
+   * アンチエイリアスが綺麗に働くようにしたい場合に設定.
+   */
   private _innerScale: number;
 
+  /**
+   * 画像描画用のオフスクリーンバッファ
+   */
   private _offscreen: Offscreen;
+  /**
+   * 現在選択中のレイヤーに、スクトーク中の内容を
+   * プレビュー表示させるために使う.
+   */
   private _currentLayerOffscreen: Offscreen;
+  /**
+   * キャンバスの表示倍率
+   */
   private _scale: number = 1;
 
+  // ペン情報
   private _mouseX: number = 0;
   private _mouseY: number = 0;
   private _isMouseEnter: boolean = false;
@@ -193,9 +223,11 @@ export class TegakiCanvas extends Subject {
   private _strokeManager: StrokeManager = new StrokeManager();
   private _spoitContext: OffscreenCanvasRenderingContext2D;
 
+  /** 現在選択されているレイヤーの index */
   private _currentLayerPosition: number = 0;
+  /** キャンバス上の選択範囲の情報 */
   private _selectedRegion: CanvasRegion | null = null;
-
+  
   readonly observable: {
     foreColor: ObservableColor;
     document: ObservableValue<TegakiCanvasDocument>;
@@ -742,7 +774,7 @@ export class TegakiCanvas extends Subject {
         this.requestRenderCursor();
       }
     });
-
+    
     this.cursorOverlay.addEventListener("pointerup", (ev: PointerEvent) => {
       if (this._activePointerId != ev.pointerId) {
         return;
