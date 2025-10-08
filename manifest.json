@@ -16,15 +16,6 @@
   "permissions": [
     "storage"
   ],
-  "web_accessible_resources": [
-    {
-      "matches": [
-        "https://discord.com/*",
-        "https://mebuki.moe/*"
-      ],
-      "resources": ["asset/*"]
-    }
-  ],
   "icons": {
     "16": "icons/icon_16.png",
     "48": "icons/icon_48.png",
