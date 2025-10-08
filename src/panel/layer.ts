@@ -155,11 +155,11 @@ export class PanelLayer extends Panel {
     this.#contents = parseHtml(`
       <div name="contents">
         <div class="area-buttons">
-          <button name="button-new" data-on-click="onClickNew"><img src="[asset/icon-layer-new.png]"></button>
-          <button name="button-up" data-on-click="onClickUp"><img src="[asset/icon-layer-up.png]"></button>
-          <button name="button-down" data-on-click="onClickDown"><img src="[asset/icon-layer-down.png]"></button>
+          <button name="button-new" data-on-click="onClickNew"><img src="[icon-layer-new.png]"></button>
+          <button name="button-up" data-on-click="onClickUp"><img src="[icon-layer-up.png]"></button>
+          <button name="button-down" data-on-click="onClickDown"><img src="[icon-layer-down.png]"></button>
           <div class="space"></div>
-          <button name="button-delete" data-on-click="onClickDelete"><img src="[asset/icon-layer-delete.png]"></button>
+          <button name="button-delete" data-on-click="onClickDelete"><img src="[icon-layer-delete.png]"></button>
         </div>
         <div class="area-layers">
           <ul name="layers" class="layers">
