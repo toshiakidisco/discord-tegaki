@@ -11,7 +11,7 @@ import SizeSelector from "./panel/size-selector";
 import Selector from "./selector";
 import { clamp, createCanvas2D, isRunnningOnExtension } from "./funcs";
 import defaultPalette from "./default-palette";
-import { getAssetUrl, setAssetDirectory } from "./asset";
+import { getAssetUrl } from "./asset";
 import PanelLayer from "./panel/layer";
 
 import manifest from "../manifest.json";
@@ -988,10 +988,10 @@ export class DiscordTegaki {
    * キャンバスの表示できる最大倍率
    */
   maxCanvasScale() {
-    return Math.min(
+    return Math.max(1, Math.min(
       (document.documentElement.clientWidth - WINDOW_CANVAS_PADDING_H)/this._canvas.width,
       (document.documentElement.clientHeight - WINDOW_CANVAS_PADDING_V)/this._canvas.height
-    );
+    ));
   }
 
   /**
@@ -1001,10 +1001,7 @@ export class DiscordTegaki {
     this._outlets["button-close"].style.display = "none";
   }
   
-  static async launch(installDirectory? : string) {
-    if (installDirectory) {
-      setAssetDirectory(installDirectory);
-    }
+  static async launch() {
     const settings = await ApplicationSettings.load("tegaki-settings");
     const app = new DiscordTegaki(settings);
     return app;
