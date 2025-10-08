@@ -55,6 +55,12 @@ export function parseElement(element: HTMLElement, controller?: any, outlets?: O
       element.addEventListener(eventName, function (ev:any) {
         return controller[handlerName](ev);
       });
+      if (eventName == "click") {
+        element.addEventListener("pointerdown", function (ev:any) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        });
+      }
     }
     // Convert Path
     if (attribute.name == "src" && attribute.value.match(/^\[.+\]$/)) {

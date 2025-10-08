@@ -25,7 +25,7 @@ export class Panel extends Subject {
         <div name="titlebar" class="dt_r_titlebar">
           <div name="titlebar-contents" class="dt_r_area-titlebar-contents"></div>
           <div name="titlebar-title" class="dt_r_area-title"><span name="title"></span></div>
-          <div name="button-close" class="dt_r_area-button-close"><button data-on-click="onClickClose"><img src="[asset/button-close.png]"></button></div>
+          <div name="button-close" class="dt_r_area-button-close"><button data-on-click="onClickClose"><img src="[button-close.png]"></button></div>
         </div>
         <div name="contents" class="dt_r_contents"></div>
       </div>

@@ -42,9 +42,7 @@
         padding: 0;
         width: 24px;
         height: 24px;
-        border-top: none;
-        border-right: none;
-        border-bottom: none;
+        border: none;
       }
     }
   }
@@ -155,6 +153,9 @@
   }
 }
 .dt_r_disco-tegaki .dt_r_panel-properties {
+  .dt_r_contents li {
+    margin-bottom: 8px;
+  }
   .dt_r_contents li .dt_r_item-number {
     > span {
       display: block;

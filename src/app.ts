@@ -147,6 +147,8 @@ export class DiscordTegaki {
   private _autoSaveInterval: number = 5; // Minutes
   private _autoSaveTimer: number = 0;
 
+  private _copyOverride: Function | undefined;
+
   constructor(settings: ApplicationSettingsInit | null) {
     this._settings = new ApplicationSettings(settings || ApplicationSettings.initialSettings);
     this._state = new State();
@@ -210,12 +212,12 @@ export class DiscordTegaki {
   init() {
     const win = this._window;
     let _activePointer: number | null = null;
+    this._outlets["label-title"].innerText = `v${manifest.version}`;
     // タイトルバードラッグ処理
     {
       let _dragStartPosition = {x: 0, y: 0};
       let _pointerOffset = {x: 0, y: 0};
       const titlebar = this._outlets["titlebar"];
-      titlebar.innerText = `手書き v${manifest.version}`;
       titlebar.addEventListener("pointerdown", (ev: PointerEvent) => {
         if (_activePointer != null) {
           return;
@@ -614,6 +616,21 @@ export class DiscordTegaki {
     this._window.style.display = "none";
   }
 
+  toggle() {
+    const win = this._window;
+    if (win.style.display != "block") {
+      this.open();
+    }
+    else {
+      win.style.display = "none";
+    }
+  }
+
+  overrideCopyButton(label: string, callback: Function) {
+    this._outlets["button-copy"].innerText = label;
+    this._copyOverride = callback;
+  }
+
   // --------------------------------------------------
   // イベントハンドラ定義
   // --------------------------------------------------
@@ -661,14 +678,7 @@ export class DiscordTegaki {
   }
 
   onClickOpen(ev: Event) {
-    const win = this._window;
-    const d = win.style.display;
-    if (d != "block") {
-      this.open();
-    }
-    else {
-      win.style.display = "none";
-    }
+    this.toggle();
   }
 
   onClickClose(ev: Event) {
@@ -768,6 +778,11 @@ export class DiscordTegaki {
   }
 
   async onClickCopy(ev?: Event): Promise<void> {
+    if (this._copyOverride) {
+      this._copyOverride();
+      return;
+    }
+
     await this._canvas.copyToClipboard();
     this.showStatus("クリップボードにコピーしました");
   }
