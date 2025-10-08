@@ -21,13 +21,13 @@ export class Panel extends Subject {
 
     const outlets: Outlets = {};
     const element = parseHtml(`
-      <div class="panel" style="display: none;" name="root" tabindex="-1">
-        <div name="titlebar" class="titlebar">
-          <div name="titlebar-contents" class="area-titlebar-contents"></div>
-          <div name="titlebar-title" class="area-title"><span name="title"></span></div>
-          <div name="button-close" class="area-button-close"><button data-on-click="onClickClose"><img src="[asset/button-close.png]"></button></div>
+      <div class="dt_r_panel" style="display: none;" name="root" tabindex="-1">
+        <div name="titlebar" class="dt_r_titlebar">
+          <div name="titlebar-contents" class="dt_r_area-titlebar-contents"></div>
+          <div name="titlebar-title" class="dt_r_area-title"><span name="title"></span></div>
+          <div name="button-close" class="dt_r_area-button-close"><button data-on-click="onClickClose"><img src="[asset/button-close.png]"></button></div>
         </div>
-        <div name="contents" class="contents"></div>
+        <div name="contents" class="dt_r_contents"></div>
       </div>
     `, this, outlets) as HTMLDivElement;
 

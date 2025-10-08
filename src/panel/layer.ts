@@ -24,13 +24,13 @@ class PanelLayerItem extends Subject {
     this.#layer = layer;
     this.#outlets = {};
     this.element = parseHtml(`
-      <li class="layer-item" data-on-click="onClick">
-        <div name="visibility" class="block-visibility" data-on-click="onCliCKVisibility"></div>
-        <div class="block-thumbnail">
-        <canvas name="canvas" class="bg-transparent-s" width="${thumbnailWidth}" height="${thumbnailHeight}"></canvas>
+      <li class="dt_r_layer-item" data-on-click="onClick">
+        <div name="visibility" class="dt_r_block-visibility" data-on-click="onCliCKVisibility"></div>
+        <div class="dt_r_block-thumbnail">
+        <canvas name="canvas" class="dt_r_bg-transparent-s" width="${thumbnailWidth}" height="${thumbnailHeight}"></canvas>
         </div>
-        <div class="block-opacity">
-          <div class="icon-opacity bg-transparent-s" data-on-click="onClickOpacity"><div name="opacity-color" class="opacity-color"></div></div>
+        <div class="dt_r_block-opacity">
+          <div class="dt_r_icon-opacity dt_r_bg-transparent-s" data-on-click="onClickOpacity"><div name="opacity-color" class="dt_r_opacity-color"></div></div>
         </div>
       </li>
     `, this, this.#outlets);
@@ -143,7 +143,7 @@ export class PanelLayer extends Panel {
   readonly opacitySlider: PanelSlider;
 
   constructor(parent: HTMLElement, canvas: TegakiCanvas) {
-    super(parent, "panel-layer");
+    super(parent, "dt_r_panel-layer");
     this.opacitySlider = new PanelSlider(parent, 0);
     this.opacitySlider.setRange(0, 1);
     this.opacitySlider.step = 0.01;
@@ -154,15 +154,15 @@ export class PanelLayer extends Panel {
 
     this.#contents = parseHtml(`
       <div name="contents">
-        <div class="area-buttons">
+        <div class="dt_r_area-buttons">
           <button name="button-new" data-on-click="onClickNew"><img src="[icon-layer-new.png]"></button>
           <button name="button-up" data-on-click="onClickUp"><img src="[icon-layer-up.png]"></button>
           <button name="button-down" data-on-click="onClickDown"><img src="[icon-layer-down.png]"></button>
-          <div class="space"></div>
+          <div class="dt_r_space"></div>
           <button name="button-delete" data-on-click="onClickDelete"><img src="[icon-layer-delete.png]"></button>
         </div>
-        <div class="area-layers">
-          <ul name="layers" class="layers">
+        <div class="dt_r_area-layers">
+          <ul name="layers" class="dt_r_layers">
           </ul>
         </div>
       </div>

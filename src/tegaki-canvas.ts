@@ -247,10 +247,10 @@ export class TegakiCanvas extends Subject {
 
     // Create canvas for image
     this.element = document.createElement("div");
-    this.element.className = "tegaki-canvas";
+    this.element.className = "dt_r_tegaki-canvas";
 
     this.canvas = document.createElement("canvas");
-    this.canvas.className = "layer";
+    this.canvas.className = "dt_r_layer";
     this.canvas.width = this.width;
     this.canvas.height = this.height;
     this._renderCallback = this.render.bind(this);
@@ -263,7 +263,7 @@ export class TegakiCanvas extends Subject {
     
     // Create canvas for cursor
     this.cursorOverlay = document.createElement("canvas");
-    this.cursorOverlay.className = "cursor";
+    this.cursorOverlay.className = "dt_r_cursor";
     this.cursorOverlay.width = this.width;
     this.cursorOverlay.height = this.height;
     this._renderCursorCallback = this.renderCursor.bind(this);

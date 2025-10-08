@@ -6,7 +6,7 @@ export class Selector {
 
   constructor() {
     this._element = document.createElement("div");
-    this._element.className = "dt-selector";
+    this._element.className = "dt_r_dt-selector";
   }
 
   /**

@@ -19,7 +19,7 @@ export class PanelSlider extends Panel {
   #bindMode: BindMode = "readwrite";
 
   constructor(root: HTMLElement, value: number = 0) {
-    super(root, "panel-slider");
+    super(root, "dt_r_panel-slider");
     this.#value = value;
     this.#outlets = {};
     this.contents = parseHtml(`

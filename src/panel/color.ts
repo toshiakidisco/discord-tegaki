@@ -34,18 +34,18 @@ export class PanelColor extends Panel {
   private _dragging: boolean = false;
 
   constructor(root: HTMLElement, r: number = 255, g: number = 255, b: number = 255) {
-    super(root, "panel-color");
+    super(root, "dt_r_panel-color");
     this._color = new Color(255, 255, 255);
     this._outlets = {};
     this.contents = parseHtml(`
-      <div class="wrap">
-        <div class="area-palette">
-          <ul name="colors" class="colors">
+      <div class="dt_r_wrap">
+        <div class="dt_r_area-palette">
+          <ul name="colors" class="dt_r_colors">
           </ul>
         </div>
-        <div class="area-picker">
+        <div class="dt_r_area-picker">
           <ul>
-            <li><div class="preview" name="preview" draggable="true" data-on-drag="onDragPreview" data-on-dragstart="onDragPreviewStart" data-on-dragend="onDragPreviewEnd"></div></li>
+            <li><div class="dt_r_preview" name="preview" draggable="true" data-on-drag="onDragPreview" data-on-dragstart="onDragPreviewStart" data-on-dragend="onDragPreviewEnd"></div></li>
             <li name="picker">
             </li>
           </ul>
