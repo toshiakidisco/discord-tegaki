@@ -1,4 +1,4 @@
-import { BlushState, drawPath, getPathBoundingRect } from "./canvas-action";
+import { BrushState, drawPath, getPathBoundingRect } from "./canvas-action";
 import Layer from "./canvas-layer";
 import Offscreen from "./canvas-offscreen";
 import CanvasRegion from "./canvas-region";
@@ -88,7 +88,7 @@ export namespace CanvasTool {
   /**
    * ブラシ系ツール
    */
-  export class Blush extends CanvasTool{
+  export class Brush extends CanvasTool{
     penMode: PenMode;
 
     readonly obaservables: {
@@ -111,7 +111,7 @@ export namespace CanvasTool {
       return this.penMode;
     }
     cursor(canvas: TegakiCanvas, x: number, y: number): string {
-      return "blush";
+      return "brush";
     }
 
     override get size(): number {
@@ -163,7 +163,7 @@ export namespace CanvasTool {
     finishDraw(canvas: TegakiCanvas) {
       canvas.drawPath(
         canvas.strokePath,
-        new BlushState(this.size, canvas.foreColor, this.composite)
+        new BrushState(this.size, canvas.foreColor, this.composite)
       );
     }
 
@@ -174,7 +174,7 @@ export namespace CanvasTool {
       canvas.clipBegin(offscreen.context);
       drawPath(
         offscreen.context, 
-        new BlushState(this.size, canvas.foreColor, this.composite),
+        new BrushState(this.size, canvas.foreColor, this.composite),
         canvas.strokePath
       );
       canvas.clipEnd(offscreen.context);

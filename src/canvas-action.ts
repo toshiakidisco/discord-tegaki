@@ -7,9 +7,9 @@ import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import CanvasRegion from "./canvas-region";
 
-export type BlushPath = {x: number; y: number; time: number}[];
+export type BrushPath = {x: number; y: number; time: number}[];
 
-export class BlushState {
+export class BrushState {
   size: number;
   readonly color: Color;
   composite: GlobalCompositeOperation;
@@ -20,8 +20,8 @@ export class BlushState {
     this.composite = composite;
   }
 
-  eqauls(blush: BlushState): boolean {
-    return this.size == blush.size && this.color.equals(blush.color) && this.composite == blush.composite;
+  eqauls(brush: BrushState): boolean {
+    return this.size == brush.size && this.color.equals(brush.color) && this.composite == brush.composite;
   }
 }
 
@@ -454,13 +454,13 @@ export namespace CanvasAction {
    */
   export class DrawPath extends CanvasAction {
     private _layer: Layer;
-    private _blush: BlushState;
-    private _pathList: BlushPath[];
+    private _brush: BrushState;
+    private _pathList: BrushPath[];
 
-    constructor(canvas: TegakiCanvas, layer: Layer, blush: BlushState, path: BlushPath) {
+    constructor(canvas: TegakiCanvas, layer: Layer, brush: BrushState, path: BrushPath) {
       super(canvas);
       this._layer = layer;
-      this._blush = blush;
+      this._brush = brush;
       this._pathList = [Array.from(path)];    
     }
 
@@ -468,11 +468,11 @@ export namespace CanvasAction {
       return this._pathList;
     }
 
-    addPath(path: BlushPath) {
+    addPath(path: BrushPath) {
       this._pathList.push(Array.from(path));
     }
 
-    addPathList(pathList: BlushPath[]) {
+    addPathList(pathList: BrushPath[]) {
       this._pathList.push(...pathList);
     }
 
@@ -489,15 +489,15 @@ export namespace CanvasAction {
       return this._layer;
     }
 
-    get blush(): BlushState {
-      return this._blush;
+    get brush(): BrushState {
+      return this._brush;
     }
 
     exec() {
       const ctx = this._layer.context;
       this.canvas.clipBegin(ctx);
       for (const path of this._pathList) {
-        drawPath(ctx, this._blush, path, this.canvas.innerScale);
+        drawPath(ctx, this._brush, path, this.canvas.innerScale);
       }
       this.canvas.clipEnd(ctx);
       this._layer.notify("update", this._layer);
@@ -602,7 +602,7 @@ export namespace CanvasAction {
   }
 }
 
-export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path: BlushPath, innerScale = 1) {
+export function drawPath(ctx: CanvasRenderingContext2D, brush: BrushState, path: BrushPath, innerScale = 1) {
   if (path.length == 0) {
     return;
   }
@@ -611,9 +611,9 @@ export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path:
 
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = blush.color.css();
-  ctx.globalCompositeOperation = blush.composite;
-  ctx.lineWidth = blush.size;
+  ctx.strokeStyle = brush.color.css();
+  ctx.globalCompositeOperation = brush.composite;
+  ctx.lineWidth = brush.size;
 
   ctx.beginPath();
   const fisrtPoint = path[0];
@@ -638,7 +638,7 @@ export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path:
  * @param padding 矩形に余裕を持たせる場合に指定
  * @returns 
  */
-export function getPathBoundingRect(path: BlushPath, size: number, padding: number = 0): Rect {
+export function getPathBoundingRect(path: BrushPath, size: number, padding: number = 0): Rect {
   if (path.length == 0) {
     return new Rect(0, 0, 0, 0);
   }

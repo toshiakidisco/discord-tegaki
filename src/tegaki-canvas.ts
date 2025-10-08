@@ -7,7 +7,7 @@ import svgFilterCode from "raw-loader!./svg-filter.svg";
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
 import Offscreen from "./canvas-offscreen";
-import CanvasAction, { BlushPath, BlushState, drawPath, getPathBoundingRect } from "./canvas-action";
+import CanvasAction, { BrushPath, BrushState, drawPath, getPathBoundingRect } from "./canvas-action";
 import { Rect } from "./foudantion/rect";
 import StrokeManager from "./stroke-manager";
 import { Layer } from "./canvas-layer";
@@ -328,7 +328,7 @@ export class TegakiCanvas extends Subject {
     return this._strokeManager;
   }
 
-  get strokePath(): BlushPath {
+  get strokePath(): BrushPath {
     return this._strokeManager.path;
   }
 
@@ -548,7 +548,7 @@ export class TegakiCanvas extends Subject {
     }
     
     let cursorName:  string;
-    const isBlushTool = this.currentTool instanceof CanvasTool.Blush;
+    const isBrushTool = this.currentTool instanceof CanvasTool.Brush;
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
 
     // Render cursor
@@ -559,7 +559,7 @@ export class TegakiCanvas extends Subject {
       cursorName = this._currentTool.cursor(this, position.x, position.y);
     }
     
-    if (cursorName == "blush") {
+    if (cursorName == "brush") {
       cursorName = "none";
       const tool = this.currentTool;
 
@@ -1112,10 +1112,10 @@ export class TegakiCanvas extends Subject {
     this.pushAction(new HistoryNode(action, undo));
   }
 
-  drawPath(path: BlushPath, blush: BlushState) {
+  drawPath(path: BrushPath, brush: BrushState) {
     const layer = this.currentLayer;
     const pathRect = Rect.intersection(
-      getPathBoundingRect(path, blush.size, 1),
+      getPathBoundingRect(path, brush.size, 1),
       new Rect(0, 0, this.innerWidth, this.innerHeight)
     );
 
@@ -1131,7 +1131,7 @@ export class TegakiCanvas extends Subject {
       );
     }
     const action = new CanvasAction.DrawPath(
-      this, layer, blush, this._strokeManager.path
+      this, layer, brush, this._strokeManager.path
     );
     
     this.pushAction(new HistoryNode(action, undo));

@@ -132,10 +132,10 @@ export class DiscordTegaki {
   private _window: HTMLElement;
   private _shortcutDownTime: Map<shortcut.Shortcut, number> = new Map();
 
-  private _toolPen = new CanvasTool.Blush(
+  private _toolPen = new CanvasTool.Brush(
     "pen", canvasInitialState.penSize
   );
-  private _toolEraser = new CanvasTool.Blush(
+  private _toolEraser = new CanvasTool.Brush(
     "eraser", canvasInitialState.eraserSize
   );
   private _toolSpoit = new CanvasTool.Spoit();

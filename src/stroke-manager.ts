@@ -1,4 +1,4 @@
-import { BlushPath } from "./canvas-action";
+import { BrushPath } from "./canvas-action";
 import FiniteStack from "./foudantion/finite-stack";
 import Subject from "./foudantion/subject";
 
@@ -23,7 +23,7 @@ export class StrokeManager extends Subject{
   private _samples: FiniteStack<Point>;
 
   /** 補正されたストロークパス */
-  private _path: BlushPath = [];
+  private _path: BrushPath = [];
 
   constructor() {
     super();
@@ -97,7 +97,7 @@ export class StrokeManager extends Subject{
   }
 }
 
-function optimizePath(path: BlushPath) {
+function optimizePath(path: BrushPath) {
   const threshold = 5;
 
 }
