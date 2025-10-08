@@ -628,7 +628,6 @@ export class DiscordTegaki {
   
   onClickSave(ev: Event) {
     this._canvas.download();
-    this.clearAutoSave();
   }
 
   onClickSettings(ev: Event) {
@@ -771,7 +770,6 @@ export class DiscordTegaki {
   async onClickCopy(ev?: Event): Promise<void> {
     await this._canvas.copyToClipboard();
     this.showStatus("クリップボードにコピーしました");
-    this.clearAutoSave();
   }
 
   onClickUndo(ev: Event) {
