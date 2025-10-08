@@ -64,10 +64,10 @@ const offscreenPool = ObjectPool.sharedPoolFor(Offscreen);
 
 const toolCursors: {[tool: string]: {cursor: string}} = {
   "grab": {cursor: "grab"},
-  "spoit": {cursor: `url(${getAssetUrl("asset/cursor-spoit.png")}) 1 14, auto`},
-  "bucket": {cursor: `url(${getAssetUrl("asset/cursor-bucket.png")}) 2 12, auto`},
-  "prohibit": {cursor: `url(${getAssetUrl("asset/cursor-prohibit.png")}) 7 7, auto`},
-  "select": {cursor: `url(${getAssetUrl("asset/cursor-select.png")}) 7 7, auto`},
+  "spoit": {cursor: `url(${getAssetUrl("cursor-spoit.png")}) 1 14, auto`},
+  "bucket": {cursor: `url(${getAssetUrl("cursor-bucket.png")}) 2 12, auto`},
+  "prohibit": {cursor: `url(${getAssetUrl("cursor-prohibit.png")}) 7 7, auto`},
+  "select": {cursor: `url(${getAssetUrl("cursor-select.png")}) 7 7, auto`},
 }
 
 /**

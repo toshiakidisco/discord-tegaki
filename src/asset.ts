@@ -1,19 +1,11 @@
 import { isRunnningOnExtension } from "./funcs";
-
-let _assetDirectory = "";
-/**
- * アセット参照先ディレクトリの設定
- */
-export function setAssetDirectory(path: string) {
-  if (! path.endsWith("/")) {
-    path = path + "/";
-  }
-  _assetDirectory = path;
-}
+// @ts-ignore
+import { assets } from "./assets";
 
 /**
- * アセットの完全URLの取得
+ * アセットの base64 URI 文字列の取得.
+ * 指定した名前のアセットが存在しない場合は空文字列を返す.
  */
-export function getAssetUrl(path: string) {
-  return isRunnningOnExtension ? chrome.runtime.getURL(path) : _assetDirectory + path;
+export function getAssetUrl(name: string): string {
+  return ((assets as unknown) as {[name: string]: string})[name] || "";
 }
