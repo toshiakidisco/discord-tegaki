@@ -34,6 +34,11 @@ const common: Configuration = {
         test: /^raw-loader!\*/i,
         loader: 'raw-loader',
       },
+      // Raw Loader
+      {
+        test: /\.(png|jpg|gif)$/i,
+        type: 'asset/inline',
+      },
     ],
   },
   
@@ -57,9 +62,9 @@ configures["extension"] = {
     new CopyPlugin({
       patterns: [
         {
-          context: path.resolve(__dirname, "src/asset"),
-          from: path.resolve(__dirname, "src/asset"),
-          to: path.resolve(__dirname, "dist/asset"),
+          context: path.resolve(__dirname, "src/icons"),
+          from: path.resolve(__dirname, "src/icons"),
+          to: path.resolve(__dirname, "dist/icons"),
         },
         {
           from: path.resolve(__dirname, "manifest.json"),
@@ -93,8 +98,8 @@ configures["extension"] = {
       new CopyPlugin({
         patterns: [
           {
-            context: path.resolve(__dirname, "src/asset"),
-            from: path.resolve(__dirname, "src/asset"),
+            context: path.resolve(__dirname, "src/web-asset"),
+            from: path.resolve(__dirname, "src/web-asset"),
             to: path.resolve(__dirname, dstDir, "asset"),
           },
           {
@@ -127,15 +132,6 @@ configures["extension"] = {
       publicPath: './',
     },
     plugins: [
-      new CopyPlugin({
-        patterns: [
-          {
-            context: path.resolve(__dirname, "src/asset"),
-            from: path.resolve(__dirname, "src/asset"),
-            to: path.resolve(__dirname, dstDir, "asset"),
-          },
-        ],
-      }),
       new MiniCssExtractPlugin({
         filename: `style.css`,
       }),
