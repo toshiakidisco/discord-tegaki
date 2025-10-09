@@ -38,9 +38,8 @@ const MIN_CANVAS_HEIGHT = 135;
 const WINDOW_CANVAS_PADDING_H = 84;
 const WINDOW_CANVAS_PADDING_V = 73;
 
-
 const MIN_WINDOW_WIDTH = WINDOW_CANVAS_PADDING_H + DEFAULT_CANVAS_WIDTH;
-const MIN_WINDOW_HEIGHT = WINDOW_CANVAS_PADDING_V + DEFAULT_CANVAS_HEIGHT;
+const MIN_WINDOW_HEIGHT = 210;
 
 export type CanvasInitialState = {
   width: number;
@@ -148,6 +147,7 @@ export class DiscordTegaki {
   private _toolSpoit = new CanvasTool.Spoit();
   private _toolBucket = new CanvasTool.Bucket();
   private _toolSelect = new CanvasTool.Select();
+  private _toolScroll = new CanvasTool.Scroll();
   private _previousTool: CanvasTool = CanvasTool.none;
   private _nextPreviousTool: CanvasTool = CanvasTool.none;
 
@@ -165,8 +165,8 @@ export class DiscordTegaki {
     this._root = parseHtml(htmlWindow, this, this._outlets);
     this._window = this._outlets["window"];
 
-    this._width = MIN_WINDOW_WIDTH + 100;
-    this._height = MIN_WINDOW_HEIGHT + 100;
+    this._width = MIN_WINDOW_WIDTH;
+    this._height = MIN_WINDOW_HEIGHT;
     this._updateWindowSize();
 
     this._canvas = new TegakiCanvas({
@@ -231,6 +231,7 @@ export class DiscordTegaki {
   _updateWindowSize() {
     this._window.style.width = `${this.width}px`;
     this._window.style.height = `${this.height}px`;
+    this.adjustWindow();
   }
 
   /**
@@ -468,6 +469,7 @@ export class DiscordTegaki {
     // 拡大縮小変更
     this._canvas.addObserver(this, "change-scale", () => {
       this.resetStatus();
+      this.fitWindowToCanvas(true);
     });
   }
 
@@ -897,6 +899,13 @@ export class DiscordTegaki {
         this._state.tool.value = this._toolSelect;
         break;
       }
+      case "scroll": {
+        if (this._state.tool.value == this._toolScroll) {
+          return false;
+        }
+        this._state.tool.value = this._toolScroll;
+        break;
+      }
       // Move
       case "move-up": {
         this._canvas.selectMove(0, -1);
@@ -975,14 +984,35 @@ export class DiscordTegaki {
   }
 
   /**
-   * ウィンドウの位置(&キャンバスの倍率)の調整
+   * ウィンドウサイズをキャンバスの表示サイズに合わせる
    */
-  adjustWindow() {
-    const maxScale = this.maxCanvasScale();
-    if (this._canvas.scale > maxScale) {
-      this._canvas.scale = maxScale;
+  fitWindowToCanvas(extendOnly: boolean = false) {
+    const win = this._window;
+    const rect = win.getBoundingClientRect();
+
+    const maxWidth = document.documentElement.clientWidth;
+    const maxHeight = document.documentElement.clientHeight;
+
+    let w = clamp(
+      this._canvas.documentWidth*this._canvas.scale + rect.width - this._canvas.width,
+      MIN_WINDOW_WIDTH, maxWidth
+    );
+    let h = clamp(
+      this._canvas.documentHeight*this._canvas.scale + rect.height - this._canvas.height,
+      MIN_WINDOW_HEIGHT, maxHeight
+    );
+    if (extendOnly) {
+      w = Math.max(w, rect.width);
+      h = Math.max(h, rect.height);
     }
 
+    this.setWindowSize(Math.ceil(w), Math.ceil(h));
+  }
+
+  /**
+   * ウィンドウの位置の調整
+   */
+  adjustWindow() {
     const win = this._window;
     const rect = win.getBoundingClientRect();
     if (rect.x < 0) {
@@ -1002,12 +1032,14 @@ export class DiscordTegaki {
   /**
    * キャンバスの表示できる最大倍率
    */
+  /*
   maxCanvasScale() {
     return Math.max(1, Math.min(
       (document.documentElement.clientWidth - WINDOW_CANVAS_PADDING_H)/this._canvas.documentWidth,
       (document.documentElement.clientHeight - WINDOW_CANVAS_PADDING_V)/this._canvas.documentHeight
     ));
   }
+  */
 
   /**
    * 閉じるボタンの無効化

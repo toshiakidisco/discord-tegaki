@@ -184,7 +184,7 @@ export class TegakiCanvas extends Subject {
    * すぐに変更せず、ストロークが終了するまで待つために使う.
    */
   private _nextTool: CanvasTool | null = null;
-
+  
   /**
    * 内部スケール. 見た目の表示よりも解像度を大きくすることで
    * アンチエイリアスが綺麗に働くようにしたい場合に設定.
@@ -230,7 +230,7 @@ export class TegakiCanvas extends Subject {
   private _currentLayerPosition: number = 0;
   /** キャンバス上の選択範囲の情報 */
   private _selectedRegion: CanvasRegion | null = null;
-  
+
   readonly observable: {
     foreColor: ObservableColor;
     document: ObservableValue<TegakiCanvasDocument>;
@@ -293,7 +293,7 @@ export class TegakiCanvas extends Subject {
 
     const resizeObserver = new ResizeObserver((ev) => this.onResizeElement(ev[0].contentRect.width, ev[0].contentRect.height));
     resizeObserver.observe(this.element);
-    
+
     this.init();
   }
 
@@ -453,9 +453,10 @@ export class TegakiCanvas extends Subject {
   set scrollX(value: number) {
     value = clamp(value, 0, this.scrollWidth);
     if (this._scrollX == value) {
-      return
+      return;
     }
     this._scrollX = value;
+    this.requestRender();
     this.notify("scroll");
   }
   get scrollY(): number {
@@ -464,9 +465,10 @@ export class TegakiCanvas extends Subject {
   set scrollY(value: number) {
     value = clamp(value, 0, this.scrollHeight);
     if (this._scrollY == value) {
-      return
+      return;
     }
     this._scrollY = value;
+    this.requestRender();
     this.notify("scroll");
   }
   adjustScroll() {
@@ -764,14 +766,16 @@ export class TegakiCanvas extends Subject {
 
     // Render offscreen to canvas
     ctx.save();
-    ctx.clearRect(0, 0, this.documentWidth, this.documentHeight);
-    ctx.scale(this._scale/this._innerScale, this._scale/this._innerScale);
+    ctx.clearRect(0, 0, this.width, this.height);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    
+
     const documentLeft = this.scrollWidth == 0 ? this.width/2 - this.documentWidth*this.scale/2 : -this._scrollX;
     const documentTop = this.scrollHeight == 0 ? this.height/2 - this.documentHeight*this.scale/2 : -this._scrollY;
-    ctx.drawImage(this._offscreen.canvas, documentLeft, documentTop);
+
+    ctx.translate(documentLeft, documentTop);
+    ctx.scale(this._scale/this._innerScale, this._scale/this._innerScale);
+    ctx.drawImage(this._offscreen.canvas, 0, 0);
     ctx.restore();
 
     if (this.isDrawing && this._currentTool.hasOverlay) {
@@ -791,16 +795,19 @@ export class TegakiCanvas extends Subject {
     const ctx = this.context;
     const sw = this.scrollWidth;
     const sh = this.scrollHeight;
+    const scrollbarWidth = 2;
 
     if (sw > 0) {
       const x = this.width * (this.scrollX / this.scale / this.documentWidth);
       const w = this.width * this.visibleWidth / this.documentWidth;
-      ctx.fillRect(x, this.height - 12, w, 12);
+      ctx.fillStyle = "rgba(64, 0, 0, 0.6)";
+      ctx.fillRect(x, this.height - scrollbarWidth, w, scrollbarWidth);
     }
     if (sh > 0) {
       const y = this.height * (this.scrollY / this.scale / this.documentHeight);
       const h = this.height * this.visibleHeight / this.documentHeight;
-      ctx.fillRect(this.width - 12, y, 12, h);
+      ctx.fillStyle = "rgba(64, 0, 0, 0.6)";
+      ctx.fillRect(this.width - scrollbarWidth, y, scrollbarWidth, h);
     }
   }
 
@@ -826,15 +833,20 @@ export class TegakiCanvas extends Subject {
 
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
-      const position = this.positionInDocument(this._mouseX, this._mouseY);
+      const posInCanvas = this.positionInCanvas(this._mouseX, this._mouseY);
+      const posInDocument = this.positionInDocument(this._mouseX, this._mouseY);
 
       this._activePointerId = ev.pointerId;
       this.cursorOverlay.setPointerCapture(this._activePointerId);
 
       if (this._currentTool.hasStroke) {
-        this._strokeManager.start(position.x, position.y);
+        this._strokeManager.start(posInDocument.x, posInDocument.y);
       }
-      this._currentTool.onDown(this, position.x, position.y);
+      this._currentTool.onDown(
+        this,
+        posInDocument.x, posInDocument.y,
+        posInCanvas.x, posInCanvas.y
+      );
       
       if (this._currentTool.hasPreview) {
         this.requestRender();
@@ -857,12 +869,17 @@ export class TegakiCanvas extends Subject {
       this._isMouseEnter = true;
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
-      const position = this.positionInDocument(this._mouseX, this._mouseY);
+      const posInCanvas = this.positionInCanvas(this._mouseX, this._mouseY);
+      const posInDocument = this.positionInDocument(this._mouseX, this._mouseY);
       if (this._currentTool.hasStroke) {
-        this._strokeManager.move(position.x, position.y);
+        this._strokeManager.move(posInDocument.x, posInDocument.y);
       }
       
-      this._currentTool.onDrag(this, position.x, position.y);
+      this._currentTool.onDrag(
+        this,
+        posInDocument.x, posInDocument.y,
+        posInCanvas.x, posInCanvas.y
+      );
       if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
         this.requestRender();
       }
@@ -877,12 +894,17 @@ export class TegakiCanvas extends Subject {
     });
     
     const onPointerUp = () => {
-      const position = this.positionInDocument(this._mouseX, this._mouseY);
+      const posInCanvas = this.positionInCanvas(this._mouseX, this._mouseY);
+      const posInDocument = this.positionInDocument(this._mouseX, this._mouseY);
       if (this._currentTool.hasStroke) {
         this._strokeManager.finish();
       }
 
-      this._currentTool.onUp(this, position.x, position.y);
+      this._currentTool.onUp(
+        this,
+        posInDocument.x, posInDocument.y,
+        posInCanvas.x, posInCanvas.y
+      );
       if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
         this.requestRender();
       }
@@ -1740,6 +1762,15 @@ export class TegakiCanvas extends Subject {
   }
 
   /**
+   * Canvasローカル座標空間におけるドキュメントの左上の座標
+   */
+  documentTopleft() {
+    const documentLeft = this.scrollWidth == 0 ? this.width/2 - this.documentWidth*this.scale/2 : -this._scrollX;
+    const documentTop = this.scrollHeight == 0 ? this.height/2 - this.documentHeight*this.scale/2 : -this._scrollY;
+    return {left: documentLeft, top: documentTop}
+  }
+
+  /**
    * クライアント座標をCanvas内のローカル座標に変換する。
    * @param x 
    * @param y 
@@ -1767,6 +1798,17 @@ export class TegakiCanvas extends Subject {
     return {
       x:(cp.x - documentLeft)/this.scale,
       y:(cp.y - documentTop)/this.scale,
+    };
+  }
+
+  canvasPositionToDocumentPosition(x: number, y: number) {
+    // Canvas ローカル空間でのドキュメントの左上の座標
+    const documentLeft = this.scrollWidth == 0 ? this.width/2 - this.documentWidth*this.scale/2 : -this._scrollX;
+    const documentTop = this.scrollHeight == 0 ? this.height/2 - this.documentHeight*this.scale/2 : -this._scrollY;
+
+    return {
+      x:(x - documentLeft)/this.scale,
+      y:(y - documentTop)/this.scale,
     };
   }
 }

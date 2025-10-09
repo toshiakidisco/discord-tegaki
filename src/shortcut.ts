@@ -44,6 +44,7 @@ export namespace shortcut {
     
     {name: "size-change", ctrl: true, key: "Alt"},
 
+    {name: "scroll", key: " ", mode: "Temporary", press: false},
     {name: "spoit", key: "Alt", mode: "Temporary", press: false},
     {name: "pencil", key: "n", mode: "PressTemp", press: false},
     {name: "eraser", key: "e", mode: "PressTemp", press: false},
