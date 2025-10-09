@@ -38,6 +38,10 @@ const MIN_CANVAS_HEIGHT = 135;
 const WINDOW_CANVAS_PADDING_H = 84;
 const WINDOW_CANVAS_PADDING_V = 73;
 
+
+const MIN_WINDOW_WIDTH = WINDOW_CANVAS_PADDING_H + DEFAULT_CANVAS_WIDTH;
+const MIN_WINDOW_HEIGHT = WINDOW_CANVAS_PADDING_V + DEFAULT_CANVAS_HEIGHT;
+
 export type CanvasInitialState = {
   width: number;
   height: number;
@@ -116,6 +120,9 @@ class LineSizeDisplay extends View {
 }
 
 export class DiscordTegaki {
+  private _width: number;
+  private _height: number;
+
   private _outlets: Outlets;
   private _canvas: TegakiCanvas;
   private _state: State;
@@ -149,7 +156,7 @@ export class DiscordTegaki {
 
   private _copyOverride: Function | undefined;
 
-  constructor(settings: ApplicationSettingsInit | null) {
+  constructor(settings?: ApplicationSettingsInit | null) {
     this._settings = new ApplicationSettings(settings || ApplicationSettings.initialSettings);
     this._state = new State();
     this._state.tool.value = this._toolPen;
@@ -157,6 +164,10 @@ export class DiscordTegaki {
 
     this._root = parseHtml(htmlWindow, this, this._outlets);
     this._window = this._outlets["window"];
+
+    this._width = MIN_WINDOW_WIDTH + 100;
+    this._height = MIN_WINDOW_HEIGHT + 100;
+    this._updateWindowSize();
 
     this._canvas = new TegakiCanvas({
       width: DEFAULT_CANVAS_WIDTH,
@@ -204,6 +215,22 @@ export class DiscordTegaki {
     
     this.init();
     this.bind();
+  }
+
+  get width() {
+    return this._width;
+  }
+  get height() {
+    return this._height;
+  }
+  setWindowSize(width: number, height: number) {
+    this._width = Math.max(width | 0, MIN_WINDOW_WIDTH);
+    this._height = Math.max(height | 0, MIN_WINDOW_HEIGHT);
+    this._updateWindowSize();
+  }
+  _updateWindowSize() {
+    this._window.style.width = `${this.width}px`;
+    this._window.style.height = `${this.height}px`;
   }
 
   /**
@@ -281,54 +308,31 @@ export class DiscordTegaki {
         if (ev.pointerId != _activePointer) {
           return;
         }
-        let right = clamp(ev.clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
-        let bottom = clamp(ev.clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
+        const right = clamp(ev.clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
+        const bottom = clamp(ev.clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
         // 右下座標の増分
-        let dw = right - _initialRect.right;
-        let dh = bottom - _initialRect.bottom;
-        // リサイズ後のキャンバスサイズの計算
-        let cw = Math.max(
-            this._canvas.width + dw/this._canvas.scale,
-            MIN_CANVAS_WIDTH
-        ) | 0;
-        let ch = Math.max(
-            this._canvas.height + dh/this._canvas.scale,
-            MIN_CANVAS_HEIGHT
-        ) | 0;
-        // dw, dh　を再計算
-        dw = (cw - this._canvas.width)*this._canvas.scale;
-        dh = (ch - this._canvas.height)*this._canvas.scale;
+        const dw = right - _initialRect.right;
+        const dh = bottom - _initialRect.bottom;
+
+        const w = Math.max(_initialRect.right + dw - _initialRect.x, MIN_WINDOW_WIDTH);
+        const h = Math.max(_initialRect.bottom + dh - _initialRect.y, MIN_WINDOW_HEIGHT);
 
         _selector?.select(
-          _initialRect.x, _initialRect.y,
-          _initialRect.right + dw, _initialRect.bottom + dh
+          _initialRect.x, _initialRect.y, _initialRect.x + w, _initialRect.y + h
         );
-
-        this.showStatus(`w${this._canvas.width}:h${this._canvas.height} → w${cw}:h${ch}`);
       });
       resize.addEventListener("pointerup", (ev: PointerEvent) => {
         if (_activePointer == ev.pointerId) {
           resize.setPointerCapture(_activePointer);
           _activePointer = null;
         }
-        let right = clamp(ev.clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
-        let bottom = clamp(ev.clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
+        const right = clamp(ev.clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
+        const bottom = clamp(ev.clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
         // 右下座標の増分
-        let dw = right - _initialRect.right;
-        let dh = bottom - _initialRect.bottom;
-        // リサイズ後のキャンバスサイズの計算
-        let cw = Math.max(
-            this._canvas.width + dw/this._canvas.scale,
-            MIN_CANVAS_WIDTH
-        ) | 0;
-        let ch = Math.max(
-            this._canvas.height + dh/this._canvas.scale,
-            MIN_CANVAS_HEIGHT
-        ) | 0;
-        if (cw != this._canvas.width || ch != this._canvas.height) {
-          this._canvas.resize(cw, ch);
-        }
-        this.resetStatus();
+        const dw = right - _initialRect.right;
+        const dh = bottom - _initialRect.bottom;
+
+        this.setWindowSize(this.width + dw, this.height + dh);
         _selector?.close();
       });
       resize.addEventListener("pointercancel", (ev: PointerEvent) => {

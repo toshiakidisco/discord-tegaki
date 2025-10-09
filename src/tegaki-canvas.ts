@@ -288,6 +288,9 @@ export class TegakiCanvas extends Subject {
     }
     this._spoitContext = spoitContext;
 
+    const resizeObserver = new ResizeObserver((ev) => this.onResizeElement(ev[0].contentRect.width, ev[0].contentRect.height));
+    resizeObserver.observe(this.element);
+    
     this.init();
   }
 
@@ -471,6 +474,15 @@ export class TegakiCanvas extends Subject {
    */
   get isDrawing() {
     return this._activePointerId != null;
+  }
+
+  onResizeElement(width: number, height: number) {
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.cursorOverlay.width = width;
+    this.cursorOverlay.height = height;
+    this.requestRender();
+    this.requestRenderCursor();
   }
 
   /**
