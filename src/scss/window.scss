@@ -154,7 +154,6 @@
 
   .dt_r_area-head {
     display: flex;
-    margin-bottom: 4px;
     padding: 0 0 0 16px;
     border-bottom: 1px solid var(--tegaki-canvas-main-color);
     height: 30px;
@@ -190,9 +189,10 @@
     grid-template-areas: "draw tools";
     height: 100%;
 
-    padding: 0 16px;
+    padding: 4px 16px;
 
     .dt_r_area-draw {
+      position: relative;
       grid-area: draw;
       line-height: 1;
     }

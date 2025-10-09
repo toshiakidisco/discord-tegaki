@@ -1,6 +1,10 @@
 
 /* Reset style */
 .dt_r_disco-tegaki {
+  * {
+    box-sizing: border-box;
+  }
+
   ul {
     list-style: none;
   }

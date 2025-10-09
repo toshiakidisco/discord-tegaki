@@ -212,6 +212,9 @@ export class TegakiCanvas extends Subject {
 
   private _activePointerId: number | null = null;
 
+  private _scrollX = 0;
+  private _scrollY = 0;
+
   private _renderCallback: FrameRequestCallback;
   private _renderCursorCallback: FrameRequestCallback;
 
@@ -251,8 +254,8 @@ export class TegakiCanvas extends Subject {
 
     this.canvas = document.createElement("canvas");
     this.canvas.className = "dt_r_layer";
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
+    this.canvas.width = this.documentWidth;
+    this.canvas.height = this.documentHeight;
     this._renderCallback = this.render.bind(this);
 
     const ctx = this.canvas.getContext("2d");
@@ -264,8 +267,8 @@ export class TegakiCanvas extends Subject {
     // Create canvas for cursor
     this.cursorOverlay = document.createElement("canvas");
     this.cursorOverlay.className = "dt_r_cursor";
-    this.cursorOverlay.width = this.width;
-    this.cursorOverlay.height = this.height;
+    this.cursorOverlay.width = this.documentWidth;
+    this.cursorOverlay.height = this.documentHeight;
     this._renderCursorCallback = this.renderCursor.bind(this);
 
     let cursorCtx = this.cursorOverlay.getContext("2d");
@@ -279,7 +282,7 @@ export class TegakiCanvas extends Subject {
 
     this._offscreen = new Offscreen(this.innerWidth, this.innerHeight);
     this._currentLayerOffscreen = new Offscreen(this.innerWidth, this.innerHeight);
-
+    
     // Create 2D context for spoit
     const spoitCanvas = createOffscreenCanvas(1, 1) as OffscreenCanvas;
     const spoitContext = spoitCanvas.getContext("2d", {willReadFrequently: true});
@@ -299,7 +302,6 @@ export class TegakiCanvas extends Subject {
   }
   set document(doc: TegakiCanvasDocument) {
     this.observable.document.value = doc;
-    this.updateCanvasSize();
     this.notify("change-document", this.document);
     this.notify("change-background-color", this.backgroundColor);
     this.selectLayerAt(this.document.layers.length - 1);
@@ -355,16 +357,16 @@ export class TegakiCanvas extends Subject {
     this.notify("change-tool", this._currentTool);
   }
 
-  get width() {
+  get documentWidth() {
     return this.document.width;
   }
 
-  get height() {
+  get documentHeight() {
     return this.document.height;
   }
 
-  setSize(width: number, height: number) {
-    if (this.width == width && this.height == height) {
+  setDocumentSize(width: number, height: number) {
+    if (this.documentWidth == width && this.documentHeight == height) {
       return;
     }
     this.document.setSize(width, height);
@@ -393,14 +395,21 @@ export class TegakiCanvas extends Subject {
    * キャンバスの内部解像度 横幅
    */
   get innerWidth() {
-    return this.width * this._innerScale;
+    return this.documentWidth * this._innerScale;
   }
   
   /**
    * キャンバスの内部解像度 高さ
    */
   get innerHeight() {
-    return this.height * this._innerScale;
+    return this.documentHeight * this._innerScale;
+  }
+
+  get width() {
+    return this.canvas.width;
+  }
+  get height() {
+    return this.canvas.height;
   }
 
   /**
@@ -413,13 +422,66 @@ export class TegakiCanvas extends Subject {
     if (value <= 0) {
       throw new RangeError("Invalid Argument: scale must be greater than 0.");
     }
+    value = clamp(value, this.minScale, this.maxScale);
     if (this.scale == value) {
       return;
     }
     this._scale = value;
-    this.updateCanvasSize();
+    this.adjustScroll();
     this.requestRender();
-    this.notify("scale-changed", value);
+    this.notify("change-scale", value);
+  }
+  get minScale(): number {
+    const sw = this.canvas.width / this.document.width;
+    const sh = this.canvas.height / this.document.height;
+    return Math.min(1, sw, sh);
+  }
+  get maxScale(): number {
+    return 32.0;
+  }
+
+  get scrollWidth(): number {
+    return Math.max(0, this.document.width*this.scale - this.width);
+  }
+  get scrollHeight(): number {
+    return Math.max(0, this.document.height*this.scale - this.height);
+  }
+
+  get scrollX(): number {
+    return this._scrollX;
+  }
+  set scrollX(value: number) {
+    value = clamp(value, 0, this.scrollWidth);
+    if (this._scrollX == value) {
+      return
+    }
+    this._scrollX = value;
+    this.notify("scroll");
+  }
+  get scrollY(): number {
+    return this._scrollY;
+  }
+  set scrollY(value: number) {
+    value = clamp(value, 0, this.scrollHeight);
+    if (this._scrollY == value) {
+      return
+    }
+    this._scrollY = value;
+    this.notify("scroll");
+  }
+  adjustScroll() {
+    this.scrollX = this.scrollX;
+    this.scrollY = this.scrollY;
+  }
+
+  // ドキュメントの可視範囲
+  get visibleWidth() {
+    const scrollWidth = this.scrollWidth;
+    return scrollWidth == 0 ? this.document.width : this.document.width - scrollWidth/this.scale;
+  }
+  get visibleHeight() {
+    const scrollHeight = this.scrollHeight;
+    return scrollHeight == 0 ? this.document.height : this.document.height - scrollHeight/this.scale;
   }
 
   /**
@@ -481,6 +543,9 @@ export class TegakiCanvas extends Subject {
     this.canvas.height = height;
     this.cursorOverlay.width = width;
     this.cursorOverlay.height = height;
+
+    this.scale = this.scale;
+    this.adjustScroll();
     this.requestRender();
     this.requestRenderCursor();
   }
@@ -560,7 +625,6 @@ export class TegakiCanvas extends Subject {
     }
     
     let cursorName:  string;
-    const isBrushTool = this.currentTool instanceof CanvasTool.Brush;
     const position = this.positionInCanvas(this._mouseX, this._mouseY);
 
     // Render cursor
@@ -576,11 +640,11 @@ export class TegakiCanvas extends Subject {
       const tool = this.currentTool;
 
       const toolSize = tool.size;
-      const offset = toolSize%2 == 0 ? 0 : 0.5;
+      const offset = 0;
       const displayPenSize = toolSize * this.scale;
       
-      position.x = (position.x + offset)*this.scale;
-      position.y = (position.y + offset)*this.scale;
+      position.x = position.x + offset;
+      position.y = position.y + offset;
 
       // カーソル包含矩形
       let cl: number;
@@ -700,11 +764,14 @@ export class TegakiCanvas extends Subject {
 
     // Render offscreen to canvas
     ctx.save();
-    ctx.clearRect(0, 0, this.width, this.height);
+    ctx.clearRect(0, 0, this.documentWidth, this.documentHeight);
     ctx.scale(this._scale/this._innerScale, this._scale/this._innerScale);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this._offscreen.canvas, 0, 0);
+    
+    const documentLeft = this.scrollWidth == 0 ? this.width/2 - this.documentWidth*this.scale/2 : -this._scrollX;
+    const documentTop = this.scrollHeight == 0 ? this.height/2 - this.documentHeight*this.scale/2 : -this._scrollY;
+    ctx.drawImage(this._offscreen.canvas, documentLeft, documentTop);
     ctx.restore();
 
     if (this.isDrawing && this._currentTool.hasOverlay) {
@@ -715,8 +782,26 @@ export class TegakiCanvas extends Subject {
       this._selectedRegion.drawTo(this, this.context);
     }
 
+    this.renderScrollbar();
 
     this._needsRender = false;
+  }
+
+  renderScrollbar() {
+    const ctx = this.context;
+    const sw = this.scrollWidth;
+    const sh = this.scrollHeight;
+
+    if (sw > 0) {
+      const x = this.width * (this.scrollX / this.scale / this.documentWidth);
+      const w = this.width * this.visibleWidth / this.documentWidth;
+      ctx.fillRect(x, this.height - 12, w, 12);
+    }
+    if (sh > 0) {
+      const y = this.height * (this.scrollY / this.scale / this.documentHeight);
+      const h = this.height * this.visibleHeight / this.documentHeight;
+      ctx.fillRect(this.width - 12, y, 12, h);
+    }
   }
 
   /**
@@ -741,7 +826,7 @@ export class TegakiCanvas extends Subject {
 
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
-      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      const position = this.positionInDocument(this._mouseX, this._mouseY);
 
       this._activePointerId = ev.pointerId;
       this.cursorOverlay.setPointerCapture(this._activePointerId);
@@ -772,7 +857,7 @@ export class TegakiCanvas extends Subject {
       this._isMouseEnter = true;
       this._mouseX = ev.clientX;
       this._mouseY = ev.clientY;
-      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      const position = this.positionInDocument(this._mouseX, this._mouseY);
       if (this._currentTool.hasStroke) {
         this._strokeManager.move(position.x, position.y);
       }
@@ -792,7 +877,7 @@ export class TegakiCanvas extends Subject {
     });
     
     const onPointerUp = () => {
-      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      const position = this.positionInDocument(this._mouseX, this._mouseY);
       if (this._currentTool.hasStroke) {
         this._strokeManager.finish();
       }
@@ -850,7 +935,7 @@ export class TegakiCanvas extends Subject {
       this.requestRender();
     });
 
-    this.reset(this.width, this.height, this.backgroundColor, true);
+    this.reset(this.documentWidth, this.documentHeight, this.backgroundColor, true);
     this.requestRender();
   }
 
@@ -861,7 +946,7 @@ export class TegakiCanvas extends Subject {
    */
   execSpoit(x?: number, y?: number) {
     if (typeof x == "undefined" || typeof y == "undefined") {
-      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      const position = this.positionInDocument(this._mouseX, this._mouseY);
       x = position.x;
       y = position.y;
     }
@@ -913,7 +998,6 @@ export class TegakiCanvas extends Subject {
       layer: this.currentLayer
     });
   }
-
 
   clipBegin(context: CanvasRenderingContext2D) {
     this._selectedRegion?.clipBegin(context);
@@ -1082,7 +1166,7 @@ export class TegakiCanvas extends Subject {
    */
   bucketFill(layer: Layer, x: number, y: number, fillColor: Color.Immutable, option?: BucketOption) {
     if (typeof x == "undefined" || typeof y == "undefined") {
-      const position = this.positionInCanvas(this._mouseX, this._mouseY);
+      const position = this.positionInDocument(this._mouseX, this._mouseY);
       x = position.x;
       y = position.y;
     }
@@ -1174,8 +1258,8 @@ export class TegakiCanvas extends Subject {
     }
 
     let undo: CanvasAction;
-    if (width > this.width && height > this.height) {
-      undo = new CanvasAction.Resize(this, this.width, this.height);
+    if (width > this.documentWidth && height > this.documentHeight) {
+      undo = new CanvasAction.Resize(this, this.documentWidth, this.documentHeight);
     }
     else {
       undo = new CanvasAction.UndoResize(this);
@@ -1203,7 +1287,7 @@ export class TegakiCanvas extends Subject {
    */
   selectAll() {
     const region = new CanvasRegion();
-    region.setRect(new Rect(0, 0, this.width, this.height));
+    region.setRect(new Rect(0, 0, this.documentWidth, this.documentHeight));
     this.selectNew(region);
   }
 
@@ -1498,14 +1582,16 @@ export class TegakiCanvas extends Subject {
   /**
    * 現在のwidth, height, scaleプロパティから、canvas 要素のサイズを反映する。
    */
+  /*
   updateCanvasSize() {
-    this.canvas.width = this.width*this._scale;
-    this.canvas.height = this.height*this._scale;
-    this.cursorOverlay.width = this.width*this._scale;
-    this.cursorOverlay.height = this.height*this._scale;
+    this.canvas.width = this.documentWidth*this._scale;
+    this.canvas.height = this.documentHeight*this._scale;
+    this.cursorOverlay.width = this.documentWidth*this._scale;
+    this.cursorOverlay.height = this.documentHeight*this._scale;
     this.requestRender();
     this.notify("change-size", this);
   }
+  */
 
   /**
    * キャンバス操作の実行
@@ -1661,10 +1747,27 @@ export class TegakiCanvas extends Subject {
    */
   positionInCanvas(x: number, y: number) {
     const rect = this.canvas.getBoundingClientRect();
-    x = ((x - rect.x)*this.innerWidth/rect.width);
-    y = ((y - rect.y)*this.innerHeight/rect.height);
+    x = x - rect.x;
+    y = y - rect.y;
 
     return {x, y};
+  }
+
+  /**
+   * クライアント座標をドキュメント内のローカル座標に変換する。
+   */
+  positionInDocument(x: number, y: number) {
+    // Canvas 内ローカル座標
+    const cp = this.positionInCanvas(x, y);
+    
+    // Canvas ローカル空間でのドキュメントの左上の座標
+    const documentLeft = this.scrollWidth == 0 ? this.width/2 - this.documentWidth*this.scale/2 : -this._scrollX;
+    const documentTop = this.scrollHeight == 0 ? this.height/2 - this.documentHeight*this.scale/2 : -this._scrollY;
+
+    return {
+      x:(cp.x - documentLeft)/this.scale,
+      y:(cp.y - documentTop)/this.scale,
+    };
   }
 }
 
@@ -1701,6 +1804,9 @@ export interface TegakiCanvas {
   ): void;
   addObserver(observer: Object, name: "spoit",
     callback: (ev: {color: Color.Immutable}) => void
+  ): void;
+  addObserver(observer: Object, name: "change-scale",
+    callback: () => void
   ): void;
 }
 

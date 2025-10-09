@@ -317,7 +317,7 @@ export namespace CanvasTool {
 
         const rect = new Rect(this.#startX, this.#startY, this.#finishX - this.#startX, this.#finishY - this.#startY)
                         .normalize()
-                        .intersection(new Rect(0, 0, canvas.width, canvas.height));
+                        .intersection(new Rect(0, 0, canvas.documentWidth, canvas.documentHeight));
         if (rect.isEmpty()) {
           canvas.selectNew(null);
         }

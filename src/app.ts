@@ -465,6 +465,10 @@ export class DiscordTegaki {
       console.log();
       this._canvas.foreColor = ev.color;
     });
+    // 拡大縮小変更
+    this._canvas.addObserver(this, "change-scale", () => {
+      this.resetStatus();
+    });
   }
 
   prepareAutoSave() {
@@ -548,7 +552,7 @@ export class DiscordTegaki {
    * 標準のステータステキスト
    */
   defaultStatusText() {
-    return `w${this._canvas.width}:h${this._canvas.height}　倍率x${this._canvas.scale.toPrecision(2)}`;
+    return `w${this._canvas.documentWidth}:h${this._canvas.documentHeight}　倍率x${this._canvas.scale.toPrecision(2)}`;
   }
 
   /**
@@ -660,22 +664,16 @@ export class DiscordTegaki {
   }
 
   onClickZoomIn(ev: Event) {
-    const maxScale = this.maxCanvasScale();
-    if (this._canvas.scale >= maxScale ) {
-      return;
-    }
+    const maxScale = this._canvas.maxScale;
     this._changeScale(Math.min(this._canvas.scale + 0.5, maxScale));
   }
 
   onClickZoomOut(ev: Event) {
-    if (this._canvas.scale <= 1) {
-      return;
-    }
-    this._changeScale(Math.max(this._canvas.scale - 0.5, 1));
+    const minScale = this._canvas.minScale;
+    this._changeScale(Math.max(this._canvas.scale - 0.5, minScale));
   }
 
   private _changeScale(newScale: number) {
-    const lastScale = this._canvas.scale;
     this._canvas.scale = newScale;
 
     this.resetStatus();
@@ -1006,8 +1004,8 @@ export class DiscordTegaki {
    */
   maxCanvasScale() {
     return Math.max(1, Math.min(
-      (document.documentElement.clientWidth - WINDOW_CANVAS_PADDING_H)/this._canvas.width,
-      (document.documentElement.clientHeight - WINDOW_CANVAS_PADDING_V)/this._canvas.height
+      (document.documentElement.clientWidth - WINDOW_CANVAS_PADDING_H)/this._canvas.documentWidth,
+      (document.documentElement.clientHeight - WINDOW_CANVAS_PADDING_V)/this._canvas.documentHeight
     ));
   }
 
