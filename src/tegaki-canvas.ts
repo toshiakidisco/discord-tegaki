@@ -184,7 +184,7 @@ export class TegakiCanvas extends Subject {
    * すぐに変更せず、ストロークが終了するまで待つために使う.
    */
   private _nextTool: CanvasTool | null = null;
-  
+
   /**
    * 内部スケール. 見た目の表示よりも解像度を大きくすることで
    * アンチエイリアスが綺麗に働くようにしたい場合に設定.
@@ -426,18 +426,37 @@ export class TegakiCanvas extends Subject {
     if (this.scale == value) {
       return;
     }
+    const old = this._scale;
     this._scale = value;
     this.adjustScroll();
     this.requestRender();
-    this.notify("change-scale", value);
+    this.notify("change-scale", {scale: value, old: old});
   }
+  /**
+   * 最小の拡大率. ドキュメント全体を表示する拡大率と 1.0 のうち小さい方.
+   */
   get minScale(): number {
     const sw = this.canvas.width / this.document.width;
     const sh = this.canvas.height / this.document.height;
     return Math.min(1, sw, sh);
   }
+  /**
+   * 最大の拡大率
+   */
   get maxScale(): number {
     return 32.0;
+  }
+  /**
+   * ドキュメント全体を表示する拡大率
+   */
+  get overallScale(): number {
+    const sw = this.canvas.width / this.document.width;
+    const sh = this.canvas.height / this.document.height;
+    return Math.min(sw, sh);
+  }
+
+  fitScaleToOverall() {
+    this.scale = this.overallScale;
   }
 
   get scrollWidth(): number {
@@ -1848,7 +1867,7 @@ export interface TegakiCanvas {
     callback: (ev: {color: Color.Immutable}) => void
   ): void;
   addObserver(observer: Object, name: "change-scale",
-    callback: () => void
+    callback: (ev: {scale: number, old: number}) => void
   ): void;
 }
 
