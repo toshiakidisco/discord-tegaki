@@ -158,11 +158,6 @@
     border-bottom: 1px solid var(--tegaki-canvas-main-color);
     height: 30px;
     align-items: center;
-
-    > * {
-      height: 24px;
-      line-height: 24px;
-    }
     
     > .dt_r_title {
       flex-grow: 1;

@@ -8,8 +8,16 @@
     width: 100% !important;
     height: 100% !important;
     
+    .dt_r_area-head {
+      height: 36px;
+    }
+
     .dt_r_area-main {
       padding: 4px 4px;
+
+      .dt_r_area-tools .dt_r_tools {
+        width: 72px;
+      }
     }
     
   }
