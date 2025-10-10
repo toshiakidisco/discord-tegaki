@@ -317,7 +317,7 @@ export namespace CanvasTool {
       if (this.#mode == "select") {
         const rect = new Rect(this.#startX, this.#startY, this.#finishX - this.#startX, this.#finishY - this.#startY).normalize().scale(canvas.scale).floor().expand(0.5);
         
-        const docTopleft = canvas.documentTopleft();
+        const docTopleft = canvas.getDocumentTopLeft();
 
         context.save();
         context.translate(docTopleft.left, docTopleft.top);

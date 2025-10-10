@@ -5,7 +5,7 @@
       <div class="dt_r_tools">
         <button name="tool-new" data-on-click="onClickNew"><img src="[tool-new.png]"></button>
         <button name="tool-save" data-on-click="onClickSave"><img src="[tool-save.png]"></button>
-        <button name="tool-resize" data-on-click="onClickLayer"><img src="[icon-resize.png]"></button>
+        <button name="tool-resize" data-on-click="onClickResize"><img src="[icon-resize.png]"></button>
         <button name="icon-settings" data-on-click="onClickSettings"><img src="[icon-settings.png]"></button>
         <div class="dt_r_separator"><img src="[separator.png]"></div>
 
@@ -24,8 +24,8 @@
       <button name="button-close" class="dt_r_button-close" data-on-click="onClickClose">×</button>
     </section>
     <section class="dt_r_area-main">
-      <div class="dt_r_area-draw" name="area-draw">
-      </div>
+      <div class="dt_r_area-draw" name="area-draw" data-on-wheel="onWheelOnCanvas">
+    </div>
       <div class="dt_r_area-tools">
         
         <div class="dt_r_color-cell"  name="backgroundColor" data-on-click="onClickBackgroundColor"></div>

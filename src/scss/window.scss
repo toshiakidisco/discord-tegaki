@@ -97,7 +97,7 @@
 
   >.dt_r_inner {
     display: grid;
-    grid-template-rows: 31px 1fr 35px;
+    grid-template-rows: auto 1fr auto;
     height: 100%;
   }
 
@@ -185,8 +185,9 @@
 
   .dt_r_area-main {
     display: grid;
-    grid-template-columns: 1fr 48px;
+    grid-template-columns: 1fr auto;
     grid-template-areas: "draw tools";
+    gap: 4px;
     height: 100%;
 
     padding: 4px 16px;
@@ -201,18 +202,18 @@
       position: relative;
       width: 100%;
       height: 100%;
+      overflow: hidden;
     }
     .dt_r_tegaki-canvas > canvas {
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      // width: 100%;
+      // height: 100%;
     }
 
     .dt_r_area-tools {
       grid-area: tools;
-      margin-left: 4px;
 
       .dt_r_tools {
         display: flex;
@@ -234,7 +235,6 @@
 } 
 
 .dt_r_disco-tegaki .dt_r_area-bottom {
-  margin-top: 4px;
   padding: 0 16px 4px 16px;
   display: flex;
   align-items: center;
@@ -259,7 +259,6 @@
   display: block;
   overscroll-behavior-x: none;
   touch-action: none;
-  max-width: calc(100vw - var(--tegaki-canvas-width-without-canvas));
 }
 
 /*

@@ -1,3 +1,6 @@
+import manifest from "../manifest.json";
+import "./scss/main.scss";
+
 import htmlWindow from "raw-loader!./window.html";
 import htmlButtonOpen from "raw-loader!./button-open.html";
 
@@ -6,17 +9,18 @@ import CanvasTool from "./canvas-tool";
 import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
 import Color from "./foudantion/color";
-import PanelColor from "./panel/color";
-import SizeSelector from "./panel/size-selector";
 import Selector from "./selector";
 import { clamp, createCanvas2D, isRunnningOnExtension } from "./funcs";
 import defaultPalette from "./default-palette";
 import { getAssetUrl } from "./asset";
-import PanelLayer from "./panel/layer";
 
-import manifest from "../manifest.json";
-import "./scss/main.scss";
+import PanelLayer from "./panel/layer";
+import PanelResize from "./panel/resize";
 import PanelBucket from "./panel/bucket";
+import PanelColor from "./panel/color";
+import PanelSettings from "./panel/settings";
+import SizeSelector from "./panel/size-selector";
+
 import storage from "./storage";
 import TegakiCanvasDocument from "./canvas-document";
 import { JsonObject, parse } from "./foudantion/json";
@@ -24,7 +28,6 @@ import shortcut from "./shortcut";
 import View from "./foudantion/view";
 import WebGLFilter from "./webgl-filter";
 import ApplicationSettings, { ApplicationSettingsInit } from "./settings";
-import PanelSettings from "./panel/settings";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -132,6 +135,8 @@ export class DiscordTegaki {
   private _panelLayer: PanelLayer;
   private _panelBucket: PanelBucket;
   private _panelSettings: PanelSettings;
+  private _panelResize: PanelResize;
+
   private _lineSizeDisplay: LineSizeDisplay = new LineSizeDisplay();
 
   private _root: HTMLElement;
@@ -210,6 +215,7 @@ export class DiscordTegaki {
     this._panelLayer = new PanelLayer(this._root, this._canvas);
     this._panelBucket = new PanelBucket(this._root, this._toolBucket);
     this._panelSettings = new PanelSettings(this._root, this._settings);
+    this._panelResize = new PanelResize(this._root, this._canvas);
 
     this.resetStatus();
     
@@ -406,10 +412,10 @@ export class DiscordTegaki {
     this._state.tool.sync();
 
     // Fore Color
-    this._canvas.observable.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
+    this._canvas.observables.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
     });
-    this._canvas.observable.foreColor.sync();
+    this._canvas.observables.foreColor.sync();
 
     // Background Color
     this._state.backgroundColor.addObserver(this, "change", (value: Color.Immutable) => {
@@ -467,9 +473,14 @@ export class DiscordTegaki {
       this._canvas.foreColor = ev.color;
     });
     // 拡大縮小変更
-    this._canvas.addObserver(this, "change-scale", () => {
+    this._canvas.addObserver(this, "change-scale", (ev) => {
       this.resetStatus();
-      this.fitWindowToCanvas(true);
+      if (ev.scale > ev.old) {
+        this.fitWindowToCanvas(true);
+      }
+      else if (ev.scale < ev.old) {
+        this.fitWindowToCanvas();
+      }
     });
   }
 
@@ -554,7 +565,7 @@ export class DiscordTegaki {
    * 標準のステータステキスト
    */
   defaultStatusText() {
-    return `w${this._canvas.documentWidth}:h${this._canvas.documentHeight}　倍率x${this._canvas.scale.toPrecision(2)}`;
+    return `w${this._canvas.documentWidth}:h${this._canvas.documentHeight}　倍率x${this._canvas.scale*100 | 0}%`;
   }
 
   /**
@@ -716,7 +727,7 @@ export class DiscordTegaki {
     ev.preventDefault();
 
     this._panelColor.close();
-    this._panelColor.bind(this._canvas.observable.foreColor);
+    this._panelColor.bind(this._canvas.observables.foreColor);
     this._panelColor.addObserver(this, "close", () => {
       this._panelColor.removeObserver(this);
       this._panelColor.bind(null);
@@ -804,6 +815,12 @@ export class DiscordTegaki {
     this._panelLayer.toggle(rect.right + 1, rect.top);
   }
 
+  onClickResize(ev: MouseEvent) {
+    const e = ev.target as HTMLElement;
+    const r = e.getBoundingClientRect();
+    this._panelResize.toggle(r.right, r.y);
+  }
+
   onBlur(ev: Event) {
     for (const [key, time] of this._shortcutDownTime) {
       this.endShortcut(key, time);
@@ -815,20 +832,45 @@ export class DiscordTegaki {
     // Discord側にイベントを吸われないように
     ev.stopPropagation();
 
-    // 該当するショートカットを検索
-    const sc = shortcut.match(ev);
+    // 該当するショートカットを検索し実行
+    const isFound = this.findAndExecuteShortcut(ev);
+    if (isFound) {
+      ev.preventDefault();
+    }
+  }
+  
+  onWheelOnCanvas(ev: WheelEvent) {
+    ev.stopPropagation();
+
+    // 該当するショートカットを検索し実行
+    const isFound = this.findAndExecuteShortcut({
+      key: ev.deltaY < 0 ? "WheelUp" : "WheelDown",
+      ctrlKey: ev.ctrlKey,
+      altKey: ev.altKey,
+      shiftKey: ev.shiftKey,
+      repeat: false
+    });
+
+    if (isFound) {
+      ev.preventDefault();
+    }
+  }
+
+  findAndExecuteShortcut(f: shortcut.Factor) {
+    const sc = shortcut.match(f);
     if (sc == null) {
-      return;
+      return false;
     }
 
-    ev.preventDefault();
     const t = Date.now();
     const accepted = this.onShortcut(sc);
     if (accepted === false) {
-      return;
+      return false;
     }
     this._shortcutDownTime.set(sc, t);
+    return true;
   }
+  
 
   /**
    * ショートカット処理の実行
@@ -955,6 +997,15 @@ export class DiscordTegaki {
       }
       case "grab-right": {
         this._canvas.selectGrabMove(1, 0);
+        break;
+      }
+      // Zoom
+      case "zoom-in": {
+        this._canvas.zoomAtPointer(1.1, true);
+        break;
+      }
+      case "zoom-out": {
+        this._canvas.zoomAtPointer(0.9, true);
         break;
       }
     }

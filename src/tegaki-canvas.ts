@@ -231,10 +231,7 @@ export class TegakiCanvas extends Subject {
   /** キャンバス上の選択範囲の情報 */
   private _selectedRegion: CanvasRegion | null = null;
 
-  readonly observable: {
-    foreColor: ObservableColor;
-    document: ObservableValue<TegakiCanvasDocument>;
-  };
+  readonly observables;
 
   constructor(init: CanvasInit) {
     super();
@@ -243,7 +240,7 @@ export class TegakiCanvas extends Subject {
     const doc = new TegakiCanvasDocument(init.width, init.height, [], init.backgroundColor);
     this._innerScale = 1;
 
-    this.observable = {
+    this.observables = {
       document: new ObservableValue<TegakiCanvasDocument>(doc),
       foreColor: (new ObservableColor(255, 255, 255)).set(init.foreColor),
     };
@@ -298,20 +295,20 @@ export class TegakiCanvas extends Subject {
   }
 
   get document() {
-    return this.observable.document.value;
+    return this.observables.document.value;
   }
   set document(doc: TegakiCanvasDocument) {
-    this.observable.document.value = doc;
+    this.observables.document.value = doc;
     this.notify("change-document", this.document);
     this.notify("change-background-color", this.backgroundColor);
     this.selectLayerAt(this.document.layers.length - 1);
   }
 
   get foreColor(): Color.Immutable {
-    return this.observable.foreColor.value;
+    return this.observables.foreColor.color;
   }
   set foreColor(color: Color.Immutable) {
-    this.observable.foreColor.set(color);
+    this.observables.foreColor.set(color);
   }
 
   get currentLayer(): Layer {
@@ -457,6 +454,18 @@ export class TegakiCanvas extends Subject {
 
   fitScaleToOverall() {
     this.scale = this.overallScale;
+  }
+
+  /**
+   * ポインタ位置を中心に拡大率を変更
+   */
+  zoomAtPointer(m: number, stopAt100: boolean) {
+    const old = this.scale;
+    let after = this.scale*m;
+    if ((old < 1 && after > 1) || (old > 1 && after < 1)) {
+      after = 1;
+    }
+    this.scale =  after;
   }
 
   get scrollWidth(): number {
@@ -1783,7 +1792,7 @@ export class TegakiCanvas extends Subject {
   /**
    * Canvasローカル座標空間におけるドキュメントの左上の座標
    */
-  documentTopleft() {
+  getDocumentTopLeft() {
     const documentLeft = this.scrollWidth == 0 ? this.width/2 - this.documentWidth*this.scale/2 : -this._scrollX;
     const documentTop = this.scrollHeight == 0 ? this.height/2 - this.documentHeight*this.scale/2 : -this._scrollY;
     return {left: documentLeft, top: documentTop}

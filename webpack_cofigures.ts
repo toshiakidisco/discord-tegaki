@@ -106,6 +106,10 @@ configures["extension"] = {
             from: path.resolve(__dirname, "src/index.html"),
             to: path.resolve(__dirname, dstDir, "index.html"),
           },
+          {
+            from: path.resolve(__dirname, "src/index-sp.html"),
+            to: path.resolve(__dirname, dstDir, "index-sp.html"),
+          },
         ],
       }),
       new MiniCssExtractPlugin({
