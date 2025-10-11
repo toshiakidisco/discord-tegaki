@@ -565,7 +565,7 @@ export class DiscordTegaki {
    * 標準のステータステキスト
    */
   defaultStatusText() {
-    return `w${this._canvas.documentWidth}:h${this._canvas.documentHeight}　倍率x${this._canvas.scale*100 | 0}%`;
+    return `w${this._canvas.documentWidth}:h${this._canvas.documentHeight}　倍率 ${this._canvas.scale*100 | 0}%`;
   }
 
   /**
