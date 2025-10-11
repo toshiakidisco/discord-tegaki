@@ -224,6 +224,13 @@ export namespace CanvasTool {
       canvas.scrollY = this.#startScrollY - dy;
     }
     override onUp(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {
+      x = x | 0;
+      y = y | 0;
+      const dx = cx - this.#startX;
+      const dy = cy - this.#startY;
+
+      canvas.scrollX = this.#startScrollX - dx;
+      canvas.scrollY = this.#startScrollY - dy;
     }
   }
 

@@ -19,6 +19,7 @@ import ObjectPool from "./foudantion/object-pool";
 import SvgFilter from "./svg-filter";
 import CanvasRegion from "./canvas-region";
 import WebGLFilter from "./webgl-filter";
+import {default as pointerManager} from "./pointer-manager";
 
 function createOffscreenCanvas(width: number, height: number) {
   if (typeof window["OffscreenCanvas"] === "undefined") {
@@ -565,7 +566,7 @@ export class TegakiCanvas extends Subject {
    * 描画中の状態か
    */
   get isDrawing() {
-    return this._activePointerId != null;
+    return pointerManager.currentTarget == this.cursorOverlay;
   }
 
   onResizeElement(width: number, height: number) {
@@ -655,7 +656,7 @@ export class TegakiCanvas extends Subject {
     }
     
     let cursorName:  string;
-    const position = this.positionInCanvas(this._mouseX, this._mouseY);
+    const position = {x: this._mouseX, y: this._mouseY};
 
     // Render cursor
     if ((!this.currentLayer.isVisible) && (!this._currentTool.isEnabledForHiddenLayer)) {
@@ -784,6 +785,7 @@ export class TegakiCanvas extends Subject {
         // ストローク中のプレビュー表示
         this._currentLayerOffscreen.set(layer);
         this._currentTool.renderPreview(this, layer, this._currentLayerOffscreen);
+        console.log("render preview");
         offCtx.drawImage(this._currentLayerOffscreen.canvas, 0, 0);
       }
       else {
@@ -843,29 +845,10 @@ export class TegakiCanvas extends Subject {
    * イベントリスナ登録を中心とした初期化処理
    */
   init() {
-    // 操作不能不具合修正
-    // pointerId が無効になる場合があるので、例外キャッチを追加.
-    // pointerup, pointercalcel 時にもキャプチャをリリースするように.
-
-    this.cursorOverlay.addEventListener("pointerdown", (ev: PointerEvent) => {
-      if (ev.pointerType == "mouse" && ev.button != 0) {
-        return;
-      }
-
-      if (this._activePointerId != null) {
-        try {
-          this.cursorOverlay.releasePointerCapture(this._activePointerId);
-        } catch{}
-        onPointerUp();
-      }
-
-      this._mouseX = ev.clientX;
-      this._mouseY = ev.clientY;
-      const posInCanvas = this.positionInCanvas(this._mouseX, this._mouseY);
-      const posInDocument = this.positionInDocument(this._mouseX, this._mouseY);
-
-      this._activePointerId = ev.pointerId;
-      this.cursorOverlay.setPointerCapture(this._activePointerId);
+    pointerManager.listen(this.cursorOverlay, "drag-start", (info) => {
+      this._mouseX = info.pointers[0].currentX;
+      this._mouseY = info.pointers[0].currentY;
+      const posInDocument = this.canvasCoordToDocumentCoord(this._mouseX, this._mouseY);
 
       if (this._currentTool.hasStroke) {
         this._strokeManager.start(posInDocument.x, posInDocument.y);
@@ -873,7 +856,7 @@ export class TegakiCanvas extends Subject {
       this._currentTool.onDown(
         this,
         posInDocument.x, posInDocument.y,
-        posInCanvas.x, posInCanvas.y
+        this._mouseX, this._mouseY
       );
       
       if (this._currentTool.hasPreview) {
@@ -881,24 +864,12 @@ export class TegakiCanvas extends Subject {
       }
     });
     
-    this.cursorOverlay.addEventListener("pointermove", (ev: PointerEvent) => {
-      if (this._activePointerId == null) {
-        this._mouseX = ev.clientX;
-        this._mouseY = ev.clientY;
-        this._isMouseEnter = true;
-        this.requestRenderCursor();
-        return false;
-      }
-
-      if (this._activePointerId != ev.pointerId) {
-        return;
-      }
-      
+    pointerManager.listen(this.cursorOverlay, "drag-move", (info) => {
       this._isMouseEnter = true;
-      this._mouseX = ev.clientX;
-      this._mouseY = ev.clientY;
-      const posInCanvas = this.positionInCanvas(this._mouseX, this._mouseY);
-      const posInDocument = this.positionInDocument(this._mouseX, this._mouseY);
+      this._mouseX = info.pointers[0].currentX;
+      this._mouseY = info.pointers[0].currentY;
+      const posInDocument = this.canvasCoordToDocumentCoord(this._mouseX, this._mouseY);
+
       if (this._currentTool.hasStroke) {
         this._strokeManager.move(posInDocument.x, posInDocument.y);
       }
@@ -906,7 +877,7 @@ export class TegakiCanvas extends Subject {
       this._currentTool.onDrag(
         this,
         posInDocument.x, posInDocument.y,
-        posInCanvas.x, posInCanvas.y
+        this._mouseX, this._mouseY
       );
       if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
         this.requestRender();
@@ -914,8 +885,21 @@ export class TegakiCanvas extends Subject {
       this.requestRenderCursor();
     });
 
+    this.cursorOverlay.addEventListener("pointermove", (ev: PointerEvent) => {
+      if (this.isDrawing) {
+        return;
+      }
+      if (ev.pointerType == "mouse" || ev.pointerType == "pen") {
+        const r = this.cursorOverlay.getBoundingClientRect();
+        this._mouseX = ev.clientX - r.x;
+        this._mouseY = ev.clientY - r.y;
+        this._isMouseEnter = true;
+        this.requestRenderCursor();
+      }
+    });
+
     this.cursorOverlay.addEventListener("pointerleave", (ev: PointerEvent) => {
-      if (this._activePointerId == null) {
+      if (ev.pointerType == "mouse" || ev.pointerType == "pen") {
         this._isMouseEnter = false;
         this.requestRenderCursor();
       }
@@ -927,7 +911,7 @@ export class TegakiCanvas extends Subject {
       if (this._currentTool.hasStroke) {
         this._strokeManager.finish();
       }
-
+      
       this._currentTool.onUp(
         this,
         posInDocument.x, posInDocument.y,
@@ -942,23 +926,33 @@ export class TegakiCanvas extends Subject {
       }
     };
 
-    this.cursorOverlay.addEventListener("pointerup", (ev: PointerEvent) => {
-      if (this._activePointerId != ev.pointerId) {
-        return;
-      }
-
-      try {
-        this.cursorOverlay.releasePointerCapture(this._activePointerId);
-      } catch{}
+    pointerManager.listen(this.cursorOverlay, "drag-end", (info) => {
       this._activePointerId = null;
 
-      this._mouseX = ev.clientX;
-      this._mouseY = ev.clientY;
+      this._mouseX = info.pointers[0].currentX;
+      this._mouseY = info.pointers[0].currentY;
 
-      onPointerUp();
+      const posInDocument = this.canvasCoordToDocumentCoord(this._mouseX, this._mouseY);
+      if (this._currentTool.hasStroke) {
+        this._strokeManager.finish();
+      }
+      
+      this._currentTool.onUp(
+        this,
+        posInDocument.x, posInDocument.y,
+        this._mouseX, this._mouseY
+      );
+      if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
+        this.requestRender();
+      }
+      if (this._nextTool != null) {
+        this.currentTool = this._nextTool;
+        this._nextTool = null;
+      }
     });
 
     this.cursorOverlay.addEventListener("pointercancel", (ev: Event) => {
+      console.log("cancel: " + ev);
       if (this._activePointerId == null) {
         return;
       }
@@ -996,9 +990,8 @@ export class TegakiCanvas extends Subject {
    */
   execSpoit(x?: number, y?: number) {
     if (typeof x == "undefined" || typeof y == "undefined") {
-      const position = this.positionInDocument(this._mouseX, this._mouseY);
-      x = position.x;
-      y = position.y;
+      x = this._mouseX;
+      y = this._mouseY;
     }
     const color = this.getColorAt(x, y);
     if (typeof color !== "undefined") {
@@ -1216,9 +1209,8 @@ export class TegakiCanvas extends Subject {
    */
   bucketFill(layer: Layer, x: number, y: number, fillColor: Color.Immutable, option?: BucketOption) {
     if (typeof x == "undefined" || typeof y == "undefined") {
-      const position = this.positionInDocument(this._mouseX, this._mouseY);
-      x = position.x;
-      y = position.y;
+      x = this._mouseX;
+      y = this._mouseY;
     }
 
     const fillImage = offscreenPool.get().setSize(this.innerWidth, this.innerHeight);
@@ -1829,7 +1821,7 @@ export class TegakiCanvas extends Subject {
     };
   }
 
-  canvasPositionToDocumentPosition(x: number, y: number) {
+  canvasCoordToDocumentCoord(x: number, y: number) {
     // Canvas ローカル空間でのドキュメントの左上の座標
     const documentLeft = this.scrollWidth == 0 ? this.width/2 - this.documentWidth*this.scale/2 : -this._scrollX;
     const documentTop = this.scrollHeight == 0 ? this.height/2 - this.documentHeight*this.scale/2 : -this._scrollY;

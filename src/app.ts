@@ -28,6 +28,7 @@ import shortcut from "./shortcut";
 import View from "./foudantion/view";
 import WebGLFilter from "./webgl-filter";
 import ApplicationSettings, { ApplicationSettingsInit } from "./settings";
+import pointerManager from "./pointer-manager";
 
 const DEFAULT_CANVAS_WIDTH = 344;
 const DEFAULT_CANVAS_HEIGHT = 135;
@@ -42,7 +43,7 @@ const WINDOW_CANVAS_PADDING_H = 84;
 const WINDOW_CANVAS_PADDING_V = 73;
 
 const MIN_WINDOW_WIDTH = WINDOW_CANVAS_PADDING_H + DEFAULT_CANVAS_WIDTH;
-const MIN_WINDOW_HEIGHT = 210;
+const MIN_WINDOW_HEIGHT = 200;
 
 export type CanvasInitialState = {
   width: number;
@@ -252,40 +253,21 @@ export class DiscordTegaki {
       let _dragStartPosition = {x: 0, y: 0};
       let _pointerOffset = {x: 0, y: 0};
       const titlebar = this._outlets["titlebar"];
-      titlebar.addEventListener("pointerdown", (ev: PointerEvent) => {
-        if (_activePointer != null) {
-          return;
-        }
-        _activePointer = ev.pointerId;
-        titlebar.setPointerCapture(_activePointer);
 
+      pointerManager.listen(titlebar, "drag-start", (info) => {
         const rect = win.getBoundingClientRect();
         _dragStartPosition.x = rect.x;
         _dragStartPosition.y = rect.y;
-        _pointerOffset.x = ev.clientX - rect.x;
-        _pointerOffset.y = ev.clientY - rect.y;
+        _pointerOffset.x = info.pointers[0].currentClientX - rect.x;
+        _pointerOffset.y = info.pointers[0].currentClientY - rect.y;
       });
-      titlebar.addEventListener("pointermove", (ev: PointerEvent) => {
-        if (ev.pointerId != _activePointer) {
-          return;
-        }
-        const newLeft = ev.clientX - _pointerOffset.x;
-        const newTop = ev.clientY - _pointerOffset.y;
+      pointerManager.listen(titlebar, "drag-move", (info) => {
+        const rect = win.getBoundingClientRect();
+        const newLeft = info.pointers[0].currentClientX - _pointerOffset.x;
+        const newTop = info.pointers[0].currentClientY - _pointerOffset.y;
         win.style.left = `${newLeft}px`;
         win.style.top = `${newTop}px`;
         this.adjustWindow();
-      });
-      titlebar.addEventListener("pointerup", (ev: PointerEvent) => {
-        if (_activePointer == ev.pointerId) {
-          titlebar.setPointerCapture(_activePointer);
-          _activePointer = null;
-        }
-      });
-      titlebar.addEventListener("pointercancel", (ev: PointerEvent) => {
-        if (_activePointer != null) {
-          titlebar.setPointerCapture(_activePointer);
-        }
-        _activePointer = null;
       });
     }
     // リサイズ ドラッグ処理
@@ -294,16 +276,12 @@ export class DiscordTegaki {
       let _selector: Selector | null = null;
       let _initialRect: DOMRect = win.getBoundingClientRect();
       let _pointerOffset = {x: 0, y: 0};
-      resize.addEventListener("pointerdown", (ev: PointerEvent) => {
-        if (_activePointer != null) {
-          return;
-        }
-        _activePointer = ev.pointerId;
-        resize.setPointerCapture(_activePointer);
-
+      
+      pointerManager.listen(resize, "drag-start", (info) => {
+        console.log("drag-start");
         _initialRect = win.getBoundingClientRect();
-        _pointerOffset.x = ev.clientX - _initialRect.right;
-        _pointerOffset.y = ev.clientY - _initialRect.bottom;
+        _pointerOffset.x = info.pointers[0].currentClientX - _initialRect.right;
+        _pointerOffset.y = info.pointers[0].currentClientY - _initialRect.bottom;
 
         _selector = new Selector();
         _selector.select(
@@ -311,12 +289,9 @@ export class DiscordTegaki {
           _initialRect.right, _initialRect.bottom
         )
       });
-      resize.addEventListener("pointermove", (ev: PointerEvent) => {
-        if (ev.pointerId != _activePointer) {
-          return;
-        }
-        const right = clamp(ev.clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
-        const bottom = clamp(ev.clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
+      pointerManager.listen(resize, "drag-move", (info) => {
+        const right = clamp(info.pointers[0].currentClientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
+        const bottom = clamp(info.pointers[0].currentClientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
         // 右下座標の増分
         const dw = right - _initialRect.right;
         const dh = bottom - _initialRect.bottom;
@@ -328,13 +303,9 @@ export class DiscordTegaki {
           _initialRect.x, _initialRect.y, _initialRect.x + w, _initialRect.y + h
         );
       });
-      resize.addEventListener("pointerup", (ev: PointerEvent) => {
-        if (_activePointer == ev.pointerId) {
-          resize.setPointerCapture(_activePointer);
-          _activePointer = null;
-        }
-        const right = clamp(ev.clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
-        const bottom = clamp(ev.clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
+      pointerManager.listen(resize, "drag-end", (info) => {
+        const right = clamp(info.pointers[0].currentClientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
+        const bottom = clamp(info.pointers[0].currentClientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
         // 右下座標の増分
         const dw = right - _initialRect.right;
         const dh = bottom - _initialRect.bottom;
@@ -343,10 +314,6 @@ export class DiscordTegaki {
         _selector?.close();
       });
       resize.addEventListener("pointercancel", (ev: PointerEvent) => {
-        if (_activePointer != null) {
-          resize.setPointerCapture(_activePointer);
-        }
-        _activePointer = null;
         this.resetStatus();
         _selector?.close();
       });
