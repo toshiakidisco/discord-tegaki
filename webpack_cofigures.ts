@@ -28,7 +28,6 @@ function genCommonConfig(defines: ReplaceDefines): Configuration {
     }
   }
 
-  console.log(replaceRule);
   return {
     mode: isDev ? 'development' : 'production',
     resolve: {
@@ -77,7 +76,7 @@ const configures: {[name: string]: Configuration} = {};
   const dstDir = "dist";
   configures["extension"] = {
     ...genCommonConfig({
-      __DT_R_PREFIX__: "dt_r_ext",
+      __DT_R_PREFIX__: "dt_r_t_ext",
     }),
     
     target: 'web',
@@ -112,7 +111,7 @@ const configures: {[name: string]: Configuration} = {};
   const dstDir = "docs";
   configures["pages"] = {
     ...genCommonConfig({
-      __DT_R_PREFIX__: "dt_r_gtpages",
+      __DT_R_PREFIX__: "dt_r_t_doc",
     }),
     
     target: 'web',
@@ -155,7 +154,7 @@ const configures: {[name: string]: Configuration} = {};
   const dstDir = "module";
   configures["module"] = {
     ...genCommonConfig({
-      __DT_R_PREFIX__: process.env.__DT_R_PREFIX__ ?? "dt_r_module",
+      __DT_R_PREFIX__: process.env.__DT_R_PREFIX__ ?? "dt_r_t_mod",
     }),
     
     target: 'web',

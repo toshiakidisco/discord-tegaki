@@ -22,7 +22,7 @@ switch (process.env.NODE_ENV) {
     break;
   }
   case "extension": {
-    configs.push(configures["module"]);
+    configs.push(configures["extension"]);
     break;
   }
 }
