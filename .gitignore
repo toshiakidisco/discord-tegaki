@@ -2,8 +2,10 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=node,windows,linux,macos
 
 dist
-work
+module
+docs
 docs-dev
+work
 
 ### Linux ###
 *~

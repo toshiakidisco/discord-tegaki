@@ -1469,7 +1469,7 @@ export class TegakiCanvas extends Subject {
     this._undoStack.push(node);
 
     // delete the oldest history
-    if (this._undoStack.length > this.undoMax) {
+    while (this._undoStack.length > this.undoMax) {
       let oldestNode = this._undoStack.shift();
       oldestNode.dispose();
     }

@@ -18,7 +18,7 @@
 }
 
 .disco-tegaki.root {
-  position: absolute;
+  position: fixed;
   left: 0;
   top: 0;
   width: 0;
@@ -59,7 +59,7 @@
 
 /* ウィンドウ表示ボタン */
 .disco-tegaki.button-open {
-  position: absolute;
+  position: fixed;
   bottom: 0;
   right: 0;
   z-index: var(--window-zindex, 100);
@@ -249,7 +249,7 @@
  * Selector
  */
 .dt-selector {
-  position: absolute;
+  position: fixed;
   box-sizing: border-box;
   border: 1px dashed rgba(0, 0, 0, 0.7);
   background: rgba(255, 255, 255, 0.1);
