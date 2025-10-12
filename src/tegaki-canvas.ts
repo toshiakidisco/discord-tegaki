@@ -846,10 +846,10 @@ export class TegakiCanvas extends Subject {
    */
   init() {
     pointerManager.listen(this.cursorOverlay, "drag-start", (info) => {
-      this._mouseX = info.pointers[0].currentX;
-      this._mouseY = info.pointers[0].currentY;
+      this._mouseX = info.pointers[0].startX;
+      this._mouseY = info.pointers[0].startY;
       const posInDocument = this.canvasCoordToDocumentCoord(this._mouseX, this._mouseY);
-
+      
       if (this._currentTool.hasStroke) {
         this._strokeManager.start(posInDocument.x, posInDocument.y);
       }
@@ -866,8 +866,8 @@ export class TegakiCanvas extends Subject {
     
     pointerManager.listen(this.cursorOverlay, "drag-move", (info) => {
       this._isMouseEnter = true;
-      this._mouseX = info.pointers[0].currentX;
-      this._mouseY = info.pointers[0].currentY;
+      this._mouseX = info.pointers[0].x;
+      this._mouseY = info.pointers[0].y;
       const posInDocument = this.canvasCoordToDocumentCoord(this._mouseX, this._mouseY);
 
       if (this._currentTool.hasStroke) {
@@ -904,33 +904,12 @@ export class TegakiCanvas extends Subject {
         this.requestRenderCursor();
       }
     });
-    
-    const onPointerUp = () => {
-      const posInCanvas = this.positionInCanvas(this._mouseX, this._mouseY);
-      const posInDocument = this.positionInDocument(this._mouseX, this._mouseY);
-      if (this._currentTool.hasStroke) {
-        this._strokeManager.finish();
-      }
-      
-      this._currentTool.onUp(
-        this,
-        posInDocument.x, posInDocument.y,
-        posInCanvas.x, posInCanvas.y
-      );
-      if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
-        this.requestRender();
-      }
-      if (this._nextTool != null) {
-        this.currentTool = this._nextTool;
-        this._nextTool = null;
-      }
-    };
 
     pointerManager.listen(this.cursorOverlay, "drag-end", (info) => {
       this._activePointerId = null;
 
-      this._mouseX = info.pointers[0].currentX;
-      this._mouseY = info.pointers[0].currentY;
+      this._mouseX = info.pointers[0].x;
+      this._mouseY = info.pointers[0].y;
 
       const posInDocument = this.canvasCoordToDocumentCoord(this._mouseX, this._mouseY);
       if (this._currentTool.hasStroke) {
@@ -951,17 +930,7 @@ export class TegakiCanvas extends Subject {
       }
     });
 
-    this.cursorOverlay.addEventListener("pointercancel", (ev: Event) => {
-      console.log("cancel: " + ev);
-      if (this._activePointerId == null) {
-        return;
-      }
-      
-      try {
-        this.cursorOverlay.releasePointerCapture(this._activePointerId);
-      } catch{}
-      this._activePointerId = null;
-
+    pointerManager.listen(this.cursorOverlay, "drag-cancel", (info) => {
       if (this._currentTool.hasStroke) {
         this._strokeManager.finish();
       }
@@ -975,6 +944,32 @@ export class TegakiCanvas extends Subject {
       }
     });
     
+    // implement 2 finger gesture
+    const initialScroll = {x: 0, y: 0};
+    pointerManager.listen(this.cursorOverlay, "2finger-drag-start", (info) => {
+      initialScroll.x = this.scrollX;
+      initialScroll.y = this.scrollY;
+    });
+    pointerManager.listen(this.cursorOverlay, "2finger-drag-move", (info) => {
+      const pointers = info.pointers;
+      const x0 = (pointers[0].startX + pointers[1].startY)/2;
+      const y0 = (pointers[0].startY + pointers[1].startY)/2;
+      const x1 = (pointers[0].x + pointers[1].y)/2;
+      const y1 = (pointers[0].y + pointers[1].y)/2;
+
+      this.scrollX = initialScroll.x - (x1 - x0)/this.scale;
+      this.scrollY = initialScroll.y - (y1 - y0)/this.scale;
+    });
+    pointerManager.listen(this.cursorOverlay, "2finger-tap", (info) => {
+      this.undo();
+    });
+    pointerManager.listen(this.cursorOverlay, "3finger-tap", (info) => {
+      this.redo();
+    });
+
+
+
+
     this._strokeManager.addObserver(this, "update", () => {
       this.requestRender();
     });

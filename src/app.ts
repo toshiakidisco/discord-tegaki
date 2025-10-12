@@ -258,13 +258,13 @@ export class DiscordTegaki {
         const rect = win.getBoundingClientRect();
         _dragStartPosition.x = rect.x;
         _dragStartPosition.y = rect.y;
-        _pointerOffset.x = info.pointers[0].currentClientX - rect.x;
-        _pointerOffset.y = info.pointers[0].currentClientY - rect.y;
+        _pointerOffset.x = info.pointers[0].startClientX - rect.x;
+        _pointerOffset.y = info.pointers[0].startClientY - rect.y;
       });
       pointerManager.listen(titlebar, "drag-move", (info) => {
         const rect = win.getBoundingClientRect();
-        const newLeft = info.pointers[0].currentClientX - _pointerOffset.x;
-        const newTop = info.pointers[0].currentClientY - _pointerOffset.y;
+        const newLeft = info.pointers[0].clientX - _pointerOffset.x;
+        const newTop = info.pointers[0].clientY - _pointerOffset.y;
         win.style.left = `${newLeft}px`;
         win.style.top = `${newTop}px`;
         this.adjustWindow();
@@ -280,8 +280,8 @@ export class DiscordTegaki {
       pointerManager.listen(resize, "drag-start", (info) => {
         console.log("drag-start");
         _initialRect = win.getBoundingClientRect();
-        _pointerOffset.x = info.pointers[0].currentClientX - _initialRect.right;
-        _pointerOffset.y = info.pointers[0].currentClientY - _initialRect.bottom;
+        _pointerOffset.x = info.pointers[0].startClientX - _initialRect.right;
+        _pointerOffset.y = info.pointers[0].startClientY - _initialRect.bottom;
 
         _selector = new Selector();
         _selector.select(
@@ -290,8 +290,8 @@ export class DiscordTegaki {
         )
       });
       pointerManager.listen(resize, "drag-move", (info) => {
-        const right = clamp(info.pointers[0].currentClientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
-        const bottom = clamp(info.pointers[0].currentClientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
+        const right = clamp(info.pointers[0].clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
+        const bottom = clamp(info.pointers[0].clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
         // 右下座標の増分
         const dw = right - _initialRect.right;
         const dh = bottom - _initialRect.bottom;
@@ -304,8 +304,8 @@ export class DiscordTegaki {
         );
       });
       pointerManager.listen(resize, "drag-end", (info) => {
-        const right = clamp(info.pointers[0].currentClientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
-        const bottom = clamp(info.pointers[0].currentClientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
+        const right = clamp(info.pointers[0].clientX - _pointerOffset.x, 0, document.documentElement.clientWidth);
+        const bottom = clamp(info.pointers[0].clientY - _pointerOffset.y, 0, document.documentElement.clientHeight);
         // 右下座標の増分
         const dw = right - _initialRect.right;
         const dh = bottom - _initialRect.bottom;
