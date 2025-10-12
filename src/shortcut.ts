@@ -76,6 +76,9 @@ export namespace shortcut {
 
     {name: "zoom-in", ctrl: true, key: "WheelUp"},
     {name: "zoom-out", ctrl: true, key: "WheelDown"},
+
+    {name: "pensize-down", key: "["},
+    {name: "pensize-up", key: "]"},
   ]
 }
 

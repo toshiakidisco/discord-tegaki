@@ -420,12 +420,11 @@ export class DiscordTegaki {
     
     // Connect palette to ObservableValue
     this._palettePenSize.addObserver(this, "change", (n: number) => {
-      console.log(n);
       this._state.tool.value.size = n;
       this.onUpdateToolSize();
     });
     
-    // キャンバスサイズツール変更後
+    // キャンバスツール変更後
     this._canvas.addObserver(this, "change-tool", (tool) => {
       this._state.tool.value = tool;
     })
@@ -873,7 +872,6 @@ export class DiscordTegaki {
     return true;
   }
   
-
   /**
    * ショートカット処理の実行
    * @param sc 実行するショートカット
@@ -1010,7 +1008,24 @@ export class DiscordTegaki {
         this._canvas.zoomAtPointer(0.9, true);
         break;
       }
+      // Pensize
+      case "pensize-down": {
+        this.increasePensize(-1);
+        break;
+      }
+      case "pensize-up": {
+        this.increasePensize(1);
+        break;
+      }
     }
+  }
+
+  increasePensize(value: number) {
+    if (! this._state.tool.value.resizeable) {
+      return;
+    }
+    this._state.tool.value.size += value;
+    this.onUpdateToolSize();
   }
 
   onKeyup(ev: KeyboardEvent) {

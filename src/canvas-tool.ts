@@ -118,6 +118,7 @@ export namespace CanvasTool {
       return this.obaservables.size.value;
     }
     override set size(value: number) {
+      value = Math.max(value, 1);
       this.obaservables.size.value = value;
     }
     override get resizeable() {
