@@ -536,11 +536,16 @@ export class TegakiCanvas extends Subject {
    * ポインタ位置を中心に拡大率を変更
    */
   zoomAtPointer(m: number, stopAt100: boolean) {
+    const overallScale = this.overallScale;
     const old = this.scale;
     let after = this.scale*m;
     if ((old < 1 && after > 1) || (old > 1 && after < 1)) {
       after = 1;
     }
+    else if ((old < overallScale && after > overallScale) || (old > overallScale && after < overallScale)) {
+      after = overallScale;
+    }
+
     this.scale =  after;
   }
   /*
@@ -1018,13 +1023,13 @@ export class TegakiCanvas extends Subject {
     const ch = this.document.height * this.scale;
     const scrollbarWidth = 2;
 
-    if (this.visibleWidth < 1) {
+    if (this.width < Math.floor(this.document.width*this.scale)) {
       const x = this.width * ((this.scrollX - this.scrollXMin) / cw);
       const w = this.width * this.visibleWidth;
       ctx.fillStyle = "rgba(64, 0, 0, 0.6)";
       ctx.fillRect(x, this.height - scrollbarWidth, w, scrollbarWidth);
     }
-    if (this.visibleHeight < 1) {
+    if (this.height < Math.floor(this.document.height*this.scale)) {
       const y = this.height * ((this.scrollY - this.scrollYMin) / ch);
       const h = this.height * this.visibleHeight;
       ctx.fillStyle = "rgba(64, 0, 0, 0.6)";
