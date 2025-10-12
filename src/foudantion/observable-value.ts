@@ -45,6 +45,9 @@ export class ObservableColor extends Subject {
   set value(color: Color.Immutable) {
     this.set(color);
   }
+  get color(): Color.Immutable {
+    return this._value;
+  }
 
   set(color: Color.Immutable) {
     if (this._value.equals(color)) {

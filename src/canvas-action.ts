@@ -444,8 +444,7 @@ export namespace CanvasAction {
       }
       pool.return(image);
 
-      this.canvas.setSize(this._width, this._height);
-      this.canvas.updateCanvasSize();
+      this.canvas.setDocumentSize(this._width, this._height);
     }
   }
 
@@ -518,8 +517,8 @@ export namespace CanvasAction {
       for (const layer of canvas.layers) {
         this._layerImages.push(pool.get().set(layer));
       }
-      this._width = canvas.width;
-      this._height = canvas.height;
+      this._width = canvas.documentWidth;
+      this._height = canvas.documentHeight;
     }
 
     exec(): void {
@@ -528,8 +527,7 @@ export namespace CanvasAction {
         layer.set(this._layerImages[i]);
         layer.notify("update", layer);
       }
-      this.canvas.setSize(this._width, this._height);
-      this.canvas.updateCanvasSize();
+      this.canvas.setDocumentSize(this._width, this._height);
     }
 
     dispose(): void {

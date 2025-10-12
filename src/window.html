@@ -1,57 +1,59 @@
-<div class="dt_r_disco-tegaki dt_r_root" data-on-keydown="onKeydown" data-on-keyup="onKeyup" data-on-blur="onBlur">
+<div class="__DT_R_PREFIX__ dt_r_disco-tegaki dt_r_root" data-on-keydown="onKeydown" data-on-keypress="onKeyPress" data-on-keyup="onKeyup" data-on-blur="onBlur">
 <div class="dt_r_window" name="window" tabindex="-1">
-  <section class="dt_r_area-head" name="titlebar">
-    <div class="dt_r_tools">
-      <button name="tool-new" data-on-click="onClickNew"><img src="[tool-new.png]"></button>
-      <button name="tool-save" data-on-click="onClickSave"><img src="[tool-save.png]"></button>
-      <button name="icon-settings" data-on-click="onClickSettings"><img src="[icon-settings.png]"></button>
-      <div class="dt_r_separator"><img src="[separator.png]"></div>
-
-      <button name="tool-zoom-in" data-on-click="onClickZoomIn"><img src="[tool-zoom-in.png]"></button>
-      <button name="tool-zoom-out" data-on-click="onClickZoomOut"><img src="[tool-zoom-out.png]"></button>
-      <button name="tool-flip" data-on-click="onClickFlip"><img src="[tool-flip.png]"></button>
-      <div class="dt_r_separator"><img src="[separator.png]"></div>
-      
-      <button name="tool-clear" data-on-click="onClickClear"><img src="[tool-clear.png]"></button>
-      <div class="dt_r_separator"><img src="[separator.png]"></div>
-      
-      <button name="tool-layer" data-on-click="onClickLayer"><img src="[tool-layer.png]"></button>
-      <div class="dt_r_separator"><img src="[separator.png]"></div>
-    </div>
-    <div name="label-title" class="dt_r_title"></div>
-    <button name="button-close" class="dt_r_button-close" data-on-click="onClickClose">×</button>
-  </section>
-  <section class="dt_r_area-main">
-    <div class="dt_r_area-draw dt_r_bg-transparent-m" name="area-draw">
-    </div>
-    <div class="dt_r_area-tools">
-      
-      <div class="dt_r_color-cell"  name="backgroundColor" data-on-click="onClickBackgroundColor"></div>
+  <div class="dt_r_inner">
+    <section class="dt_r_area-head" name="titlebar">
       <div class="dt_r_tools">
-        <button name="tool-pen" data-on-pointerdown="onClickPen"><img name="icon-pen" src="[tool-pen.png]"></button>
-        <button name="tool-fore-color" data-on-pointerdown="onClickForeColor"><div class="dt_r_color-cell" name="foreColor"></div></button>
+        <button name="tool-new" data-on-click="onClickNew"><img src="[tool-new.png]"></button>
+        <button name="tool-save" data-on-click="onClickSave"><img src="[tool-save.png]"></button>
+        <button name="tool-resize" data-on-click="onClickResize"><img src="[icon-resize.png]"></button>
+        <button name="icon-settings" data-on-click="onClickSettings"><img src="[icon-settings.png]"></button>
+        <div class="dt_r_separator"><img src="[separator.png]"></div>
 
-        <button name="tool-eraser" data-on-pointerdown="onClickEraser"><img name="icon-eraser" src="[tool-eraser.png]"></button>
-        <button name="tool-background-color" data-on-pointerdown="onClickBackgroundColor"><div class="dt_r_color-cell" name="backgroundColor"></div></button>
-
-        <button name="tool-select" data-on-pointerdown="onClickSelect"><img name="icon-select" src="[tool-select.png]"></button>
-        <button name="tool-size" data-on-pointerdown="onClickPenSize"></button>
-
-        <button name="tool-spoit" data-on-pointerdown="onClickSpoit"><img name="icon-spoit" src="[tool-spoit.png]"></button>
-        <button name="tool-bucket" data-on-pointerdown="onClickBucket"><img name="icon-bucket" src="[tool-bucket.png]"></button>
-
-        <div class="dt_r_spacer"></div>
-
-        <button name="tool-undo" data-on-click="onClickUndo"><img src="[tool-undo.png]"></button>
-        <button name="tool-redo" data-on-click="onClickRedo"><img src="[tool-redo.png]"></button>
+        <button name="tool-zoom-in" data-on-click="onClickZoomIn"><img src="[tool-zoom-in.png]"></button>
+        <button name="tool-zoom-out" data-on-click="onClickZoomOut"><img src="[tool-zoom-out.png]"></button>
+        <button name="tool-flip" data-on-click="onClickFlip"><img src="[tool-flip.png]"></button>
+        <div class="dt_r_separator"><img src="[separator.png]"></div>
+        
+        <button name="tool-clear" data-on-click="onClickClear"><img src="[tool-clear.png]"></button>
+        <div class="dt_r_separator"><img src="[separator.png]"></div>
+        
+        <button name="tool-layer" data-on-click="onClickLayer"><img src="[tool-layer.png]"></button>
       </div>
+      <div name="label-title" class="dt_r_title"></div>
+      <button name="button-close" class="dt_r_button-close" data-on-click="onClickClose">×</button>
+    </section>
+    <section class="dt_r_area-main">
+      <div class="dt_r_area-draw" name="area-draw" data-on-wheel="onWheelOnCanvas">
     </div>
-  </section>
-  <section class="dt_r_area-bottom">
-    <button class="dt_r_button-copy" name="button-copy" data-on-click="onClickCopy">コピー</button>
-    <div class="dt_r_status" name="status"></div>
-  </section>
-  <div name="resize" class="dt_r_area-resize"><img src="[resize.png]"></div>
+      <div class="dt_r_area-tools">
+        
+        <div class="dt_r_color-cell"  name="backgroundColor" data-on-click="onClickBackgroundColor"></div>
+        <div class="dt_r_tools">
+          <button name="tool-pen" data-on-pointerdown="onClickPen"><img name="icon-pen" src="[tool-pen.png]"></button>
+          <button name="tool-fore-color" data-on-pointerdown="onClickForeColor"><div class="dt_r_color-cell" name="foreColor"></div></button>
+
+          <button name="tool-eraser" data-on-pointerdown="onClickEraser"><img name="icon-eraser" src="[tool-eraser.png]"></button>
+          <button name="tool-background-color" data-on-pointerdown="onClickBackgroundColor"><div class="dt_r_color-cell" name="backgroundColor"></div></button>
+
+          <button name="tool-select" data-on-pointerdown="onClickSelect"><img name="icon-select" src="[tool-select.png]"></button>
+          <button name="tool-size" data-on-pointerdown="onClickPenSize"></button>
+
+          <button name="tool-spoit" data-on-pointerdown="onClickSpoit"><img name="icon-spoit" src="[tool-spoit.png]"></button>
+          <button name="tool-bucket" data-on-pointerdown="onClickBucket"><img name="icon-bucket" src="[tool-bucket.png]"></button>
+
+          <div class="dt_r_spacer"></div>
+
+          <button name="tool-undo" data-on-click="onClickUndo"><img src="[tool-undo.png]"></button>
+          <button name="tool-redo" data-on-click="onClickRedo"><img src="[tool-redo.png]"></button>
+        </div>
+      </div>
+    </section>
+    <section class="dt_r_area-bottom">
+      <button class="dt_r_button-copy" name="button-copy" data-on-click="onClickCopy">コピー</button>
+      <div class="dt_r_status" name="status"></div>
+    </section>
+    <div name="resize" class="dt_r_area-resize"><img src="[resize.png]"></div>
+  </div>
 </div>
 
 </div>
