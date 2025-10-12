@@ -20,6 +20,11 @@
         margin-right: 2px;
         margin-bottom: 2px;
         background-color: attr(data-color);
+
+        &.dt_r_selected {
+          border: 1px solid #FFF;
+          outline: 1px solid rgb(128, 0, 0);
+        }
       }
     }
 
