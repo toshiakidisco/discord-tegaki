@@ -44,14 +44,24 @@ export class StrokeManager extends Subject{
     return this._updateTimer != 0;
   }
 
-  start(x: number, y: number) {
+  start(x: number, y: number, t?: number) {
     this._px = x;
     this._py = y;
     this._sx = x;
     this._sy = y;
     this._samples.fill({x: x, y: y});
-    this._path = [{x: x, y: y, time: Date.now()}];
+    const firstPoint = {x: x, y: y, time: t ? t : Date.now()};
+    if (this._path.length > 0) {
+      this._path = [firstPoint];
+    }  
+    else {
+      this._path.push(firstPoint);
+    }
     this._updateTimer = window.setInterval(this._updateCallback, 1000/60);
+  }
+
+  reset() {
+    this._path = [];
   }
 
   update() {

@@ -11,6 +11,7 @@ type PointerInfo = {
 
 type ActivePointer = {
   id: string;
+  type: string;
   /** タッチ開始時刻 */
   startTime: number;
   /** タッチ開始時の target内のX座標 */
@@ -294,6 +295,7 @@ class PointerManager {
       const y = ev.clientY - rect.y;
       const pointer: ActivePointer = {
         id,
+        type: ev.pointerType,
         startTime: Date.now(),
         startX: x, startY: y,
         startClientX: ev.clientX, startClientY: ev.clientY,

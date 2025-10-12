@@ -478,6 +478,7 @@ export class TegakiCanvas extends Subject {
     return this.documentHeight * this._innerScale;
   }
 
+  // View のサイズ
   get width() {
     return this.canvas.width;
   }
@@ -658,8 +659,21 @@ export class TegakiCanvas extends Subject {
    * 描画中の状態か
    */
   get isDrawing() {
-    return pointerManager.currentTarget == this.cursorOverlay;
+    return this.#isDrawing;
+    //return pointerManager.currentTarget == this.cursorOverlay;
   }
+
+  get isMouseEnter() {
+    return this._isMouseEnter;
+  }
+  private set isMouseEnter(value: boolean) {
+    if (this._isMouseEnter == value) {
+      return;
+    }
+    this._isMouseEnter = value;
+    this.requestRenderCursor();
+  }
+
   
   setSize(width: number, height: number) {
     this.canvas.width = width;
@@ -1037,11 +1051,14 @@ export class TegakiCanvas extends Subject {
     }
   }
 
+  
+  #isDrawing = false;
   /**
    * イベントリスナ登録を中心とした初期化処理
    */
   init() {
     pointerManager.listen(this.cursorOverlay, "drag-start", (info) => {
+      this.isMouseEnter = true;
       this._mouseX = info.pointers[0].startX;
       this._mouseY = info.pointers[0].startY;
       const posInDocument = this.viewCoordToCanvasCoord(this._mouseX, this._mouseY);
@@ -1054,6 +1071,7 @@ export class TegakiCanvas extends Subject {
         posInDocument.x, posInDocument.y,
         this._mouseX, this._mouseY
       );
+      this.#isDrawing = true;
       
       if (this._currentTool.hasPreview) {
         this.requestRender();
@@ -1061,7 +1079,7 @@ export class TegakiCanvas extends Subject {
     });
     
     pointerManager.listen(this.cursorOverlay, "drag-move", (info) => {
-      this._isMouseEnter = true;
+      this.isMouseEnter = true;
       this._mouseX = info.pointers[0].x;
       this._mouseY = info.pointers[0].y;
       const posInDocument = this.viewCoordToCanvasCoord(this._mouseX, this._mouseY);
@@ -1089,15 +1107,14 @@ export class TegakiCanvas extends Subject {
         const r = this.cursorOverlay.getBoundingClientRect();
         this._mouseX = ev.clientX - r.x;
         this._mouseY = ev.clientY - r.y;
-        this._isMouseEnter = true;
+        this.isMouseEnter = true;
         this.requestRenderCursor();
       }
     });
 
     this.cursorOverlay.addEventListener("pointerleave", (ev: PointerEvent) => {
       if (ev.pointerType == "mouse" || ev.pointerType == "pen") {
-        this._isMouseEnter = false;
-        this.requestRenderCursor();
+        this.isMouseEnter = false;
       }
     });
 
@@ -1117,9 +1134,16 @@ export class TegakiCanvas extends Subject {
         posInDocument.x, posInDocument.y,
         this._mouseX, this._mouseY
       );
+      this.#isDrawing = false;
       if (this._currentTool.hasPreview || this._currentTool.hasOverlay) {
         this.requestRender();
       }
+
+      if (info.pointers[0].type == "touch") {
+        this.isMouseEnter = false;
+        this.requestRenderCursor();
+      }
+
       if (this._nextTool != null) {
         this.currentTool = this._nextTool;
         this._nextTool = null;
@@ -1145,12 +1169,13 @@ export class TegakiCanvas extends Subject {
     pointerManager.listen(this.cursorOverlay, "2finger-drag-start", (info) => {
       initialScroll.x = this.scrollX;
       initialScroll.y = this.scrollY;
+      this.isMouseEnter = false;
     });
     pointerManager.listen(this.cursorOverlay, "2finger-drag-move", (info) => {
       const pointers = info.pointers;
       const x0 = (pointers[0].startX + pointers[1].startY)/2;
       const y0 = (pointers[0].startY + pointers[1].startY)/2;
-      const x1 = (pointers[0].x + pointers[1].y)/2;
+      const x1 = (pointers[0].x + pointers[1].x)/2;
       const y1 = (pointers[0].y + pointers[1].y)/2;
 
       this.scrollX = initialScroll.x - (x1 - x0)/this.scale;
@@ -1158,9 +1183,11 @@ export class TegakiCanvas extends Subject {
     });
     pointerManager.listen(this.cursorOverlay, "2finger-tap", (info) => {
       this.undo();
+      this.isMouseEnter = false;
     });
     pointerManager.listen(this.cursorOverlay, "3finger-tap", (info) => {
       this.redo();
+      this.isMouseEnter = false;
     });
 
 
