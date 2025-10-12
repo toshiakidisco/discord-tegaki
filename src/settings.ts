@@ -10,6 +10,9 @@ export type ApplicationSettingsInit = {
 
 type Observalbles = {[key: string]: ObservableValue<any>};
 
+/**
+ * アプリケーション設定
+ */
 export class ApplicationSettings extends Subject {
   readonly observables: {
     readonly undoMax: ObservableValue<number>,

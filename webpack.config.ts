@@ -21,8 +21,9 @@ switch (process.env.NODE_ENV) {
     configs.push(configures["module"]);
     break;
   }
-  default: {
-    configs.push(configures["extension"], configures["module"]);
+  case "extension": {
+    configs.push(configures["extension"]);
+    break;
   }
 }
 

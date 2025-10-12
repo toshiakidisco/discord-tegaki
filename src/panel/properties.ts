@@ -72,7 +72,7 @@ export class PanelPropertiesItemNumber extends PanelPropertiesItem<number> {
     this.#dispayValue = value;
 
     this.#contents = parseHtml(`
-      <div class="item-number">
+      <div class="dt_r_item-number">
         <span name="caption">${name}</span>
         <div>
           <input type="range" name="slider" step="${step}" min="${min}" max="${max}">
@@ -128,11 +128,11 @@ export class PanelProperties extends Panel {
   #outlets: Outlets;
 
   constructor(root: HTMLElement, value: number = 0) {
-    super(root, "panel-properties");
+    super(root, "dt_r_panel-properties");
     this.#outlets = {};
     this.contents = parseHtml(`
       <ul>
-        <li class="preview"></li>
+        <li class="dt_r_preview" style="display: none;" name="preview"></li>
       </ul>
     `, this, this.#outlets);
     this.setContents(this.contents);
@@ -145,6 +145,10 @@ export class PanelProperties extends Panel {
   addItem(item: PanelPropertiesItem<any>) {
     this.contents.appendChild(item.element);
     return item;
+  }
+
+  showPreview() {
+    this.#outlets["preview"].style.display = "block";
   }
 }
 

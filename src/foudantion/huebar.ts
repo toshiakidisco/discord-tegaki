@@ -18,7 +18,7 @@ export class ViewHuebar extends View {
     this.#width = 112;
     this.#height = 112;
 
-    this.#element = parseHtml(`<canvas class="colorbar" width="${this.#width}" height="${this.#height}">`) as HTMLCanvasElement;
+    this.#element = parseHtml(`<canvas class="dt_r_colorbar" width="${this.#width}" height="${this.#height}">`) as HTMLCanvasElement;
     const ctx = this.#element.getContext("2d");
     if (ctx == null) 
       throw new Error("Failed to create RenderingContext2D");

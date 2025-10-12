@@ -7,9 +7,9 @@ import { Layer } from "./canvas-layer";
 import TegakiCanvasDocument from "./canvas-document";
 import CanvasRegion from "./canvas-region";
 
-export type BlushPath = {x: number; y: number; time: number}[];
+export type BrushPath = {x: number; y: number; time: number}[];
 
-export class BlushState {
+export class BrushState {
   size: number;
   readonly color: Color;
   composite: GlobalCompositeOperation;
@@ -20,8 +20,8 @@ export class BlushState {
     this.composite = composite;
   }
 
-  eqauls(blush: BlushState): boolean {
-    return this.size == blush.size && this.color.equals(blush.color) && this.composite == blush.composite;
+  eqauls(brush: BrushState): boolean {
+    return this.size == brush.size && this.color.equals(brush.color) && this.composite == brush.composite;
   }
 }
 
@@ -36,7 +36,13 @@ export abstract class CanvasAction {
     this.canvas = canvas;
   }
 
+  /**
+   * アクション実行時の処理
+   */
   abstract exec(): void;
+  /**
+   * リソース解放処理。履歴からアクションが消去される再に呼ばれる.
+   */
   dispose(): void {};
 }
 
@@ -49,7 +55,7 @@ export namespace CanvasAction {
   }
 
   /**
-   * 操作: ドキュメント変更
+   * 操作: 複数の操作を結合して一括して行う
    */
   export class Merge extends CanvasAction {
     #actions: CanvasAction[];
@@ -222,17 +228,20 @@ export namespace CanvasAction {
     };
   }
 
+  /**
+   * キャンバス選択範囲の掴み状態
+   */
   export class GrabState {
-    // 掴み対象レイヤー
+    /** 掴み対象レイヤー */
     readonly layer: Layer;
-    // 掴み開始時のレイヤー画像
+    /** 掴み開始時のレイヤー画像 */
     readonly backupImage: Offscreen;
-    // 掴み範囲の画像
+    /** 掴み範囲の画像 */
     readonly image: Offscreen;
-    // 掴み開始時の選択範囲座標
+    /** 掴み開始時の選択範囲座標 */
     startX: number;
     startY: number;
-    // 掴みによる移動距離
+    /** 掴みによる移動距離 */
     offsetX: number = 0;
     offsetY: number = 0;
 
@@ -290,7 +299,7 @@ export namespace CanvasAction {
       console.log("SelectGrabCancel exec");
       // 掴み状態を無効に
       this.canvas.grabState = null;
-      // 対処レイヤーを元の状態に戻し
+      // 対象レイヤーを元の状態に戻し
       const layer = this.#grabState.layer;
       layer.set(this.#grabState.backupImage);
       // 選択範囲も掴み開始位置に戻す
@@ -435,8 +444,7 @@ export namespace CanvasAction {
       }
       pool.return(image);
 
-      this.canvas.setSize(this._width, this._height);
-      this.canvas.updateCanvasSize();
+      this.canvas.setDocumentSize(this._width, this._height);
     }
   }
 
@@ -445,13 +453,13 @@ export namespace CanvasAction {
    */
   export class DrawPath extends CanvasAction {
     private _layer: Layer;
-    private _blush: BlushState;
-    private _pathList: BlushPath[];
+    private _brush: BrushState;
+    private _pathList: BrushPath[];
 
-    constructor(canvas: TegakiCanvas, layer: Layer, blush: BlushState, path: BlushPath) {
+    constructor(canvas: TegakiCanvas, layer: Layer, brush: BrushState, path: BrushPath) {
       super(canvas);
       this._layer = layer;
-      this._blush = blush;
+      this._brush = brush;
       this._pathList = [Array.from(path)];    
     }
 
@@ -459,11 +467,11 @@ export namespace CanvasAction {
       return this._pathList;
     }
 
-    addPath(path: BlushPath) {
+    addPath(path: BrushPath) {
       this._pathList.push(Array.from(path));
     }
 
-    addPathList(pathList: BlushPath[]) {
+    addPathList(pathList: BrushPath[]) {
       this._pathList.push(...pathList);
     }
 
@@ -480,15 +488,15 @@ export namespace CanvasAction {
       return this._layer;
     }
 
-    get blush(): BlushState {
-      return this._blush;
+    get brush(): BrushState {
+      return this._brush;
     }
 
     exec() {
       const ctx = this._layer.context;
       this.canvas.clipBegin(ctx);
       for (const path of this._pathList) {
-        drawPath(ctx, this._blush, path, this.canvas.innerScale);
+        drawPath(ctx, this._brush, path, this.canvas.innerScale);
       }
       this.canvas.clipEnd(ctx);
       this._layer.notify("update", this._layer);
@@ -509,8 +517,8 @@ export namespace CanvasAction {
       for (const layer of canvas.layers) {
         this._layerImages.push(pool.get().set(layer));
       }
-      this._width = canvas.width;
-      this._height = canvas.height;
+      this._width = canvas.documentWidth;
+      this._height = canvas.documentHeight;
     }
 
     exec(): void {
@@ -519,8 +527,7 @@ export namespace CanvasAction {
         layer.set(this._layerImages[i]);
         layer.notify("update", layer);
       }
-      this.canvas.setSize(this._width, this._height);
-      this.canvas.updateCanvasSize();
+      this.canvas.setDocumentSize(this._width, this._height);
     }
 
     dispose(): void {
@@ -593,7 +600,7 @@ export namespace CanvasAction {
   }
 }
 
-export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path: BlushPath, innerScale = 1) {
+export function drawPath(ctx: CanvasRenderingContext2D, brush: BrushState, path: BrushPath, innerScale = 1) {
   if (path.length == 0) {
     return;
   }
@@ -602,9 +609,9 @@ export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path:
 
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = blush.color.css();
-  ctx.globalCompositeOperation = blush.composite;
-  ctx.lineWidth = blush.size;
+  ctx.strokeStyle = brush.color.css();
+  ctx.globalCompositeOperation = brush.composite;
+  ctx.lineWidth = brush.size;
 
   ctx.beginPath();
   const fisrtPoint = path[0];
@@ -629,7 +636,7 @@ export function drawPath(ctx: CanvasRenderingContext2D, blush: BlushState, path:
  * @param padding 矩形に余裕を持たせる場合に指定
  * @returns 
  */
-export function getPathBoundingRect(path: BlushPath, size: number, padding: number = 0): Rect {
+export function getPathBoundingRect(path: BrushPath, size: number, padding: number = 0): Rect {
   if (path.length == 0) {
     return new Rect(0, 0, 0, 0);
   }

@@ -6,8 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "main": "node dist/main.js",
-    "build": "rimraf dist && cross-env NODE_ENV=\"production\" webpack",
-    "build-module": "rimraf disco-tegaki && cross-env NODE_ENV=\"module\" DT_URL=$npm_config_url webpack",
+    "prebuild": "ts-node scripts/generate-assets.ts",
+    "build": "npm run build-extension && npm run build-module && npm run build-pages",
+    "build-extension": "rimraf dist && cross-env NODE_ENV=\"extension\" webpack",
+    "build-module": "rimraf module && cross-env NODE_ENV=\"module\" webpack",
     "build-pages": "rimraf docs && cross-env NODE_ENV=\"pages\" webpack",
     "dev": "rimraf dist && cross-env NODE_ENV=\"development\" webpack --progress"
   },
@@ -26,6 +28,7 @@
     "rimraf": "^5.0.1",
     "sass": "^1.77.6",
     "sass-loader": "^14.2.1",
+    "string-replace-loader": "^3.2.0",
     "ts-loader": "^9.4.3",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.3",
