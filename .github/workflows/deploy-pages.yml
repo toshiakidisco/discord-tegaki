@@ -1,23 +1,15 @@
-name: Deploy GitHub Pages
+name: Deploy Docs (main/dev) to GitHub Pages
 
-# main / dev ブランチの更新時に実行
 on:
   push:
     branches:
       - main
       - dev
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
-  
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
@@ -27,41 +19,45 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
 
-      - name: Build
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
         run: |
-          npm ci
-          npm run build-pages
-      
-      # ブランチに応じてアップロード先を変更
-      - name: Prepare deploy directory
-        run: |
-          mkdir -p deploy
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            cp -r docs/* deploy/
-          else
-            mkdir -p deploy/dev
-            cp -r docs/* deploy/dev/
-          fi
-    
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+          npm run prebuild
+          npm run build
+
+      - name: Checkout existing gh-pages branch
+        uses: actions/checkout@v4
         with:
-          path: deploy
+          ref: gh-pages
+          path: gh-pages
+          fetch-depth: 0
+        continue-on-error: true  # 初回デプロイ時に存在しない場合でもOK
 
-  deploy:
-    needs: build-and-deploy
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-  
+      - name: Copy built docs into gh-pages
+        run: |
+          mkdir -p gh-pages
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            rm -rf gh-pages/*
+            cp -r docs/* gh-pages/
+          else
+            mkdir -p gh-pages/dev
+            rm -rf gh-pages/dev/*
+            cp -r docs/* gh-pages/dev/
+          fi
+
+      - name: Commit and push to gh-pages
+        run: |
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Deploy from ${{ github.ref_name }} branch" || echo "No changes to commit"
+          git branch -M gh-pages
+          git push origin gh-pages
