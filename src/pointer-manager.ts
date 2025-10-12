@@ -279,6 +279,9 @@ class PointerManager {
       if (this.#currentTarget != void(0) && this.#currentTarget != target) {
         return;
       }
+      if (ev.pointerType == "mouse" && ev.button != 0) {
+        return;
+      }
       
       const id = getPointerId(ev);
       this.#currentTarget = target;

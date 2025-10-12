@@ -153,7 +153,7 @@
     }
   }
 
-  .dt_r_disco-tegaki .dt_r_panel-properties {
+  .dt_r_panel-properties {
     .dt_r_contents li {
       margin-bottom: 8px;
     }
@@ -189,13 +189,14 @@
       width: 80px;
       height: 80px;
       background: var(--background-color);
-      border: 1px solid #ccc;
+      border: 1px solid var(--input-frame-color);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       
       margin: 4px;
+      cursor: pointer;
     }
 
     .dt_r_size_preview {
@@ -205,6 +206,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      cursor: pointer;
+    }
+    
+    .dt_r_preset:hover {
+      background: var(--input-frame-color);
     }
 
     /* dt_r_box をアスペクト比を維持して中央にスケーリング */
@@ -213,6 +219,18 @@
       border: 1px solid var(--tegaki-canvas-main-color);
       max-width: 100%;
       max-height: 100%;
+    }
+
+    /* widthラベルを下部中央に */
+    .dt_r_name {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 2px 6px;
+      border-radius: 4px;
     }
 
     /* widthラベルを下部中央に */
@@ -239,6 +257,13 @@
       border-radius: 4px;
     }
 
+    .dt_r_row {
+      padding: 4px 4px;
+    }
+
+    input[type=number] {
+      width: 100px;
+    }
   }
 
 }

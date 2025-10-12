@@ -7,14 +7,14 @@ import TegakiCanvas from "../tegaki-canvas";
 
 type BindMode = "readwrite" | "read";
 
-type SizePreset = {width: number, height: number};
+type SizePreset = {name: string, width: number, height: number};
 
 const PREVIEW_BOX_SIZE = 80;
 
 const SIZE_PRESETS = [
-  {width: 344, height: 135},
-  {width: 400, height: 400},
-  {width: 135, height: 344},
+  {name: "デフォ", width: 344, height: 135},
+  {name: "正方形", width: 400, height: 400},
+  {name: "縦長", width: 135, height: 344},
 ]
 
 function getFitSize(containerWidth: number, containerHeight: number, itemWidth: number, itemHeight: number) {
@@ -37,10 +37,10 @@ export class PanelResize extends Panel {
       <div>
         <section class="dt_r_area_input">
           <div class="dt_r_row">
-            <label>横:</label><input type="number" name="input-width">
+            <label>横:</label><input type="number" name="input-width" min="1" data-on-change="onChangeSizeField">
           </div>
           <div class="dt_r_row">
-            <label>縦:</label><input type="number" name="input-height">
+            <label>縦:</label><input type="number" name="input-height" min="1" data-on-change="onChangeSizeField">
           </div>
         </section>
         <section class="dt_r_area_presets" name="list-presets">
@@ -56,9 +56,39 @@ export class PanelResize extends Panel {
     this.autoClose = true;
 
     this.renderPresets(SIZE_PRESETS);
+
+    const fieldWidth = this.#outlets["input-width"] as HTMLInputElement;
+    const fieldHeight = this.#outlets["input-height"] as HTMLInputElement;
+    canvas.addObserver(this, "change-document-size", () => {
+      fieldWidth.value  = canvas.documentWidth  + "";
+      fieldHeight.value = canvas.documentHeight + "";
+    });
+
+    this.renderCurrentSize();
   }
 
-  renderPreset(preset: SizePreset) {
+  renderCurrentSize() {
+    const fieldWidth = this.#outlets["input-width"] as HTMLInputElement;
+    const fieldHeight = this.#outlets["input-height"] as HTMLInputElement;
+    fieldWidth.value  = this.canvas.documentWidth  + "";
+    fieldHeight.value = this.canvas.documentHeight + "";
+  }
+
+  onChangeSizeField() {
+    const fieldWidth = this.#outlets["input-width"] as HTMLInputElement;
+    const fieldHeight = this.#outlets["input-height"] as HTMLInputElement;
+    
+    const width: number = parseInt(fieldWidth.value);
+    const height: number = parseInt(fieldHeight.value);
+    if (width <= 0 || height <= 0 || isNaN(width) || isNaN(height)) {
+      this.renderCurrentSize();
+      return;
+    }
+
+    this.canvas.resize(width, height);
+  }
+
+  addPreset(preset: SizePreset) {
     const outlets: Outlets = {};
     const element = parseHtml(`
       <div class="dt_r_preset">
@@ -72,13 +102,18 @@ export class PanelResize extends Panel {
     const previewBoxSize = getFitSize(PREVIEW_BOX_SIZE, PREVIEW_BOX_SIZE, preset.width, preset.height);
     outlets["box"].style.width = `${previewBoxSize.width}px`;
     outlets["box"].style.height = `${previewBoxSize.height}px`;
+    
+    element.addEventListener("click", (ev) => {
+      this.canvas.resize(preset.width, preset.height);
+      this.close();
+    });
 
     this.#outlets["list-presets"].appendChild(element);
   }
 
   renderPresets(presets: SizePreset[]) {
     for (const preset of presets) {
-      this.renderPreset(preset);
+      this.addPreset(preset);
     }
   }
 }

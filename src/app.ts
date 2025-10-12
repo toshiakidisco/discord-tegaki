@@ -10,7 +10,7 @@ import { parseHtml, Outlets } from "./dom";
 import { ObservableColor, ObservableValue } from "./foudantion/observable-value";
 import Color from "./foudantion/color";
 import Selector from "./selector";
-import { clamp, createCanvas2D, isRunnningOnExtension } from "./funcs";
+import { afterRendering, clamp, createCanvas2D, isRunnningOnExtension } from "./funcs";
 import defaultPalette from "./default-palette";
 import { getAssetUrl } from "./asset";
 
@@ -43,10 +43,7 @@ const WINDOW_CANVAS_PADDING_H = 84;
 const WINDOW_CANVAS_PADDING_V = 73;
 
 const MIN_WINDOW_WIDTH = WINDOW_CANVAS_PADDING_H + DEFAULT_CANVAS_WIDTH;
-const MIN_WINDOW_HEIGHT = 200;
-
-
-console.log("__DT_R_PREFIX__");
+const MIN_WINDOW_HEIGHT = 203;
 
 export type CanvasInitialState = {
   width: number;
@@ -244,13 +241,20 @@ export class DiscordTegaki {
     this.adjustWindow();
   }
 
+  get isVisible() {
+    return this._window.style.display == "block";
+  }
+
   /**
    * 各イベントリスナー登録
    */
   init() {
     const win = this._window;
-    let _activePointer: number | null = null;
     this._outlets["label-title"].innerText = `v${manifest.version}`;
+
+    const resizeObserver = new ResizeObserver((ev) => this.onResize(ev[0].contentRect.width, ev[0].contentRect.height));
+    resizeObserver.observe(this._outlets["area-draw"]);
+    
     // タイトルバードラッグ処理
     {
       let _dragStartPosition = {x: 0, y: 0};
@@ -281,7 +285,6 @@ export class DiscordTegaki {
       let _pointerOffset = {x: 0, y: 0};
       
       pointerManager.listen(resize, "drag-start", (info) => {
-        console.log("drag-start");
         _initialRect = win.getBoundingClientRect();
         _pointerOffset.x = info.pointers[0].startClientX - _initialRect.right;
         _pointerOffset.y = info.pointers[0].startClientY - _initialRect.bottom;
@@ -353,6 +356,10 @@ export class DiscordTegaki {
         ev.preventDefault();
       }
     }, {passive: false});
+  }
+
+  onResize(width: number, height: number) {
+    this._canvas.setSize(width, height);
   }
 
   /**
@@ -446,10 +453,17 @@ export class DiscordTegaki {
     this._canvas.addObserver(this, "change-scale", (ev) => {
       this.resetStatus();
       if (ev.scale > ev.old) {
-        this.fitWindowToCanvas(true);
+        this.fitWindowToCanvas(true, false);
       }
       else if (ev.scale < ev.old) {
-        this.fitWindowToCanvas();
+        this.fitWindowToCanvas(false, false);
+      }
+    });
+    // ドキュメントサイズ変更
+    this._canvas.addObserver(this, "change-document-size", () => {
+      this.resetStatus();
+      if (this.isVisible) {
+        this.fitWindowToCanvas(true);
       }
     });
   }
@@ -564,13 +578,15 @@ export class DiscordTegaki {
    * @returns 
    */
   async open(x?: number, y?: number) {
+    let firstOpen = false;
     if (this.#initPhase == "initializing") {
       return;
     }
     else if (this.#initPhase == "none") {
+      firstOpen = true;
+      this.#initPhase = "initializing";
       const data = await storage.local.get("tegaki-autosave");
       if (data != null) {
-        this.#initPhase = "initializing";
         try {
           parse(data, TegakiCanvasDocument.structure);
           const doc = await TegakiCanvasDocument.deserialize(data as JsonObject); 
@@ -583,23 +599,31 @@ export class DiscordTegaki {
     }
     this.#initPhase = "initialized";
 
+    if (this.isVisible) {
+      return;
+    }
+
     const win = this._window;
     win.style.display = "block";
 
-    if (
-      (typeof x === "undefined" || typeof y === "undefined") &&
-      win.style.left == ""
-    ) {
-      x = document.documentElement.clientWidth/2 - win.clientWidth/2;
-      y = document.documentElement.clientHeight/2 - win.clientHeight/2
-      win.style.left = `${x}px`;
-      win.style.top = `${y}px`;
-    }
-    else {
+    if (typeof x !== "undefined" && typeof y !== "undefined") {
       win.style.left = `${x}px`;
       win.style.top = `${y}px`;
     }
     win.focus();
+    
+    if (firstOpen) {
+      afterRendering(() => {
+        this.fitWindowToCanvas();
+
+        if (typeof x === "undefined" || typeof y === "undefined") {
+          x = document.documentElement.clientWidth/2 - win.clientWidth/2;
+          y = document.documentElement.clientHeight/2 - win.clientHeight/2
+          win.style.left = `${x}px`;
+          win.style.top = `${y}px`;
+        }
+      });
+    }
     this.adjustWindow();
   }
 
@@ -808,6 +832,14 @@ export class DiscordTegaki {
       ev.preventDefault();
     }
   }
+
+  onKeyPress(ev: KeyboardEvent) {
+    // Discord側にイベントを吸われないように
+    ev.stopPropagation();
+    if (shortcut.match(ev)) {
+      ev.preventDefault();
+    }
+  }
   
   onWheelOnCanvas(ev: WheelEvent) {
     ev.stopPropagation();
@@ -1007,24 +1039,30 @@ export class DiscordTegaki {
   /**
    * ウィンドウサイズをキャンバスの表示サイズに合わせる
    */
-  fitWindowToCanvas(extendOnly: boolean = false) {
+  fitWindowToCanvas(canExtend: boolean = true, canShrink: boolean = true) {
+    if (! this.isVisible) {
+      return;
+    }
     const win = this._window;
     const rect = win.getBoundingClientRect();
 
     const maxWidth = document.documentElement.clientWidth;
     const maxHeight = document.documentElement.clientHeight;
-
     let w = clamp(
-      this._canvas.documentWidth*this._canvas.scale + rect.width - this._canvas.width,
+      this._canvas.documentWidth*this._canvas.scale + win.clientWidth - this._canvas.width + 1,
       MIN_WINDOW_WIDTH, maxWidth
     );
     let h = clamp(
-      this._canvas.documentHeight*this._canvas.scale + rect.height - this._canvas.height,
+      this._canvas.documentHeight*this._canvas.scale + win.clientHeight - this._canvas.height + 1,
       MIN_WINDOW_HEIGHT, maxHeight
     );
-    if (extendOnly) {
+    if (! canShrink) {
       w = Math.max(w, rect.width);
       h = Math.max(h, rect.height);
+    }
+    if (! canExtend) {
+      w = Math.min(w, rect.width);
+      h = Math.min(h, rect.height);
     }
 
     this.setWindowSize(Math.ceil(w), Math.ceil(h));

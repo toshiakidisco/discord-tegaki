@@ -126,3 +126,9 @@ function _scanLine(width: number, src: Uint8ClampedArray, seeds: number[], left:
     }
   }
 }
+
+export function afterRendering(callback: FrameRequestCallback) {
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(callback);
+  });
+}

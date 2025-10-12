@@ -33,6 +33,64 @@ function createOffscreenCanvas(width: number, height: number) {
   }
 }
 
+
+// カーソルのピクセルの位置のリスト
+// 2つの連続する要素でx座標,y座標を表す
+const CURSOR_CROSS_PIXELS = new Int8Array([
+   0, 0,
+  -9, 0,  -8, 0,  -7, 0,  -6, 0,  -5, 0,
+   5, 0,   6, 0,   7, 0,   8, 0,   9, 0,
+   0,-9,   0,-8,   0,-7,   0,-6,   0,-5,
+   0, 5,   0, 6,   0, 7,   0, 8,   0, 9,
+])
+const CURSOR_CROSS_OFFSET = -9;
+const CURSOR_CROSS_SIZE = 19;
+const cursor_cross_imagedata = new ImageData(CURSOR_CROSS_SIZE, CURSOR_CROSS_SIZE);
+
+/**
+ * 半径 r の円周のピクセル列を生成
+ */
+function generateCirclePoints(r: number) {
+  const points: number[] = [];
+
+  const r2 = r*r;
+  let x = 1;
+  let y = r;
+  points.push(
+     0, r,
+     0,-r,
+     r, 0,
+    -r, 0
+  );
+  while (true) {
+    if (x < y) {
+      points.push( x,  y);
+      points.push(-x,  y);
+      points.push( x, -y);
+      points.push(-x, -y);
+      points.push( y,  x);
+      points.push(-y,  x);
+      points.push( y, -x);
+      points.push(-y, -x);
+    }
+    else if (x == y) {
+      points.push( x,  y);
+      points.push(-x,  y);
+      points.push( x, -y);
+      points.push(-x, -y);
+      break;
+    }
+    else {
+      break;
+    }
+
+    x++;
+    y = Math.round(Math.sqrt(r2-x*x));
+  }
+
+  return new Int16Array(points);
+}
+
 // カーソル描画用のフィルタの読み込み
 const svgFilter = parseSvg(svgFilterCode);
 document.body.appendChild(svgFilter);
@@ -232,6 +290,12 @@ export class TegakiCanvas extends Subject {
   /** キャンバス上の選択範囲の情報 */
   private _selectedRegion: CanvasRegion | null = null;
 
+  /** View の背景色 */
+  readonly viewBackgroundColor: Color = new Color(255, 255, 238);
+
+  /** ブラシカーソルを円形で描画するサイズの閾値(px) */
+  readonly renderCusorAsCircleThreshold = 8;
+
   readonly observables;
 
   constructor(init: CanvasInit) {
@@ -289,9 +353,6 @@ export class TegakiCanvas extends Subject {
     }
     this._spoitContext = spoitContext;
 
-    const resizeObserver = new ResizeObserver((ev) => this.onResizeElement(ev[0].contentRect.width, ev[0].contentRect.height));
-    resizeObserver.observe(this.element);
-
     this.init();
   }
 
@@ -299,8 +360,12 @@ export class TegakiCanvas extends Subject {
     return this.observables.document.value;
   }
   set document(doc: TegakiCanvasDocument) {
+    if (this.document == doc) {
+      return;
+    }
     this.observables.document.value = doc;
     this.notify("change-document", this.document);
+    this.notify("change-document-size", this.document);
     this.notify("change-background-color", this.backgroundColor);
     this.selectLayerAt(this.document.layers.length - 1);
   }
@@ -363,11 +428,21 @@ export class TegakiCanvas extends Subject {
     return this.document.height;
   }
 
+  get canvasWidth() {
+    return this.document.width * this.scale;
+  }
+
+  get canvasHeight() {
+    return this.document.height * this.scale;
+  }
+
   setDocumentSize(width: number, height: number) {
     if (this.documentWidth == width && this.documentHeight == height) {
       return;
     }
     this.document.setSize(width, height);
+    this.adjustScroll();
+    this.notify("change-document-size", {width, height});
   }
 
   get backgroundColor(): Color.Immutable {
@@ -501,7 +576,6 @@ export class TegakiCanvas extends Subject {
     this._scrollX = value;
     this.requestRender();
     this.notify("scroll");
-    console.log(this._scrollX);
   }
   get scrollY(): number {
     return this._scrollY;
@@ -581,8 +655,8 @@ export class TegakiCanvas extends Subject {
   get isDrawing() {
     return pointerManager.currentTarget == this.cursorOverlay;
   }
-
-  onResizeElement(width: number, height: number) {
+  
+  setSize(width: number, height: number) {
     this.canvas.width = width;
     this.canvas.height = height;
     this.cursorOverlay.width = width;
@@ -690,6 +764,8 @@ export class TegakiCanvas extends Subject {
       position.x = position.x + offset;
       position.y = position.y + offset;
 
+      const canvasTopLeft = this.getCanvasTopLeft();
+
       // カーソル包含矩形
       let cl: number;
       let ct: number;
@@ -699,42 +775,20 @@ export class TegakiCanvas extends Subject {
       ctx.save();
       // カーソルをクリップ領域として描く
       // 円形
-      if (displayPenSize >= 8) {
-        ctx.beginPath();
-        ctx.arc(
-          position.x + offset,
-          position.y + offset,
-          displayPenSize/2+1.1, 0, 2*Math.PI
-        );
-        ctx.arc(
-          position.x + offset,
-          position.y + offset,
-          displayPenSize/2+0.4, 0, 2*Math.PI
-        );
-        ctx.clip("evenodd");
-
+      if (displayPenSize >= this.renderCusorAsCircleThreshold) {
         cl = position.x - displayPenSize/2 - 2;
         ct = position.y - displayPenSize/2 - 2;
         cw = ch = displayPenSize + 4;
+        this.#renderCursorCircle(position.x, position.y, displayPenSize);
       }
       // 十字
       else {
-        ctx.beginPath();
-        ctx.rect(position.x,   position.y,   1, 1);
-        ctx.rect(position.x-9, position.y,   5, 1);
-        ctx.rect(position.x+5, position.y,   5, 1);
-        ctx.rect(position.x,   position.y-9, 1, 5);
-        ctx.rect(position.x,   position.y+5, 1, 5);
-        ctx.clip();
-
         cl = position.x - 9;
         ct = position.y - 9;
         cw = ch = 19;
+        this.#renderCursorCross(position.x, position.y);
       }
-      // クリップ領域に描画済みの画像を反転フィルタをかけて再描画
-      ctx.filter = "url(#tegaki-canvas-cursor-filter)";
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(this.canvas, cl, ct, cw, ch, cl, ct, cw, ch);
+
       ctx.restore();
       
       this._cursorRect.set4f(cl, ct, cw, ch).expand(1);
@@ -753,6 +807,131 @@ export class TegakiCanvas extends Subject {
     }
   }
 
+  /**
+   * 指定座標を中心に十字カーソルを描画する
+   */
+  #renderCursorCross(x: number, y: number) {
+    /** カーソル領域の左上が中心座標からどれくらいずれているか */
+    const offset = -9;
+    /** カーソル領域のサイズ */
+    const size = 19;
+
+    // カーソル領域とキャンバスとのクリッピング領域を求める
+    const sx = Math.max(x + offset, 0);
+    const sy = Math.max(y + offset, 0);
+    const right = Math.min(x + offset + size, this.width);
+    const bottom = Math.min(y + offset + size, this.height);
+    const sw = right-sx;
+    const sh = bottom-sy;
+
+    if (sw <= 0 || sh <= 0) {
+      return;
+    }
+    
+    // 対象領域の下地の画像と、カーソル描画用のイメージデータを作成
+    const src = this.context.getImageData(sx, sy, sw, sh).data;
+    const dst = cursor_cross_imagedata.data;
+    
+    // dstImg内でのカーソルの中心座標
+    const cx = x-sx;
+    const cy = y-sy;
+
+    const points = CURSOR_CROSS_PIXELS;
+
+    // カーソルピクセルを描画
+    const len = points.length;
+    for (let i = 0; i < len; i+=2) {
+      const px = cx + points[i];
+      if (px < 0) {
+        continue;
+      }
+      const py = cy + points[i+1];
+      if (py < 0) {
+        continue;
+      }
+      const p = 4*(py*sw + px);
+      const q = 4*(py*CURSOR_CROSS_SIZE + px);
+      // 下地の画像を反転したピクセルを描画
+      dst[q]   = src[p]   > 127 ? 0 : 255;
+      dst[q+1] = src[p+1] > 127 ? 0 : 255;
+      dst[q+2] = src[p+2] > 127 ? 0 : 255;
+      dst[q+3] = 255;
+    }
+    
+    this.cursorContext.putImageData(cursor_cross_imagedata, sx, sy);
+    dst.fill(0);
+  }
+
+  #lastCursorCircleSize: number = 0;
+  #cursorCirclePoints: Int16Array = new Int16Array();
+  #cursorCircleImage: ImageData = new ImageData(1, 1);
+  /**
+   * 指定座標を中心に円形カーソルを描画する
+   */
+  #renderCursorCircle(x: number, y: number, size: number) {
+    size = Math.ceil(size);
+    const r = Math.ceil(size / 2);
+    /** カーソル領域の左上が中心座標からどれくらいずれているか */
+    const offset = -r;
+
+    // カーソル領域とキャンバスとのクリッピング領域を求める
+    const sx = Math.max(x + offset, 0);
+    const sy = Math.max(y + offset, 0);
+    const right = Math.min(x + offset + size + 1, this.width);
+    const bottom = Math.min(y + offset + size + 1, this.height);
+    const sw = right-sx;
+    const sh = bottom-sy;
+
+    if (sw <= 0 || sh <= 0) {
+      return;
+    }
+    
+    // 対象領域の下地の画像と、カーソル描画用のイメージデータを作成
+    const src = this.context.getImageData(sx, sy, sw, sh).data;
+
+    const dstSize = size+1;
+    let dstImg: ImageData;
+    let points;
+    if (this.#lastCursorCircleSize != size) {
+      points = this.#cursorCirclePoints = generateCirclePoints(size/2);
+      dstImg = this.#cursorCircleImage = new ImageData(dstSize, dstSize);
+      this.#lastCursorCircleSize = size;
+    }
+    else {
+      points = this.#cursorCirclePoints;
+      dstImg = this.#cursorCircleImage;
+    }
+    const dst = dstImg.data;
+    
+    // dstImg内でのカーソルの中心座標
+    const cx = x-sx;
+    const cy = y-sy;
+
+    // カーソルピクセルを描画
+    const len = points.length;
+    for (let i = 0; i < len; i+=2) {
+      const px = cx + points[i];
+      if (px < 0) {
+        continue;
+      }
+      const py = cy + points[i+1];
+      if (py < 0) {
+        continue;
+      }
+      const p = 4*(py*sw + px);
+      const q = 4*(py*dstSize + px);
+      // 下地の画像を反転したピクセルを描画
+      dst[q]   = src[p]   > 127 ? 0 : 255;
+      dst[q+1] = src[p+1] > 127 ? 0 : 255;
+      dst[q+2] = src[p+2] > 127 ? 0 : 255;
+      dst[q+3] = 255;
+    }
+    
+    this.cursorContext.putImageData(dstImg, sx, sy);
+    dst.fill(0);
+  }
+
+
   private _needsRender: boolean = false;
   /**
    * 再描画の要求フラグを立てる
@@ -764,7 +943,7 @@ export class TegakiCanvas extends Subject {
     this._needsRender = true;
     requestAnimationFrame(this._renderCallback);
   }
-
+  
   /**
    * キャンバス描画処理
    */
@@ -798,7 +977,6 @@ export class TegakiCanvas extends Subject {
         // ストローク中のプレビュー表示
         this._currentLayerOffscreen.set(layer);
         this._currentTool.renderPreview(this, layer, this._currentLayerOffscreen);
-        console.log("render preview");
         offCtx.drawImage(this._currentLayerOffscreen.canvas, 0, 0);
       }
       else {
@@ -809,7 +987,8 @@ export class TegakiCanvas extends Subject {
 
     // Render offscreen to canvas
     ctx.save();
-    ctx.clearRect(0, 0, this.width, this.height);
+    ctx.fillStyle = this.viewBackgroundColor.css();
+    ctx.fillRect(0, 0, this.width, this.height);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
@@ -1261,7 +1440,7 @@ export class TegakiCanvas extends Subject {
     const layer = this.currentLayer;
     const pathRect = Rect.intersection(
       getPathBoundingRect(path, brush.size, 1),
-      new Rect(0, 0, this.innerWidth, this.innerHeight)
+      new Rect(0, 0, this.documentWidth, this.documentHeight)
     );
 
     let undo: CanvasAction;
@@ -1292,7 +1471,7 @@ export class TegakiCanvas extends Subject {
   }
 
   /**
-   * キャンバスのリサイズ
+   * ドキュメントのリサイズ
    * @param width 
    * @param height 
    */
@@ -1846,6 +2025,9 @@ export interface TegakiCanvas {
   ): void;
   addObserver(observer: Object, name: "change-document",
     callback: (doc: TegakiCanvasDocument) => void
+  ): void;
+  addObserver(observer: Object, name: "change-document-size",
+    callback: () => void
   ): void;
   addObserver(observer: Object, name: "change-size",
     callback: () => void
