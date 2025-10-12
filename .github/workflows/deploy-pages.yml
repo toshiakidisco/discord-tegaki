@@ -36,6 +36,7 @@ jobs:
       - name: Build
         run: |
           npm ci
+          npm run prebuild
           npm run build-pages
       
       # ブランチに応じてアップロード先を変更
