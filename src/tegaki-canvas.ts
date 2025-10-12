@@ -2,7 +2,7 @@ import Stack from "./foudantion/stack";
 import Color from "./foudantion/color";
 import Subject from "./foudantion/subject";
 
-import svgFilterCode from "raw-loader!./svg-filter.svg";
+import svgFilterCode from "./svg-filter.svg";
 
 import { parseSvg } from "./dom";
 import { getAssetUrl } from "./asset";
@@ -835,18 +835,18 @@ export class TegakiCanvas extends Subject {
 
   renderScrollbar() {
     const ctx = this.context;
-    const sw = this.document.width * this.scale - this.width;
-    const sh = this.document.height * this.scale - this.height;
+    const cw = this.document.width * this.scale;
+    const ch = this.document.height * this.scale;
     const scrollbarWidth = 2;
 
-    if (sw > 0) {
-      const x = this.width * (this.scrollX / sw);
+    if (this.visibleWidth < 1) {
+      const x = this.width * ((this.scrollX - this.scrollXMin) / cw);
       const w = this.width * this.visibleWidth;
       ctx.fillStyle = "rgba(64, 0, 0, 0.6)";
       ctx.fillRect(x, this.height - scrollbarWidth, w, scrollbarWidth);
     }
-    if (sh > 0) {
-      const y = this.height * (this.scrollY / sw);
+    if (this.visibleHeight < 1) {
+      const y = this.height * ((this.scrollY - this.scrollYMin) / ch);
       const h = this.height * this.visibleHeight;
       ctx.fillStyle = "rgba(64, 0, 0, 0.6)";
       ctx.fillRect(this.width - scrollbarWidth, y, scrollbarWidth, h);

@@ -1,8 +1,8 @@
 import manifest from "../manifest.json";
 import "./scss/main.scss";
 
-import htmlWindow from "raw-loader!./window.html";
-import htmlButtonOpen from "raw-loader!./button-open.html";
+import htmlWindow from "./window.html";
+import htmlButtonOpen from "./button-open.html";
 
 import TegakiCanvas from "./tegaki-canvas";
 import CanvasTool from "./canvas-tool";
@@ -44,6 +44,9 @@ const WINDOW_CANVAS_PADDING_V = 73;
 
 const MIN_WINDOW_WIDTH = WINDOW_CANVAS_PADDING_H + DEFAULT_CANVAS_WIDTH;
 const MIN_WINDOW_HEIGHT = 200;
+
+
+console.log("__DT_R_PREFIX__");
 
 export type CanvasInitialState = {
   width: number;
