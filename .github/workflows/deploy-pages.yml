@@ -43,10 +43,10 @@ jobs:
         run: |
           mkdir -p deploy
           if [ "${{ github.ref_name }}" = "main" ]; then
-            cp -r doc/* deploy/
+            cp -r docs/* deploy/
           else
             mkdir -p deploy/dev
-            cp -r doc/* deploy/dev/
+            cp -r docs/* deploy/dev/
           fi
     
       - name: Upload artifact
