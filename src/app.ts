@@ -1064,11 +1064,11 @@ export class DiscordTegaki {
     const maxWidth = document.documentElement.clientWidth;
     const maxHeight = document.documentElement.clientHeight;
     let w = clamp(
-      this._canvas.documentWidth*this._canvas.scale + win.clientWidth - this._canvas.width + 1,
+      this._canvas.documentWidth*this._canvas.scale + win.clientWidth - this._canvas.width,
       MIN_WINDOW_WIDTH, maxWidth
     );
     let h = clamp(
-      this._canvas.documentHeight*this._canvas.scale + win.clientHeight - this._canvas.height + 1,
+      this._canvas.documentHeight*this._canvas.scale + win.clientHeight - this._canvas.height,
       MIN_WINDOW_HEIGHT, maxHeight
     );
     if (! canShrink) {
