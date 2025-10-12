@@ -58,7 +58,7 @@ export class CanvasRegion {
                 .scale(canvas.scale)
                 .intersection(new Rect(1, 1, canvas.documentWidth*canvas.scale - 2, canvas.documentHeight*canvas.scale - 2  ))
                 .floor();
-    const docTopLeft = canvas.getDocumentTopLeft();
+    const docTopLeft = canvas.getCanvasTopLeft();
 
     context.save();
     context.translate(docTopLeft.left, docTopLeft.top);
