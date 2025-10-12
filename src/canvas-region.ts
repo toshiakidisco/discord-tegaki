@@ -6,7 +6,7 @@ export class CanvasRegion {
   #offsetY = 0;
 
   #rect: Rect = new Rect();
-
+  
   get offsetX() {
     return this.#offsetX;
   }
@@ -56,9 +56,12 @@ export class CanvasRegion {
   drawTo(canvas: TegakiCanvas, context: CanvasRenderingContext2D) {
     const rect = this.#rect.copy().offset(this.#offsetX, this.#offsetY)
                 .scale(canvas.scale)
-                .intersection(new Rect(1, 1, canvas.width*canvas.scale - 2, canvas.height*canvas.scale - 2  ))
+                .intersection(new Rect(1, 1, canvas.documentWidth*canvas.scale - 2, canvas.documentHeight*canvas.scale - 2  ))
                 .floor();
+    const docTopLeft = canvas.getCanvasTopLeft();
+
     context.save();
+    context.translate(docTopLeft.left, docTopLeft.top);
     context.lineWidth = 1;
     context.strokeStyle = "black";
     context.lineDashOffset = rect.x + rect.y;

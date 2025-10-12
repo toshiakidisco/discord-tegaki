@@ -132,7 +132,7 @@ export class PanelProperties extends Panel {
     this.#outlets = {};
     this.contents = parseHtml(`
       <ul>
-        <li class="dt_r_preview"></li>
+        <li class="dt_r_preview" style="display: none;" name="preview"></li>
       </ul>
     `, this, this.#outlets);
     this.setContents(this.contents);
@@ -145,6 +145,10 @@ export class PanelProperties extends Panel {
   addItem(item: PanelPropertiesItem<any>) {
     this.contents.appendChild(item.element);
     return item;
+  }
+
+  showPreview() {
+    this.#outlets["preview"].style.display = "block";
   }
 }
 

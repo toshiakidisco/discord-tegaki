@@ -63,9 +63,9 @@ export abstract class CanvasTool {
   }
 
   // 操作時のイベントハンドラ群
-  onDown(canvas: TegakiCanvas, x: number, y: number): void {}
-  onDrag(canvas: TegakiCanvas, x: number, y: number): void {}
-  onUp(canvas: TegakiCanvas, x: number, y: number): void {}
+  onDown(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {}
+  onDrag(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {}
+  onUp(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {}
   onCancel(canvas: TegakiCanvas): void {};
 
   onKeyDown(ev: KeyboardEvent) {}
@@ -182,6 +182,59 @@ export namespace CanvasTool {
   }
 
   /**
+   * スクロール
+   */
+  export class Scroll extends CanvasTool{
+    #startX = 0;
+    #startY = 0;
+    #startScrollX = 0;
+    #startScrollY = 0;
+
+    override get name() {
+      return "scroll";
+    }
+    cursor(canvas: TegakiCanvas, x: number, y: number): string {
+      return "grab";
+    }
+
+    override get size(): number {
+      return 1;
+    }
+    override set size(value: number) {}
+    override get resizeable() {
+      return false;
+    }
+    override get cancelable() {
+      return false;
+    }
+
+    override onDown(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {
+      this.#startX = cx;
+      this.#startY = cy;
+      this.#startScrollX = canvas.scrollX;
+      this.#startScrollY = canvas.scrollY;
+    }
+    override onDrag(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {
+      x = x | 0;
+      y = y | 0;
+      const dx = cx - this.#startX;
+      const dy = cy - this.#startY;
+
+      canvas.scrollX = this.#startScrollX - dx;
+      canvas.scrollY = this.#startScrollY - dy;
+    }
+    override onUp(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {
+      x = x | 0;
+      y = y | 0;
+      const dx = cx - this.#startX;
+      const dy = cy - this.#startY;
+
+      canvas.scrollX = this.#startScrollX - dx;
+      canvas.scrollY = this.#startScrollY - dy;
+    }
+  }
+
+  /**
    * スポイトツール
    */
   export class Spoit extends CanvasTool{
@@ -271,7 +324,10 @@ export namespace CanvasTool {
       if (this.#mode == "select") {
         const rect = new Rect(this.#startX, this.#startY, this.#finishX - this.#startX, this.#finishY - this.#startY).normalize().scale(canvas.scale).floor().expand(0.5);
         
+        const docTopleft = canvas.getCanvasTopLeft();
+
         context.save();
+        context.translate(docTopleft.left, docTopleft.top);
         context.lineWidth = 1;
         context.strokeStyle = "black";
         context.setLineDash([5]);
@@ -317,7 +373,7 @@ export namespace CanvasTool {
 
         const rect = new Rect(this.#startX, this.#startY, this.#finishX - this.#startX, this.#finishY - this.#startY)
                         .normalize()
-                        .intersection(new Rect(0, 0, canvas.width, canvas.height));
+                        .intersection(new Rect(0, 0, canvas.documentWidth, canvas.documentHeight));
         if (rect.isEmpty()) {
           canvas.selectNew(null);
         }

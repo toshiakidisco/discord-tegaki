@@ -10,6 +10,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
   const app = await DiscoTegaki.launch();
+  document.querySelector(".dt_r_disco-tegaki.dt_r_root").classList.add("dt_r_sp");
   app.disableClose();
   app.open(0, 0);
 });

@@ -41,6 +41,9 @@ export class TegakiCanvasDocument extends Subject {
   }
 
   setSize(width: number, height: number) {
+    if (width == this.width && height == this.height) {
+      return;
+    }
     this.observables.width.value = width;
     this.observables.height.value = height;
     this.notify("change-size", this);
