@@ -407,11 +407,7 @@ export class TegakiCanvas extends Subject {
   get currentTool() {
     return this._currentTool;
   }
-  set currentTool(tool: CanvasTool) {
-    if (this.isDrawing) {
-      this._nextTool = tool;
-      return;
-    }
+  private set currentTool(tool: CanvasTool) {
     if (this._currentTool == tool) {
       return;
     }
@@ -419,6 +415,14 @@ export class TegakiCanvas extends Subject {
     this.requestRenderCursor();
     this.notify("change-tool", this._currentTool);
   }
+  changeTool(tool: CanvasTool) {
+    if (this.isDrawing) {
+      this._nextTool = tool;
+      return;
+    }
+    this.currentTool = tool;
+  }
+
 
   get documentWidth() {
     return this.document.width;
@@ -1139,11 +1143,13 @@ export class TegakiCanvas extends Subject {
         this.requestRender();
       }
 
+      // タッチ操作の場合は、カーソルを非表示に
       if (info.pointers[0].type == "touch") {
         this.isMouseEnter = false;
         this.requestRenderCursor();
       }
 
+      // ストローク中にツール変更があった場合の反映
       if (this._nextTool != null) {
         this.currentTool = this._nextTool;
         this._nextTool = null;

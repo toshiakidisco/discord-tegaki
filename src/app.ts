@@ -384,10 +384,10 @@ export class DiscordTegaki {
       }
       this.onUpdateToolSize();
 
-      this._canvas.currentTool = tool;
+      this._canvas.changeTool(tool);
     });
     this._state.tool.sync();
-
+    
     // Fore Color
     this._canvas.observables.foreColor.addObserver(this, "change", (value: Color.Immutable) => {
       this._outlets["foreColor"].style.backgroundColor = value.css();
