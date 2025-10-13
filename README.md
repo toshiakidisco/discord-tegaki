@@ -6,8 +6,11 @@ Google Chrome, Edgeで動作確認済み。
 - Chrome ウェブストア
   - https://chromewebstore.google.com/detail/discotegaki/eiaogpnffnhfkddeenblefkjbijlflhd
 
-- Webアプリ版
+- Webアプリ版 (リリースバージョン)
   - https://toshiakidisco.github.io/discord-tegaki/
+
+- Webアプリ版 (開発中バージョン)
+  - https://toshiakidisco.github.io/discord-tegaki/dev/
 
 不具合修正・機能追加が発生した場合、ストアへの反映には時間がかかるため、先行してGitHubリポジトリのリリースに公開していきます。
  (野良アプリとしてのインストールになります。ご了承ください。)
