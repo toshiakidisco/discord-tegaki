@@ -28,24 +28,24 @@ export class PanelColor extends Panel {
   private _picker: ViewColorPicker;
   private _huebar: ViewHuebar;
 
-  private _bindedColor: ObservableColor | null = null;
+  private _boundColor: ObservableColor | null = null;
 
   private _palette: PaletteItem[];
   private _dragging: boolean = false;
 
   constructor(root: HTMLElement, r: number = 255, g: number = 255, b: number = 255) {
-    super(root, "panel-color");
+    super(root, "dt_r_panel-color");
     this._color = new Color(255, 255, 255);
     this._outlets = {};
     this.contents = parseHtml(`
-      <div class="wrap">
-        <div class="area-palette">
-          <ul name="colors" class="colors">
+      <div class="dt_r_wrap">
+        <div class="dt_r_area-palette">
+          <ul name="colors" class="dt_r_colors">
           </ul>
         </div>
-        <div class="area-picker">
+        <div class="dt_r_area-picker">
           <ul>
-            <li><div class="preview" name="preview" draggable="true" data-on-drag="onDragPreview" data-on-dragstart="onDragPreviewStart" data-on-dragend="onDragPreviewEnd"></div></li>
+            <li><div class="dt_r_preview" name="preview" draggable="true" data-on-drag="onDragPreview" data-on-dragstart="onDragPreviewStart" data-on-dragend="onDragPreviewEnd"></div></li>
             <li name="picker">
             </li>
           </ul>
@@ -99,6 +99,7 @@ export class PanelColor extends Panel {
           if (this._dragging) {
             item.color.set(this.color);
             item.element.style.backgroundColor = item.color.css();
+            this.render();
           }
         });
       }
@@ -109,11 +110,11 @@ export class PanelColor extends Panel {
   }
 
   bind(observable: ObservableColor | null) {
-    if (this._bindedColor != null) {
+    if (this._boundColor != null) {
       this.removeObserver(this);
     }
     
-    this._bindedColor = observable;
+    this._boundColor = observable;
     this._picker.bind(observable);
 
     if (observable != null) {
@@ -126,6 +127,8 @@ export class PanelColor extends Panel {
     }
   }
 
+  #selectedPalettes: PaletteItem[] = [];
+
   render() {
     const preview = this._outlets["preview"];
     preview.style.backgroundColor = this._color.css();
@@ -134,6 +137,21 @@ export class PanelColor extends Panel {
     const v = this._picker.value;
     preview.style.color = v > 0.5 && s < 0.5 ? "black" : "white";
     preview.innerText = colorToText(this._color);
+
+    if (this.#selectedPalettes.length > 0) {
+      for (let i = 0; i < this.#selectedPalettes.length; i++) {
+        this.#selectedPalettes[i].element.classList.remove("dt_r_selected");
+      }
+      this.#selectedPalettes.length = 0;
+    }
+
+    for (let i = 0; i < this._palette.length; i++) {
+      const item = this._palette[i];
+      if (this._color.equals(item.color)) {
+        item.element.classList.add("dt_r_selected");
+        this.#selectedPalettes.push(item);
+      }
+    }
   }
 
   init() {
@@ -144,8 +162,8 @@ export class PanelColor extends Panel {
       return;
     }
     this.set(color);
-    if (this._bindedColor != null) {
-      this._bindedColor.value = color;
+    if (this._boundColor != null) {
+      this._boundColor.value = color;
     }
     this.notify("change", color);
   }

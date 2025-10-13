@@ -1,3 +1,7 @@
+/*
+ * モジュール出力 エントリファイル
+ */
+
 import { DiscordTegaki } from "./app";
 
 declare global {

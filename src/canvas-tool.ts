@@ -1,4 +1,4 @@
-import { BlushState, drawPath, getPathBoundingRect } from "./canvas-action";
+import { BrushState, drawPath, getPathBoundingRect } from "./canvas-action";
 import Layer from "./canvas-layer";
 import Offscreen from "./canvas-offscreen";
 import CanvasRegion from "./canvas-region";
@@ -18,6 +18,9 @@ const toolCursors: {[tool: string]: CursorInfo} = {
   "spoit": {x: 1, y: 14},
 }
 
+/**
+ * ツールの抽象化クラス
+ */
 export abstract class CanvasTool {
   abstract get name(): string;
   abstract get size(): number;
@@ -27,6 +30,7 @@ export abstract class CanvasTool {
     return "none";
   }
 
+  /** サイズ変更に対応しているか */
   get resizeable(): boolean {
     return false;
   }
@@ -34,27 +38,34 @@ export abstract class CanvasTool {
     return true;
   }
 
+  /** 操作中にストロークを記録するか */
   get hasStroke(): boolean {
     return false;
   }
 
+  /** 操作中に描画結果をプレビューするか */
   get hasPreview(): boolean {
     return false;
   }
+  /** 操作中のプレビュー描画処理 */
   renderPreview(canvas: TegakiCanvas, layer: Layer, offscreen: Offscreen): void {}
   
+  /** 操作中にキャンバスのオーバーレイ部に描画を行うか(e.g. 選択ツールの選択領域) */
   get hasOverlay(): boolean {
     return false;
   }
+  /** 操作中のオーバーレイ描画処理 */
   renderOverlay(canvas: TegakiCanvas, context: CanvasRenderingContext2D): void {}
 
+  /** 非表示レイヤーが選択中でも利用可能か */
   get isEnabledForHiddenLayer(): boolean {
     return false;
   }
 
-  onDown(canvas: TegakiCanvas, x: number, y: number): void {}
-  onDrag(canvas: TegakiCanvas, x: number, y: number): void {}
-  onUp(canvas: TegakiCanvas, x: number, y: number): void {}
+  // 操作時のイベントハンドラ群
+  onDown(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {}
+  onDrag(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {}
+  onUp(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {}
   onCancel(canvas: TegakiCanvas): void {};
 
   onKeyDown(ev: KeyboardEvent) {}
@@ -77,7 +88,7 @@ export namespace CanvasTool {
   /**
    * ブラシ系ツール
    */
-  export class Blush extends CanvasTool{
+  export class Brush extends CanvasTool{
     penMode: PenMode;
 
     readonly obaservables: {
@@ -100,13 +111,14 @@ export namespace CanvasTool {
       return this.penMode;
     }
     cursor(canvas: TegakiCanvas, x: number, y: number): string {
-      return "blush";
+      return "brush";
     }
 
     override get size(): number {
       return this.obaservables.size.value;
     }
     override set size(value: number) {
+      value = Math.max(value, 1);
       this.obaservables.size.value = value;
     }
     override get resizeable() {
@@ -152,7 +164,7 @@ export namespace CanvasTool {
     finishDraw(canvas: TegakiCanvas) {
       canvas.drawPath(
         canvas.strokePath,
-        new BlushState(this.size, canvas.foreColor, this.composite)
+        new BrushState(this.size, canvas.foreColor, this.composite)
       );
     }
 
@@ -163,10 +175,63 @@ export namespace CanvasTool {
       canvas.clipBegin(offscreen.context);
       drawPath(
         offscreen.context, 
-        new BlushState(this.size, canvas.foreColor, this.composite),
+        new BrushState(this.size, canvas.foreColor, this.composite),
         canvas.strokePath
       );
       canvas.clipEnd(offscreen.context);
+    }
+  }
+
+  /**
+   * スクロール
+   */
+  export class Scroll extends CanvasTool{
+    #startX = 0;
+    #startY = 0;
+    #startScrollX = 0;
+    #startScrollY = 0;
+
+    override get name() {
+      return "scroll";
+    }
+    cursor(canvas: TegakiCanvas, x: number, y: number): string {
+      return "grab";
+    }
+
+    override get size(): number {
+      return 1;
+    }
+    override set size(value: number) {}
+    override get resizeable() {
+      return false;
+    }
+    override get cancelable() {
+      return false;
+    }
+
+    override onDown(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {
+      this.#startX = cx;
+      this.#startY = cy;
+      this.#startScrollX = canvas.scrollX;
+      this.#startScrollY = canvas.scrollY;
+    }
+    override onDrag(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {
+      x = x | 0;
+      y = y | 0;
+      const dx = cx - this.#startX;
+      const dy = cy - this.#startY;
+
+      canvas.scrollX = this.#startScrollX - dx;
+      canvas.scrollY = this.#startScrollY - dy;
+    }
+    override onUp(canvas: TegakiCanvas, x: number, y: number, cx: number, cy: number): void {
+      x = x | 0;
+      y = y | 0;
+      const dx = cx - this.#startX;
+      const dy = cy - this.#startY;
+
+      canvas.scrollX = this.#startScrollX - dx;
+      canvas.scrollY = this.#startScrollY - dy;
     }
   }
 
@@ -209,6 +274,9 @@ export namespace CanvasTool {
     #oldRegion: CanvasRegion | null = null;
     #grabbedImage: Offscreen | null = null;
 
+    /**
+     * ツールの状態. none: 未操作, select: 選択中, grab: 画像掴み中
+     */
     #mode: "none" | "select" | "grab" = "select";
 
     override get name() {
@@ -257,7 +325,10 @@ export namespace CanvasTool {
       if (this.#mode == "select") {
         const rect = new Rect(this.#startX, this.#startY, this.#finishX - this.#startX, this.#finishY - this.#startY).normalize().scale(canvas.scale).floor().expand(0.5);
         
+        const docTopleft = canvas.getCanvasTopLeft();
+
         context.save();
+        context.translate(docTopleft.left, docTopleft.top);
         context.lineWidth = 1;
         context.strokeStyle = "black";
         context.setLineDash([5]);
@@ -303,7 +374,7 @@ export namespace CanvasTool {
 
         const rect = new Rect(this.#startX, this.#startY, this.#finishX - this.#startX, this.#finishY - this.#startY)
                         .normalize()
-                        .intersection(new Rect(0, 0, canvas.width, canvas.height));
+                        .intersection(new Rect(0, 0, canvas.documentWidth, canvas.documentHeight));
         if (rect.isEmpty()) {
           canvas.selectNew(null);
         }

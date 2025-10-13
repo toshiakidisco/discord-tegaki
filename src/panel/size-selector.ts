@@ -11,12 +11,12 @@ export class SizeSelector extends Panel {
   private _value: number;
 
   constructor(root: HTMLElement, value: number) {
-    super(root, "size-selector");
+    super(root, "dt_r_size-selector");
     this._value = value;
     this._outlets = {};
     this.contents = parseHtml(`
       <ul>
-        <li class="row-preview"><div class="preview" name="preview"></div></li>
+        <li class="dt_r_row-preview"><div class="dt_r_preview" name="preview"></div></li>
         <li><span>太さ: </span><input type="range" name="slider" min="${VALUE_MIN}" max="${VALUE_MAX}"><input type="number" name="field" min="${VALUE_MIN}" max="${VALUE_MAX}"></li>
       </ul>
     `, this, this._outlets);

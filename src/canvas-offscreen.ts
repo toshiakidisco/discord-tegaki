@@ -1,4 +1,3 @@
-import { off } from "process";
 import Color from "./foudantion/color";
 
 export class Offscreen {
@@ -23,6 +22,9 @@ export class Offscreen {
     return copy;
   }
 
+  /**
+   * offscreenの画像をコピー. 画像サイズも一致させる.
+   */
   set(offscreen: Offscreen) {
     if (this.canvas.width == offscreen.width && this.canvas.height == offscreen.height) {
       this.clear();

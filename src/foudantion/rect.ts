@@ -151,6 +151,14 @@ export class Rect implements Rect.Immutable {
     const rect = new Rect(r1.x, r1.y, r1.width, r1.height);
     return rect.intersection(r2);
   }
+
+  static intersection8f(
+    x0: number, y0: number, w0: number, h0: number,
+    x1: number, y1: number, w1: number, h1: number 
+  ): Rect {
+    const rect = new Rect(x0, y0, w0, h0);
+    return rect.intersection4f(x1, y1, w1, h1);
+  }
 }
 
 export namespace Rect {
